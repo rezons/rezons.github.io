@@ -4,8 +4,10 @@ obj=require"obj"
 isa,klass = obj.isa, obj.klass
 
 local Cocomo=klass"Comoco"
+function Cocomo.new(project) 
+  return isa(Cocomo,{x={},y={}}):ready(project) end
 
-function Cocomo.defaults()
+function Cocomo:defaults()
   local _,ne,nw,nw4,sw,sw4,ne46,w26,sw46
   local p,n,s="+","-","*"
   _ = 0
@@ -83,16 +85,6 @@ function Cocomo.defaults()
     time= {acap=sw46, pcap=sw46, tool=sw26}, --10
     tool= {acap=nw,   pcap=nw,  pmat=nw}} end -- 6
 
---- Effort and rist estimation
--- For moldes defined in `risk.lua` and `coc.lua`.
-
---- Define the internal `cocomo` data structure:
--- `x` slots (for business-level decisions) and
--- `y` slots (for things derived from those decisions, 
--- like `self.effort` and `self.risk')
-function Cocomo.new(project) 
-  return isa(Cocomo,{x={},y={}}):ready(project) end
-
 function Cocomo:effort()
   local em,sf=1,0
   for k,t in pairs(self.coc) do
@@ -111,16 +103,20 @@ function Cocomo:risk()
 local function from(lo,hi) return lo+(hi-lo)*math.random() end
 
 local function y(meta,x)
-    if     meta=="1" then return x 
-    elseif meta=="+" then return (x-3)*from( 0.073,  0.21 ) + 1 
-    elseif meta=="-" then return (x-3)*from(-0.178, -0.078) + 1 
-    else                  return (x-6)*from(-1.56,  -1.014) end end
+  -- numbers from section  3.1 of
+  -- http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.365.9865&rep=rep1&type=pdf
+  if     meta=="1" then return x 
+  elseif meta=="+" then return (x-3)*from( 0.073,  0.21 ) + 1 
+  elseif meta=="-" then return (x-3)*from(-0.178, -0.078) + 1 
+  else                  return (x-6)*from(-1.56,  -1.014) end end
 
 -- Ensures that `y` is up to date with the `x` variables.
 function Cocomo:ready(project)
-  for k,span in pairs(Cocomo.defaults()[1]) do 
+  print(self:defaults()[1])
+  for k,span in pairs(self:defaults()[1]) do 
     local lo,hi,lo1,hi1
     lo,hi = span[2],span[3]
+    print(lo,hi)
     if project[k] then
       lo1,hi1 = project[k]
       if   lo<=lo1 and lo1<=hi and lo <=hi1 and hi1<hi 
@@ -129,8 +125,12 @@ function Cocomo:ready(project)
     self.x[k] = from(lo,hi)
     self.y[k] = y(t[1], self.x[k])
   end 
+  -- following numbers from Figure4a of
+  -- https://www.stevencwilliams.com/pdf/menzies2009_accurate_estimates_without_local_data.pdf#page=7
   local gradient= (.85 - 1.1)/(9.18 - 2.2)
   local xintercept= (.85 - gradient*9.18)
   self.y.a = from(2.2, 9.18)
   self.y.b = gradient*self.y.a+ xintercept
   return self end
+
+return Cocomo
