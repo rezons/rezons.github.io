@@ -15,6 +15,10 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <img width=300
 src="https://user-images.githubusercontent.com/29195/130312030-beab122a-3526-4877-bcce-c8b94a387281.png">
 
+<hr>
+
+<h1>$1</h1>
+
 
 ```lua
 my= {
@@ -42,9 +46,5 @@ Return a fresh copy of the options.
 
 ```lua
 return function(  u) u={}; for k,v in pairs(my) do u[k]=v end; return u end
-```
-Fin
-
-```lua
 
 ```
