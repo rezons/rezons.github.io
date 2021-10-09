@@ -1,29 +1,62 @@
-# Inexact and Reosomable
+
+<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
+href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
+alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
+src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
+alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
+href="https://github.com/timm/keys/actions"><img
+src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+
+<b>data:</b> <a href="rows.md">rows</a>,<a href="row.md">row</a>;
+<b>cols:</b> <a href="num,md">num</a>,<a href="sym.md">sym</a>,<a href="skip,md">skip</a>;
+<b>functions:</b> <a href="strings.md">strings</a>,<a href="maths.md">maths</a><br>
+
+<hr>
+
+# Inexact and Reasonable
 
 &copy; 2022 Tim Menzies, Jamie Jennings
 
-The tutroial is about algorthms, but perhaps not the kind of algorithms seen in most computer science textbooks.
+It has often been said, this is the age of the algorothm. Algorithms control enarly all aspects of our life from the pwoer distribution to the cars,
+to how we find new friends on the itnernet, right down to the beating of our hearts (as controlled by pacemakers). We once asked ours tudents "can you think of
+anything not controlled by algorithms?" and someone said "my shoes!". In reply we asked "did you buy those shoes via some search engienr?
+Did you pay for those shows on-line? Did the shoes come from overseas and were deliered to you via  vast software-controlled develiery system?".
 
+You get the point: algorithms rule. But who rules the alorithms? Much  has [been said](https://www.thesocialdilemma.com/)
+ the effect of algorithm AI on, say, social media. 
+And a common comment is that these algorithms
+are beyond our control,
+that they have  emigrant properties that no programmer ever realized could occur.
+For example, consider the following little experiment. Some data miner is preciting XXX and y as ix SSS. an farness vs accuract
 
-Some algorithm are exact, deterministic, and are guaranteed to generate correct outout.
-
-But some are not. ANd those that aren't can sometiems cale to very data sets. So we need to talk about those kinds of algorothms..
-
-Waht we want to say is that these inexact  algorithms have many choices and those choices have consqueneces.
+So instead of being exact and precise things with simple correct outputs, there are other kinds of inexact
+algorithms
+with many itnernal design chocies. And those chpices have consequences (here, they critically effective the fairness of
+the output).
+to say is that these inexact  algorithms have many choices and those choices have consqueneces.
 For example, unless we are careful, we can accidendelt chooise to generate models that
 
 - consume too much energy
 - run too slowly
--  discriminate against some member of society dnt hsoe chocies have consewuences. .
-- or do not achive any number of domains specific goals.
+-  discriminate against some member of society
+- or do not achieve any number of domains specific goals.
 
+Our premise is that we need tore ason more abut the internal choces inside our algorthms. We should stop
+always believing thatye theya re exact tools with single correct answers (since if you beleive that, you get consifed ad even wfearful when
+the algorithms go wild and do what we did not expect).
+Some algorithm are exact, deterministic, and are guaranteed to generate correct outout.
+But some are not. ANd those that arenot are uusally better as scaling to very data sets. So we need to be able to reason
+ about that **other kind of algorithm**.
+
+What we will say is, to reason about this other other kind of inexact aglorithm, we need to reason about the
+_data_ it is processing and the _goals_ of the people using it.
 So when we reason about those kinds of algorithms, we need to reason not just about the program,
 but also:
 
 - the data they analyze (which may chage from day to day). 
 - and the particular goals we want to achieve (which may change from user to user).
 
-Hence we offer a data-centric view of inexact algorithms. Our approach includes data mining and optimization and geometry.
+Hence we offer a data-centric and human-centric of inexact algorithms. Our approach includes data mining and optimization and geometry.
 ALso, we will talk  about human psychology., inparticualr heuristics, satisficing, and knowledge acqusition.
 
 - _Heuristics_: Firstly, humans use heuristics to explore complex spaces  Herusitcs are:
@@ -38,7 +71,7 @@ choose between two options if their average performance is very similar and each
   - For example, depending on wind conditions,
 two sailboats with mean speeds of 20 and 22 knots, where that speed might "wriggle"   &plusmn;  5 knots.
   - A satisficing algorirhm might choose either boat at random since the two performances are so similar, we cannot tell them apart.
-- Biased_: 
+- _Biased_: 
   When  humans look at data, they often have _reaons_ for being biased towards some parts of thed ata to others. Such biases 
   can be good or bad:
   - Suppose our biases let us quickly discard the worst half of any set of solutions. If so, then 20 yes-or-no questions (2<sup>20</sup>)
