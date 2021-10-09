@@ -51,10 +51,6 @@ alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightg
 href="https://github.com/timm/keys/actions"><img
 src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
 
-<b>data:</b> <a href="rows.md">rows</a>,<a href="row.md">row</a>;
-<b>cols:</b> <a href="num,md">num</a>,<a href="sym.md">sym</a>,<a href="skip,md">skip</a>;
-<b>functions:</b> <a href="strings.md">strings</a>,<a href="maths.md">maths</a><br>
-
 <hr>
 
 EOF
