@@ -11,11 +11,13 @@ function cli(it, b4)
       end end end end 
   return b4 end
 
+-- Here are our defaults.
 my= {
   combine= cli("c", "mode"),
   data=    cli("d", "../data/auto93.csv"),
   far=     cli("f", .9),
   k=       cli("k", 2),  
+  loud=    cli("l", false),
   p=       cli("p", 2), 
   seed=    cli("S", 10014),   -- random number see
   some=    cli("s", 256),     -- use this many randomly nearest neighbors
@@ -23,5 +25,5 @@ my= {
   wait=    cli("w", 10)       -- start classifying after this many rows
  }
 
--- Return a fresh copy of the options.
+-- Return a fresh copy of the defaults.
 return function(  u) u={}; for k,v in pairs(my) do u[k]=v end; return u end

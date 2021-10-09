@@ -112,7 +112,13 @@ example, we know what many data scientists like Anaconda which is a decision tha
     can readily read and reproduce the code (in another  language). 
     And during that development work, the students  can run our Lua code to 
     see  what output is expected.
-  
+ 
+## Not Complexity, Complicity
+
+simple Emergent  patterns  in  Apparently complex systems. While some human
+problems are inherently complex, others are not. And it is prudent to try simple
+before complex.
+
 ## Data 
 
 
