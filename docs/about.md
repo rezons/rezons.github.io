@@ -12,13 +12,9 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <b>functions:</b> <a href="strings.md">strings</a>,<a href="maths.md">maths</a><br>
 
 
-<img width=300
+<img align=right width=300
 src="https://user-images.githubusercontent.com/29195/130312030-beab122a-3526-4877-bcce-c8b94a387281.png">
-
-<hr>
-
-
-<h1>about.lua</h1>
+<h1>about.lua</h1><br clear=all>
 
 
 ```lua
