@@ -7,9 +7,8 @@ local Cocomo=klass"Comoco"
 function Cocomo.new(project) 
   return isa(Cocomo,{x={},y={}}):ready(project) end
 
-function Cocomo:defaults()
+function Cocomo:risks()
   local _,ne,nw,nw4,sw,sw4,ne46,w26,sw46
-  local p,n,s="+","-","*"
   _ = 0
   ne={{_,_,_,1,2,_}, -- bad if lohi
     {_,_,_,_,1,_},
@@ -60,18 +59,7 @@ function Cocomo:defaults()
     {1,_,_,_,_,_},
     {2,1,_,_,_,_},
     {4,2,1,_,_,_}}
-  return {
-    loc = {"1",2,200},
-    acap= {n,1,5}, cplx={p,1,6}, prec={s,1,6},
-  	aexp= {n,1,5}, data={p,2,5}, flex={s,1,6},
-  	ltex= {n,1,5}, docu={p,1,5}, arch={s,1,6},
-  	pcap= {n,1,5}, pvol={p,2,5}, team={s,1,6},
-  	pcon= {n,1,5}, rely={p,1,5}, pmat={s,1,6},
-  	plex= {n,1,5}, ruse={p,2,6},
-  	sced= {n,1,5}, stor={p,3,6},
-  	site= {n,1,5}, time={p,3,6},
-    tool= {n,1,5}
-    }, {
+  return  {
     cplx= {acap=sw46, pcap=sw46, tool=sw46}, --12
     ltex= {pcap=nw4},  -- 4
     pmat= {acap=nw,   pcap=sw46}, -- 6
@@ -84,10 +72,24 @@ function Cocomo:defaults()
     team= {aexp=nw,   sced=nw,  site=nw}, --6
     time= {acap=sw46, pcap=sw46, tool=sw26}, --10
     tool= {acap=nw,   pcap=nw,  pmat=nw}} end -- 6
+  
+function Cocomo:ranges() 
+  local p,n,s="+","-","*"
+  return {
+    loc = {"1",2,200},
+    acap= {n,1,5}, cplx={p,1,6}, prec={s,1,6},
+    aexp= {n,1,5}, data={p,2,5}, flex={s,1,6},
+    ltex= {n,1,5}, docu={p,1,5}, arch={s,1,6},
+    pcap= {n,1,5}, pvol={p,2,5}, team={s,1,6},
+    pcon= {n,1,5}, rely={p,1,5}, pmat={s,1,6},
+    plex= {n,1,5}, ruse={p,2,6},
+    sced= {n,1,5}, stor={p,3,6},
+    site= {n,1,5}, time={p,3,6},
+    tool= {n,1,5}}  end
 
 function Cocomo:effort()
   local em,sf=1,0
-  for k,t in pairs(self.coc) do
+  for k,t in pairs(self:ranges()) do
     if     t[1] == "+" then em = em * self.y[k] 
     elseif t[1] == "-" then em = em * self.y[k] 
     elseif t[1] == "*" then sf = sf + self.y[k] end end 
@@ -95,7 +97,7 @@ function Cocomo:effort()
   
 function Cocomo:risk()
   local n=0
-  for a1,t in pairs(self.risk) do
+  for a1,t in pairs(self:risks()) do
     for a2,m in pairs(t) do
       n  = n  + m[self.x[a1]][self.x[a2]] end end
   return n/108 end
@@ -112,8 +114,7 @@ local function y(meta,x)
 
 -- Ensures that `y` is up to date with the `x` variables.
 function Cocomo:ready(project)
-  print(self:defaults()[1])
-  for k,span in pairs(self:defaults()[1]) do 
+  for k,span in pairs(self:ranges()) do 
     local lo,hi,lo1,hi1
     lo,hi = span[2],span[3]
     print(lo,hi)
