@@ -24,4 +24,3 @@ function cli(flag, b4)
 
 -- Return a fresh copy of the options.
 return function(  u) u={}; for k,v in pairs(my) do u[k]=v end; return u end
--- Fin
