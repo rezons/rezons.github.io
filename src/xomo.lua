@@ -3,22 +3,9 @@
 obj=require"obj"
 isa,klass = obj.isa, obj.klass
 
-local function obj(self, new)
-  local function order(t) table.sort(t); return t  end
-  local function str(t,     u,ks)
-    ks={}; for k,v in pairs(t) do ks[1+#ks] = k end
-    u={};  for _,k in pairs(order(ks)) do
-             u[1+#u]= #t>0 and tostring(t[k]) or fmt("%s=%s",k,t[k]) end
-    return "{"..table.concat(u,", ").."}" 
-  end -------------------------------------
-  self.__tostring, self.__index = str, self
-  return setmetatable(new or {}, self) end
+local Cocomo=klass"Comoco"
 
-local function from(lo,hi) return lo+(hi-lo)*math.random() end
-local function within(t)   return t[math.random(#t)] end
-local cocomo={}
-
-function cocomo.defaults()
+function Cocomo.defaults()
   local _,ne,nw,nw4,sw,sw4,ne46,w26,sw46
   local p,n,s="+","-","*"
   _ = 0
@@ -103,23 +90,10 @@ function cocomo.defaults()
 -- `x` slots (for business-level decisions) and
 -- `y` slots (for things derived from those decisions, 
 -- like `self.effort` and `self.risk')
-function cocomo:new(coc,risk) 
-  return obj(cocomo, {x={}, y={},coc=coc,risk=risk}) end
+function Cocomo.new(project) 
+  return isa(Cocomo,{x={},y={}}):ready(project) end
 
---- Change the keys `x1,x2...` 
--- in  a model, (and wipe anyting computed from `x`).
--- @tab  self : a `cocomo` table
--- @tab  t : a list of key,value pairs that we will update.
--- @return tab : an updated `cocomo` table
-function cocomo:set(t)
-  self.y = {}
-  for k,v in pairs(t) do self.x[k] = v end end
-
---- Compute effort
--- @tab  self : what we know about a project
--- @tab  coc : background knowledge about `self`
--- @return number : the effort
-function cocomo:effort()
+function Cocomo:effort()
   local em,sf=1,0
   for k,t in pairs(self.coc) do
     if     t[1] == "+" then em = em * self.y[k] 
@@ -127,65 +101,36 @@ function cocomo:effort()
     elseif t[1] == "*" then sf = sf + self.y[k] end end 
   return self.y.a*self.x.loc^(self.y.b + 0.01*sf) * em end
   
---- Compute risk
--- @tab  self : what we know about a project
--- @tab  coc : background knowledge about `self`
--- @return number : the risk
-function cocomo:risks()
+function Cocomo:risk()
   local n=0
   for a1,t in pairs(self.risk) do
     for a2,m in pairs(t) do
       n  = n  + m[self.x[a1]][self.x[a2]] end end
-  return n end
+  return n/108 end
 
---- Return a `y` value from `x`
--- @tab  w : type of column (\*,+,-,1)
--- @number  x 
--- @return number 
-function cocomo:y(w,x)
-  if w=="1" then return x end
-  if w=="+" then return (x-3)*from( 0.073,  0.21 ) + 1 end
-  if w=="-" then return (x-3)*from(-0.187, -0.078) + 1 end
-  return                (x-6)*from(-1.56,  -1.014) end
- 
---- Mutatble objects, pairs of `{x,y}`
+local function from(lo,hi) return lo+(hi-lo)*math.random() end
+
+local function y(meta,x)
+    if     meta=="1" then return x 
+    elseif meta=="+" then return (x-3)*from( 0.073,  0.21 ) + 1 
+    elseif meta=="-" then return (x-3)*from(-0.178, -0.078) + 1 
+    else                  return (x-6)*from(-1.56,  -1.014) end end
+
 -- Ensures that `y` is up to date with the `x` variables.
--- self cocomo:new(
-function cocomo:ready(coc,risk)
-  local y,effort,ready,lo,hi
-  coc0, risk0 = cocomo.defaults()
-  coc  = coc or coc0
-  risk = risk  or risk0
-  for k,t in pairs(coc) do 
-    lo,hi = t[2],t[3]
-    self.x[k] = int(self.x[k] and within(self.x[k],lo,hi) or 
-                 from(lo,hi))
-    self.y[k] = self.y[k] or self:y(t[1], self.x[k])
+function Cocomo:ready(project)
+  for k,span in pairs(Cocomo.defaults()[1]) do 
+    local lo,hi,lo1,hi1
+    lo,hi = span[2],span[3]
+    if project[k] then
+      lo1,hi1 = project[k]
+      if   lo<=lo1 and lo1<=hi and lo <=hi1 and hi1<hi 
+      then lo,hi=lo1,hi 
+      else print("#E>",lo1,hi1,"not in range",lo,hi) end end 
+    self.x[k] = from(lo,hi)
+    self.y[k] = y(t[1], self.x[k])
   end 
-  self.y.a      = self.y.a or from(2.3, 9.18)
-  self.y.b      = self.y.b or (.85-1.1)/(9.18-2.2)*self.y.a+.9+(1.2-.8)/2
-  self.y.effort = self.y.effort or cocomo:effort()
-  self.y.risk   = self.y.risk or cocomo.risks()
+  local gradient= (.85 - 1.1)/(9.18 - 2.2)
+  local xintercept= (.85 - gradient*9.18)
+  self.y.a = from(2.2, 9.18)
+  self.y.b = gradient*self.y.a+ xintercept
   return self end
-
-Eg.all {
-  one = function(self) 
-  local function say() 
-    print("")
-    --lib.o(i.x)
-    lib.oo {effort= self.y.effort,
-            loc   = self.x.loc,
-            risk  = self.y.risk,
-            pcap  = self.x.pcap}
-  end
-  self = cocomo.ready()
-  cocomo.new(self, {pcap=4})
-  self = cocomo.ready(self)
-  say()
-
-  cocomo.set(self, {pcap=1})
-  self = cocomo.ready(self)
-  say()
-end}
- 
-
