@@ -17,7 +17,8 @@ src="https://user-images.githubusercontent.com/29195/130312030-beab122a-3526-487
 
 <hr>
 
-<h1>$1</h1>
+
+<h1>about.lua</h1>
 
 
 ```lua
