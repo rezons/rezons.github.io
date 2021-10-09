@@ -93,17 +93,26 @@ grow over time.
 ## About our technology
 
 This tutorial is is two parts: theory and practice. The theory is langauge and platform indepdnent
-while the practical exercises are written in the LUA scripting language.
-We use  LUA since:
+while the practical exercises are written in the Lua scripting language.
+We use  Lua since:
 
 - It installs, very, quickly on most platforms.
-- It is fast to learn (see ["Learn LUA in Y minutes"](https://learnxinyminutes.com/docs/lua/);
+- It is fast to learn (see ["Learn Lua in Y minutes"](https://learnxinyminutes.com/docs/lua/);
 - It uses constructs familiar to a lot of programmers (LUA is like Python, but without the overhead or the needless elaborations)
-- LUA code has far fewer dependencies that code written in other languages. Having taught (a lot) programming for many eyars, we know that many peopl
+- Lua code has far fewer dependencies that code written in other languages. Having taught (a lot) programming for many eyars, we know that many peopl
 have (e.g.) local Python environments that differ from platform to platform.   These platforms can be idiosyncratic. For
 example, we know what many data scientists like Anaconda which is a decision that many other programmers prefer to avoid.
-
-
+- Lua  has some interesting teaching advantages:
+  - The code for one class can be spread across multiple files.
+    So teaching can work week to week, presenting new ideas on a class,
+    in different weeks.
+  - Lua serves very  nicely as an executable specification language.
+    we've had some past success giving  people the  Lua code then saying
+    "code this up in any language you like, except Lua". We find that students
+    can readily read and reproduce the code (in another  language). 
+    And during that development work, the students  can run our Lua code to 
+    see  what output is expected.
+  
 ## Data 
 
 
