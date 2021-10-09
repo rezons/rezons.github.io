@@ -90,7 +90,7 @@ grow over time.
 
 
 
-## Why LUA?
+## About our technology
 
 This tutorial is is two parts: theory and practice. The theory is langauge and platform indepdnent
 while the practical exercises are written in the LUA scripting language.
@@ -104,7 +104,7 @@ have (e.g.) local Python environments that differ from platform to platform.   T
 example, we know what many data scientists like Anaconda which is a decision that many other programmers prefer to avoid.
 
 
-#e DatA 
+## Data 
 
 
 Here, we say that we are reasoning froma  _sample_ of data,
