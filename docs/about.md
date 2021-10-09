@@ -13,8 +13,6 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
-<h1>about.lua</h1><br clear=all>
-
 # Config options
 Returns config options.
 Note that 
