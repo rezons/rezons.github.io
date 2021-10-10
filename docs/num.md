@@ -15,6 +15,7 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 local oo=require"oo"
 local Num=oo.klass"Num"
 ```
+Theory note: CRUD. Delegation
 ## Create
 `lo` and  `hi` are initialized to ridiculous high and  low values
 so that  every number that arrives afterwards is lower than
@@ -47,9 +48,6 @@ Variability about the central tendency.
 function Num:spread() return self.sd end
 ```
 ## Services
-
-```lua
-```
 Aha's distance measure. If missing values, make the assumptions
 that maximizes the distance.
 
