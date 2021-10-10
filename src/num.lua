@@ -4,6 +4,7 @@
 local oo=require"oo"
 local Num=oo.klass"Num"
 
+-- Theory note: CRUD. Delegation
 -- ## Create
 -- `lo` and  `hi` are initialized to ridiculous high and  low values
 -- so that  every number that arrives afterwards is lower than
@@ -30,7 +31,6 @@ function Num:add(x,    d)
 function Num:spread() return self.sd end
 
 -- ## Services
-
 -- Aha's distance measure. If missing values, make the assumptions
 -- that maximizes the distance.
 function Num:dist(x,y)
