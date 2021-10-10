@@ -1,14 +1,13 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
 -- # Nums = columns to treat as numbers
-local oo=require"oo"
-local Num=oo.klass"Num"
-
 -- Theory note: CRUD. Delegation
 -- ## Create
 -- `lo` and  `hi` are initialized to ridiculous high and  low values
 -- so that  every number that arrives afterwards is lower than
 -- the initial low and higher than the initia, high,
+local oo=require"oo"
+local Num=oo.klass"Num"
 function Num.new(at,txt) 
   return oo.isa(Num,{at=at,txt=txt, 
     n=0, mu=0, m2=0, sd=0, lo=1E32,hi -1E32},Num) end
