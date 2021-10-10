@@ -3,7 +3,9 @@
 noPara1()  { gawk '
   BEGIN {RS=""; FS="\n"}
   NR==1 { next }
-        { printf("\n\n" $0 )  }' 
+        { if(last) print(last "\n")
+          last = $0 }
+  END   { if(last) print(last) }'
 }
 
 classify() { gawk '
