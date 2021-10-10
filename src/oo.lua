@@ -30,7 +30,7 @@ function out(t,     tmp,ks)
   for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then  ks[1+#ks]=k end end
   table.sort(ks)
   for _,k in pairs(ks) do tmp[1+#tmp] = k.."="..pretty(t[k]) end
-  return (t._name or "")..cat(tmp) end
+  return (t._name or "").."("..table.concat(tmp,", ")..")" end
 --
 return {klass=klass, isa=isa, out=out, shout=shout}
 

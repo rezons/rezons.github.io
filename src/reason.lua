@@ -7,43 +7,6 @@ local top,shuffle        = etc.top, etc.shuffle
 local main,csv = etc.main, etc.csv
 
 local Sym,Skip,Num,Sample,eg
-
--- Columns to ignore
-Skip=klass"Skip"
-function Skip.new(at,txt) return isa(Skip,{at=at,txt=txt}) end
-function Skip:add(x) return self end
-
--- Columns to treat as symbols
-Sym=klass"Sym"
-function Sym.new(at,txt) 
-  return isa(Sym,{at=at,txt=txt,mode=nil,most=1,has={}},Num) end
-function Sym:dist(x,y) 
-  return  x==y and 0 or 1 end
-function Sym:add(x) 
-  if x ~= "?" then
-    self.has[x]  = 1 + (self.has[x] or 0) 
-    if self.has[x] > self.most then
-      self.most, self.mode = self.has[x], x end end 
-  return self end
-
--- Columns to treat as numbers
-Num=klass"Num"
-function Num.new(at,txt) 
-  return isa(Num,{at=at,txt=txt,lo=1E32,hi=-1E32},Num) end
-function Num:add(x)
-  if x~="?" then
-    self.lo = math.min(self.lo,x)
-    self.hi = math.max(self.hi,x) end 
-  return self end
-function Num:dist(x,y)
-  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
-  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
-  else   x,y = self:norm(x), self:norm(y)  end
-  return math.abs(x-y) end
-function Num:norm(x)
-  local lo,hi=self.lo,self.hi
-  return (x=="?" and x) or (math.abs(lo-hi)<1E-32 and 0) or (x-lo)/(hi-lo) end  
-
 -- Somewhere to store rows, summarized into columns.
 Sample=klass"Sample"
 function Sample.new(my, inits,    it) 

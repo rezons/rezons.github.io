@@ -1,28 +1,50 @@
----
-title: "etc: "
----
 
+<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
+href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
+alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
+src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
+alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
+href="https://github.com/timm/keys/actions"><img
+src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
 
-```lisp
--- ## OO stuff
+<hr>
 
--- Make instance
+## OO stuff
+
+```lua
+```
+Make instance
+
+```lua
 function isa(mt,t) return setmetatable(t,mt) end
--- Make klass
+```
+Make klass
+
+```lua
 function klass(name,  k) k={_name=name,__tostring=out};k.__index=k; return k end
+```
+## String stuff
 
--- ## String stuff
+```lua
+```
+Coerce things to numbers, if myy want to
 
--- Coerce things to numbers, if myy want to
+```lua
 function atom(x) return tonumber(x) or x end
+```
+Print a flat string of a table
 
--- Print a flat string of a table
+```lua
 function cat(t,s) return "("..table.concat(t,s or ", ")..")" end
+```
+Print a nested string of a table
 
--- Print a nested string of a table
+```lua
 function shout(t) print(out(t)) end
+```
+Convert a table to astring
 
--- Convert a table to astring
+```lua
 function out(t,     tmp,ks)
   local function pretty(x)
     return (
@@ -36,25 +58,35 @@ function out(t,     tmp,ks)
   table.sort(ks)
   for _,k in pairs(ks) do tmp[1+#tmp] = k.."="..pretty(t[k]) end
   return (t._name or "")..cat(tmp) end
+```
+## List stuff
 
--- ## List stuff
+```lua
+```
+reorder a list (in place)
 
--- reorder a list (in place)
+```lua
 function shuffle(t,     j)
   for i = #t, 2, -1 do
     j = math.random(i)
     t[i], t[j] = t[j], t[i] end
   return t end
+```
+First few items in a list
 
--- First few items in a list
+```lua
 function top(n,t,     u) 
   n = math.min(n,#t)
   print("n3",n)
   u={}; for i=1,n do u[i]=t[i] end; return u end
+```
+## Sys stuff
 
--- ## Sys stuff
+```lua
+```
+Read rows from csv file
 
--- Read rows from csv file
+```lua
 function csv(file,      n,split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
@@ -69,8 +101,10 @@ function csv(file,      n,split,stream,tmp)
         n = n + 1
         return n,t end
     else io.close(stream) end end end
+```
+Start up
 
--- Start up
+```lua
 function main(todo,my,b4,     x)
   for n,v in pairs(arg) do -- apply any command line args
     if v:sub(1,1)=="-" then 
@@ -86,3 +120,4 @@ end
 return {cat=cat,main=main,csv=csv,isa=isa, klass=klass,
         shuffle=shuffle,top=top,push=push,atom=atom,shout=shout,out=out} 
 
+```

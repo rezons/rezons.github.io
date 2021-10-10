@@ -1,48 +1,21 @@
----
-title: "reason: "
----
+
+<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
+href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
+alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
+src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
+alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
+href="https://github.com/timm/keys/actions"><img
+src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+
+<hr>
 
 
-```lisp
+```lua
 local Sym,Skip,Num,Sample,eg
+```
+Somewhere to store rows, summarized into columns.
 
--- Columns to ignore
-Skip=klass"Skip"
-function Skip.new(at,txt) return isa(Skip,{at=at,txt=txt}) end
-function Skip:add(x) return self end
-
--- Columns to treat as symbols
-Sym=klass"Sym"
-function Sym.new(at,txt) 
-  return isa(Sym,{at=at,txt=txt,mode=nil,most=1,has={}},Num) end
-function Sym:dist(x,y) 
-  return  x==y and 0 or 1 end
-function Sym:add(x) 
-  if x ~= "?" then
-    self.has[x]  = 1 + (self.has[x] or 0) 
-    if self.has[x] > self.most then
-      self.most, self.mode = self.has[x], x end end 
-  return self end
-
--- Columns to treat as numbers
-Num=klass"Num"
-function Num.new(at,txt) 
-  return isa(Num,{at=at,txt=txt,lo=1E32,hi=-1E32},Num) end
-function Num:add(x)
-  if x~="?" then
-    self.lo = math.min(self.lo,x)
-    self.hi = math.max(self.hi,x) end 
-  return self end
-function Num:dist(x,y)
-  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
-  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
-  else   x,y = self:norm(x), self:norm(y)  end
-  return math.abs(x-y) end
-function Num:norm(x)
-  local lo,hi=self.lo,self.hi
-  return (x=="?" and x) or (math.abs(lo-hi)<1E-32 and 0) or (x-lo)/(hi-lo) end  
-
--- Somewhere to store rows, summarized into columns.
+```lua
 Sample=klass"Sample"
 function Sample.new(my, inits,    it) 
   it =  isa(Sample,{my=my,ys={},xs={},xys={},head={},rows={},keep=true}) 
@@ -119,18 +92,27 @@ local function knn(my,  s)
   for n,t in csv(my.data) do 
     if n>10 then print(s:klass(t), classify(t)) end
     s:add(t) end end
+```
+## Examples
 
--- ## Examples
+```lua
 eg={}
--- Default action.
-function eg.hello(my) shout(my) end
+```
+Default action.
 
--- Iterate through a csv file.
+```lua
+function eg.hello(my) shout(my) end
+```
+Iterate through a csv file.
+
+```lua
 function eg.csv(my,   n)
   n=0; for r,row in csv(my.data) do 
   if r>1 then n=n+row[4] end end; print(n) end
+```
+Use a `Num`.
 
--- Use a `Num`.
+```lua
 function eg.num(my,    n)
   n=Num.new()
   n:add(1):add(2):add(3) 
@@ -142,8 +124,10 @@ function eg.german(my,    s)
   print(#s.rows)
   print(s)
 end
+```
+Load a csv into a `Sample`.
 
--- Load a csv into a `Sample`.
+```lua
 function eg.sample(my,    s)
   s=Sample.new(my, my.data)
   print(s.xys[1].lo, s.xys[1].hi) 
@@ -151,13 +135,17 @@ function eg.sample(my,    s)
   print(#s.rows)
   print(s)
 end
+```
+Check distances
 
--- Check distances
+```lua
 function eg.shuffle(my)
   for i=1,20 do
     print(cat(top(2,shuffle{"a","b","c","d"}),"")) end end
+```
+Check distances
 
--- Check distances
+```lua
 function eg.dist(my,  s,n,tmp)
   s=Sample.new(my, my.data)
   for _,row1 in pairs(s.rows) do
@@ -168,8 +156,10 @@ function eg.dist(my,  s,n,tmp)
     print(cat(tmp[#tmp][2]), tmp[#tmp][1])
     return 
 end end
+```
+Check distances
 
--- Check distances
+```lua
 function eg.gangle(my,  s,n,tmp)
   my.data = "../data/german.csv"
   s = Sample.new(my, my.data)
@@ -179,17 +169,24 @@ function eg.gangle(my,  s,n,tmp)
     print(10)
     print(mode(s, top(3,tmp))) 
     end end
+```
+Run all `todo`s.
 
--- Run all `todo`s.
+```lua
 function eg.all(my,   t)
   for v,f in pairs(eg) do if v~="all" then
     print(v); math.randomseed(my.seed); f(my) end end end
+```
+List all `todo`s.
 
--- List all `todo`s.
+```lua
 function eg.ls(my,   t)
   t={};for v,_ in pairs(eg) do push(t,v) end 
   table.sort(t); print("lua ish.lua -t ",cat(t," | ")) end
+```
+## Start up
 
--- ## Start up
+```lua
 main(eg,about,b4)
 
+```

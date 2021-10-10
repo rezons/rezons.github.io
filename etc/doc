@@ -57,8 +57,10 @@ EOF
 
 cat $1 | noPara1 | classify  | apply
 }
-echo "# one $1 >  ../docs/${1%.lua}.md"
-one $1 >  ../docs/${1%.lua}.md
+for f in $*; do
+  echo "# one $f >  ../docs/${f%.lua}.md"
+  one $f >  ../docs/${f%.lua}.md
+done
 
 # cd ../docs
 # pandoc -f markdown  --template=ez.html --toc  --mathjax \

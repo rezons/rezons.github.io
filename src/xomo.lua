@@ -1,11 +1,10 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
-obj=require"obj"
-isa,klass = obj.isa, obj.klass
+oo=require"oo"
+local Cocomo=oo.klass"Comoco"
 
-local Cocomo=klass"Comoco"
 function Cocomo.new(project) 
-  return isa(Cocomo,{x={},y={}}):ready(project) end
+  return oo.isa(Cocomo,{x={},y={}}):ready(project) end
 
 function Cocomo:risks()
   local _,ne,nw,nw4,sw,sw4,ne46,w26,sw46
@@ -76,7 +75,7 @@ function Cocomo:risks()
 function Cocomo:ranges() 
   local p,n,s="+","-","*"
   return {
-    loc = {"1",2,200},
+    loc = {"1",2,2000},
     acap= {n,1,5}, cplx={p,1,6}, prec={s,1,6},
     aexp= {n,1,5}, data={p,2,5}, flex={s,1,6},
     ltex= {n,1,5}, docu={p,1,5}, arch={s,1,6},
@@ -114,17 +113,17 @@ local function y(meta,x)
 
 -- Ensures that `y` is up to date with the `x` variables.
 function Cocomo:ready(project)
+  project = project or {}
   for k,span in pairs(self:ranges()) do 
     local lo,hi,lo1,hi1
     lo,hi = span[2],span[3]
-    print(lo,hi)
-    if project[k] then
-      lo1,hi1 = project[k]
-      if   lo<=lo1 and lo1<=hi and lo <=hi1 and hi1<hi 
-      then lo,hi=lo1,hi 
-      else print("#E>",lo1,hi1,"not in range",lo,hi) end end 
-    self.x[k] = from(lo,hi)
-    self.y[k] = y(t[1], self.x[k])
+    p=project[k]
+    if p then
+      lo1,hi1 = p[1], p[2]
+      assert(lo<=lo1 and lo1<=hi and lo <=hi1 and hi1<=hi,"not in range "..k) 
+      lo,hi=lo1,hi end
+    self.x[k] = (.5+from(lo,hi))//1
+    self.y[k] = y(span[1], self.x[k])
   end 
   -- following numbers from Figure4a of
   -- https://www.stevencwilliams.com/pdf/menzies2009_accurate_estimates_without_local_data.pdf#page=7

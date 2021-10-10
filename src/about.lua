@@ -1,3 +1,5 @@
+-- vim: ft=lua ts=2 sw=2 et:
+
 -- # Config options
 -- Returns config options.
 
