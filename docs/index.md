@@ -17,9 +17,14 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 &copy; 2022 Tim Menzies, Jamie Jennings
 
-It has often been said, this is the age of the algorothm. Algorithms control enarly all aspects of our life from the pwoer distribution to the cars,
-to how we find new friends on the itnernet, right down to the beating of our hearts (as controlled by pacemakers). We once asked ours tudents "can you think of
-anything not controlled by algorithms?" and someone said "my shoes!". In reply we asked "did you buy those shoes via some search engienr?
+Algorithms make choices. Choices have consequences.
+Many choices are ethical but not choosing is unethical.
+So choose wisely.
+
+Let us explain.
+It has often been said, this is the age of the algorithm. Algorithms control nearly all aspects of our life from the power distribution to the cars,
+to how we find new friends on the internet, right down to the beating of our hearts (as controlled by pacemakers). We once asked ours students "can you think of
+anything not controlled by algorithms?" and someone said "my shoes!". In reply we asked "did you buy those shoes via some search engine?
 Did you pay for those shows on-line? Did the shoes come from overseas and were deliered to you via  vast software-controlled develiery system?".
 
 You get the point: algorithms rule. But who rules the alorithms? Much  has [been said](https://www.thesocialdilemma.com/)
