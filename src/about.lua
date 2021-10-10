@@ -2,7 +2,7 @@
 
 -- # Config options
 -- Returns config options.
-
+--  
 -- For any word on the command line starting with "-",
 -- break the word into characters. If any  character
 -- matches `it`, then  return a new  value. Else return  old.

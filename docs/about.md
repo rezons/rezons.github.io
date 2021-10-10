@@ -11,9 +11,7 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 # Config options
 Returns config options.
-
-```lua
-```
+ 
 For any word on the command line starting with "-",
 break the word into characters. If any  character
 matches `it`, then  return a new  value. Else return  old.
