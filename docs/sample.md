@@ -18,33 +18,31 @@ local Sym=require"Sym"
 local Num=require"Num"
 local Skip=require"Skip"
 ```
-Create
+Create. And if passed a table or a file name, add in that content.
 
 ```lua
 local Sample=oo.klass"Sample"
 function Sample.new(my, inits)
-  return oo.isa(Sample,
-           {rows={},cols=nil,my=my,keep=true}):adds(inits) end
+  self= oo.isa(Sample, {rows={}, cols=nil, my=my, keep=true}) 
+  if type(inits)=="table"  then for _,t in pairs(inits) do self:add(t) end end
+  if type(inits)=="string" then for _,t in csv(inits)   do self:add(t) end end
+  return self end
 ```
-Initialize.
-
-```lua
-function Sample:adds(inits)
-  if type(inits)=="table"  then for _,t in pairs(inits) do it:add(t) end end
-  if type(inits)=="string" then for _,t in csv(inits)   do it:add(t) end end
-  return it end
-```
-Update with a new row. If this is the first row, then use it to create our
-headers.
+Update with a new row. If this is the first row, then use it to create the
+column headers.
 
 ```lua
 function Sample:add(t)
-  if self.cols then
-    for _,col in pairs(self.cols.xys) do col:add(t[col.at]) end
-    if self.keep then table.insert(self.rows, t) end
-  else
-    self.cols = Cols.new(t) end end
-   
+  if   not self.cols 
+  then self.cols = Cols.new(t) 
+  else self.cols:add(t)
+       if self.keep then table.insert(self.rows,t) end end end
+```
+Using the attributes in `cols` (default= all x values),
+return the separation of two rows.   
+Theory note: unreliable when #cols gets large.
+
+```lua
 function Sample:distance(row1,row2,cols)
   local d,n,p,x,y,inc
   d, n, p = 0, 1E-32, self.my.p
@@ -54,15 +52,11 @@ function Sample:distance(row1,row2,cols)
     d   = d + inc^p 
     n   = n + 1 end
   return (d/n)^(1/p) end
-    
-function Sample:neighbors(row1,rows,cols,    t)
-  rows = rows or top(self.my.some, shuffle(self.rows))
-  t={}
-  for _,row2 in pairs(rows) do 
-    table.insert(t, {self:distance(row1,row2,cols),row2}) end
-  table.sort(t, function (x,y) return x[1] < y[1] end)
-  return t end
+   ```
+Zitler's domination predicate. 
+theory note. pareto frontier. no exact solution. problem of g>2 goals.
 
+```lua
 function Sample:better(row1,row2, cols)
   local e,w,s1,s2,n,a,b,what1,what2
   cols = cols or self.cols.ys
@@ -74,12 +68,18 @@ function Sample:better(row1,row2, cols)
     what1 = what1 - e^(col.w * (a - b) / n)
     what2 = what2 - e^(col.w * (b - a) / n) end
   return what1 / n < what2 / n end
+```
+Using the columns in `cols`.
+return the `rows`, sorted by the distance to `row1`.
 
-function Sample:sort(rows,cols)
-  rows = rows or self.rows
-  table.sort(rows, function(x,y) return self;better(x,y,cols) end)
-  return rows
-end
+```lua
+function Sample:distances(row1,rows,cols,    t)
+  rows = rows or top(self.my.some, shuffle(self.rows))
+  t={}
+  for _,row2 in pairs(rows) do 
+    table.insert(t, {self:distance(row1,row2,cols),row2}) end
+  table.sort(t, function (x,y) return x[1] < y[1] end)
+  return t end
 
 function Sample:faraway(row1,rows,cols,    tmp)
   tmp = self:neighbors(row1,rows,cols)
@@ -91,5 +91,4 @@ Fin.
 
 ```lua
 return Sample
-
 ```

@@ -47,5 +47,4 @@ Fin.
 
 ```lua
 return Some
-
 ```

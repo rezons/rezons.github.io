@@ -19,5 +19,4 @@ function Skip.new(at,txt) return oo.isa(Skip,{at=at,txt=txt}) end
 function Skip:add(x)      return self end
 
 return Skip
-
 ```

@@ -15,14 +15,18 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 local oo=require"oo"
 local Num=oo.klass"Num"
 ```
-Create.
+## Create
+`lo` and  `hi` are initialized to ridiculous high and  low values
+so that  every number that arrives afterwards is lower than
+the initial low and higher than the initia, high,
 
 ```lua
 function Num.new(at,txt) 
   return oo.isa(Num,{at=at,txt=txt, 
     n=0, mu=0, m2=0, sd=0, lo=1E32,hi -1E32},Num) end
 ```
-Update with a number.
+## Update
+Knuth's incremental valuation  of  standard deviation.
 
 ```lua
 function Num:add(x,    d)
@@ -36,10 +40,15 @@ function Num:add(x,    d)
     self.m2 = self.m2 + d*(x - self.mu)
     self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end end
 ```
+## Query
 Variability about the central tendency.
 
 ```lua
 function Num:spread() return self.sd end
+```
+## Services
+
+```lua
 ```
 Aha's distance measure. If missing values, make the assumptions
 that maximizes the distance.

@@ -40,5 +40,4 @@ function out(t,     tmp,ks)
   return (t._name or "").."("..table.concat(tmp,", ")..")" end
 --
 return {klass=klass, isa=isa, out=out, shout=shout}
-
 ```

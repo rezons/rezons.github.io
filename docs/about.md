@@ -14,23 +14,23 @@ Returns config options.
 
 ```lua
 ```
-Look for any updates for a particular on the command line.
-If the  old value is `false`, then set the flag to  `true`.
+For any word on the command line starting with "-",
+break the word into characters. If any  character
+matches `it`, then  return a new  value. Else return  old.
 
 ```lua
-local cli,my
-function cli(it, b4)
-  for n,v in pairs(arg) do if v:sub(1,1)=="-" then
-    for i = 2,#str do if it==v:sub(i,i) then
-      return (b4==false) and true or (tonumber(arg[n+1]) or arg[n+1]) 
-      end end end end 
+local function cli(it, b4)
+  for n,word in pairs(arg) do if word:sub(1,1)=="-" then
+    for i = 2,#str do if it==word:sub(i,i) then
+      return (b4==false) and true or (tonumber(arg[n+1]) or arg[n+1]) end end end end 
   return b4 end
 ```
-Here are our defaults.
+Here are the defaults.
 
 ```lua
-my= {
+local my= {
   bins=    cli("b", .5),
+  best=    cli("B", .5),
   cohen=   cli("C", .35),
   combine= cli("c", "mode"),
   data=    cli("d", "../data/auto93.csv"),
@@ -48,5 +48,4 @@ Return a fresh copy of the defaults.
 
 ```lua
 return function(  u) u={}; for k,v in pairs(my) do u[k]=v end; return u end
-
 ```

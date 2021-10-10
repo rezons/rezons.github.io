@@ -59,5 +59,4 @@ Fin
 
 ```lua
 return Sym
-
 ```

@@ -17,9 +17,8 @@ local Bore=oo.klass"Bore"
 
 local Sym=require"Sym"
 local Some=require"Some"
-local Sample=require"Sample"
 
-function Bore.new(num1,num2, my)
+function Bore.new(all,my)
   return oo.isa(Bore,
     {my=my, some=function () return Some.new(the.some) end}):main(num1,num2) end
 
@@ -73,5 +72,4 @@ function Bore:merge(b4,         j,tmp,n,a,b,cy)
     j = j + 1
   end
   return #tmp==#b4 and tmp or merge(tmp) end
-
 ```
