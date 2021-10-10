@@ -1,6 +1,6 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
--- # Nums = columns to treat as numbers
+-- # Num = columns to treat as numbers
 -- Theory note: CRUD. Delegation
 -- ## Create
 -- `lo` and  `hi` are initialized to ridiculous high and  low values
@@ -43,7 +43,10 @@ function Num:norm(x)
   local lo,hi=self.lo,self.hi
   return (x=="?" and x) or (math.abs(lo-hi)<1E-32 and 0) or (x-lo)/(hi-lo) end  
 
-local function border(mu1,sd1,mu2,sd2,     a,b,c,d,r1,r2)
+function Num:border(other)
+  local mu1,sd1,mu2,sd2,a,b,c,d,r1,r2
+  mu1,sd1 = self.my,  self.sd
+  mu2,sd2 = other.my, other.sd
   if sd1==sd2  then return (mu1+mu2)/2 end
   if mu2 < mu1 then return border(mu2,sd2,mu1,sd1) end
   a  = 1/(2*sd1^2) - 1/(2*sd2^2)
@@ -55,4 +58,4 @@ local function border(mu1,sd1,mu2,sd2,     a,b,c,d,r1,r2)
   return mu1 <= r1 and r1 <= mu2 and r1 or r2 end
 
 -- Fin.
-return border
+return Num
