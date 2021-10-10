@@ -19,6 +19,7 @@ the initial low and higher than the initia, high,
 ```lua
 local oo=require"oo"
 local Num=oo.klass"Num"
+
 function Num.new(at,txt) 
   return oo.isa(Num,{at=at,txt=txt, 
     n=0, mu=0, m2=0, sd=0, lo=1E32,hi -1E32},Num) end
@@ -27,7 +28,7 @@ function Num.new(at,txt)
 Knuth's incremental valuation  of  standard deviation.
 
 ```lua
-function Num:add(x,    d)
+function Num:summarize(x,    d)
   if x~="?" then
     if self.some then self.some:add(x) end
     self.n  = self.n + 1

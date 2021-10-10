@@ -20,7 +20,7 @@ function Sample.new(my, inits)
 function Sample:add(t)
   if   not self.cols 
   then self.cols = Cols.new(t) 
-  else self.cols:add(t)
+  else self.cols:summarize(t)
        if self.keep then table.insert(self.rows,t) end end end
 
 -- Using the attributes in `cols` (default= all x values),

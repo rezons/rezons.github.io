@@ -1,9 +1,9 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
 -- # Cols = holds column roles
+local is=require"is"
 local oo=require"oo"
 local Cols=oo.klass"Cols"
-local is=require"is"
 
 function Cols.new(t) 
   self= oo.isa(Cols,{ys={},xs={},xys={},head={}})
@@ -19,9 +19,8 @@ function Cols:header(t)
       if is.klass(txt) then self._klass = col end
       push(is.goal(txt) and self.ys or self.xs, col) end end end 
 
-function Cols:add(t)
-  for _,col in pairs(self.xys) do col:add( t[col.at] ) end
-  return t end
+function Cols:summarize(t) 
+  for _,col in pairs(self.xys) do col:summarize( t[col.at] ) end end
 
 -- Fin.
 return Cols

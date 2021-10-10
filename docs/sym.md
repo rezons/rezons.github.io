@@ -10,14 +10,12 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <hr>
 
 # Sym = columns to treat as symbols
+Create.
 
 ```lua
 local oo=require"oo"
 local Sym=oo.klass"Sym"
-```
-Create.
 
-```lua
 function Sym.new(at,txt) 
   return oo.isa(Sym,{at=at,txt=txt,n=0,mode=nil,most=1,has={}},Num) end
 ```
@@ -51,8 +49,8 @@ Combine to Symbols
 ```lua
 function Sym:merge(other)
   new = Sym.new(self.at, self.txt)
-  for k,n in pairs(self.has) do new:add(k,n) end
-  for k,n in pairs(other.has) do new:add(k,n) end
+  for k,n in pairs(self.has)  do new:summarize(k,n) end
+  for k,n in pairs(other.has) do new:summarize(k,n) end
   return new end
 ```
 Fin
