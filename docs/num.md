@@ -19,14 +19,15 @@ Create.
 
 ```lua
 function Num.new(at,txt) 
-  return oo.isa(Num,{at=at,txt=txt,
-    n=0, mu=0, m2=0, sd=0, lo=1E32,hi=-1E32},Num) end
+  return oo.isa(Num,{at=at,txt=txt, 
+    n=0, mu=0, m2=0, sd=0, lo=1E32,hi -1E32},Num) end
 ```
 Update with a number.
 
 ```lua
 function Num:add(x,    d)
   if x~="?" then
+    if self.some then self.some:add(x) end
     self.n  = self.n + 1
     self.lo = math.min(self.lo,x)
     self.hi = math.max(self.hi,x) 
@@ -34,6 +35,11 @@ function Num:add(x,    d)
     self.mu = self.mu + d/self.n
     self.m2 = self.m2 + d*(x - self.mu)
     self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end end
+```
+Variability about the central tendency.
+
+```lua
+function Num:spread() return self.sd end
 ```
 Aha's distance measure. If missing values, make the assumptions
 that maximizes the distance.
@@ -51,10 +57,21 @@ Normalization of `x` 0..1 for `lo..hi`.
 function Num:norm(x)
   local lo,hi=self.lo,self.hi
   return (x=="?" and x) or (math.abs(lo-hi)<1E-32 and 0) or (x-lo)/(hi-lo) end  
+
+local function border(mu1,sd1,mu2,sd2,     a,b,c,d,r1,r2)
+  if sd1==sd2  then return (mu1+mu2)/2 end
+  if mu2 < mu1 then return border(mu2,sd2,mu1,sd1) end
+  a  = 1/(2*sd1^2) - 1/(2*sd2^2)
+  b  = mu2/(sd2^2) - mu1/(sd1^2)
+  c  = mu1^2 /(2*sd1^2) - mu2^2 / (2*sd2^2) - math.log(sd2/sd1)
+  d  = math.sqrt(b^2 - 4*a*c)
+  r1 = (-b + d)/(2*a)
+  r2 = (-b - d)/(2*a)
+  return mu1 <= r1 and r1 <= mu2 and r1 or r2 end
 ```
 Fin.
 
 ```lua
-return Num
+return border
 
 ```

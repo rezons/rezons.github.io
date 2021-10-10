@@ -33,6 +33,13 @@ function Sym:add(x,  inc)
       self.most, self.mode = self.has[x], x end end 
   return self end
 ```
+Variability about the central tendency.
+
+```lua
+function Sym:spread(    e) 
+  e=0; for _,v in pairs(self.has) do e= e- v/self.n * math.log(v/self.n,2) end
+  return e end
+```
 Aha's distance calculation. Symbols are either zero or one apart.
 
 ```lua

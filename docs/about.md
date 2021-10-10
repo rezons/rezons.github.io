@@ -30,6 +30,8 @@ Here are our defaults.
 
 ```lua
 my= {
+  bins=    cli("b", .5),
+  cohen=   cli("C", .35),
   combine= cli("c", "mode"),
   data=    cli("d", "../data/auto93.csv"),
   far=     cli("f", .9),
