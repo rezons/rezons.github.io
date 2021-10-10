@@ -9,6 +9,10 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
+
+```lua
+
+```
 # Nums = columns to treat as numbers
 
 ```lua
@@ -73,5 +77,4 @@ Fin.
 
 ```lua
 return border
-
 ```
