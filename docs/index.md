@@ -13,11 +13,11 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
-# Choosing Reasonable Algorithms
-
-## Inexact and Reasonable
-
+# Reasonable Algorithms
 &copy; 2022 Tim Menzies, Jamie Jennings
+
+## Inexact, yet Reasonable
+
 
 Algorithms make choices. Choices have consequences.
 Many choices are ethical but not choosing is unethical.
