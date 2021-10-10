@@ -13,17 +13,17 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
-# Reasonable Algorithms
+# Inexact, yet Reasonable
 &copy; 2022 Tim Menzies, Jamie Jennings
 
 ## Inexact, yet Reasonable
 
 
 Algorithms make choices. Choices have consequences.
-Many choices are ethical but not choosing is unethical.
-So choose wisely.
+Many choices are ethical but not choosing is unethical and irrational.
+Algorithms, once written, have to be wrangled. Do you know how to reason with your algorithms?
 
-Let us explain.
+But before answering that, perhaps we should ask "why is it important to ask that question?"
 It has often been said, this is the age of the algorithm. Algorithms control nearly all aspects of our life from the power distribution to the cars,
 to how we find new friends on the internet, right down to the beating of our hearts (as controlled by pacemakers). We once asked ours students "can you think of
 anything not controlled by algorithms?" and someone said "my shoes!". In reply we asked "did you buy those shoes via some search engine?
