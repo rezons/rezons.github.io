@@ -15,7 +15,7 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 local oo=require"oo"
 local Cols=oo.klass"Cols"
 
-function Cols.new() return oo.isa(Cols,{ys={},xs={},xys={},head={}}) 
+function Cols.new() return oo.isa(Cols,{ys={},xs={},xys={},head={}}) end
 ```
 Definitions of special column header roles.
 
@@ -27,14 +27,14 @@ function Cols:isNum(s)   return s:match("^[A-Z]") end
 function Cols:ako(s) 
   return self:isSkip(s) and Skip or (self:isNum(s) and Num or Sym) end
 
-function Col:header(t)
+function Cols:header(t)
   self.head=new
   for at,txt in pairs(new) do 
     col = ako(txt).new(at,txt)
     push(self.xys, col)
     if not self:isSkip(txt) then
       if self:isKlass(txt) then self._klass = col end
-      push(self:isGoal(txt) and self.ys or self.xs, col) end end end end
+      push(self:isGoal(txt) and self.ys or self.xs, col) end end end 
 ```
 Fin.
 

@@ -21,10 +21,10 @@ local Skip=require"Skip"
 Create
 
 ```lua
-local Sample=klass"Sample"
+local Sample=oo.klass"Sample"
 function Sample.new(my, inits)
-  return isa(Sample,
-           {rows={},cols=Cols.new(),my=my,keep=true}):adds(inits) end
+  return oo.isa(Sample,
+           {rows={},cols=nil,my=my,keep=true}):adds(inits) end
 ```
 Initialize.
 
@@ -38,17 +38,17 @@ Update with a new row. If this is the first row, then use it to create our
 headers.
 
 ```lua
-function Sample:add(new)
-  if #self.cols.xys>0 then
-    for _,col in pairs(self.cols.xys) do col:add(new[col.at]) end
-    if self.keep then push(self.rows,new) end
+function Sample:add(t)
+  if self.cols then
+    for _,col in pairs(self.cols.xys) do col:add(t[col.at]) end
+    if self.keep then table.insert(self.rows, t) end
   else
-    self.cols:header(new) end end
+    self.cols = Cols.new(t) end end
    
 function Sample:distance(row1,row2,cols)
   local d,n,p,x,y,inc
   d, n, p = 0, 1E-32, self.my.p
-  for _,col in pairs(cols or self.xs) do
+  for _,col in pairs(cols or self.cols.xs) do
     x,y = row1[col.at],row2[col.at]
     inc = x=="?" and y=="?" and 1 or col:dist(x,y)
     d   = d + inc^p 
@@ -59,7 +59,7 @@ function Sample:neighbors(row1,rows,cols,    t)
   rows = rows or top(self.my.some, shuffle(self.rows))
   t={}
   for _,row2 in pairs(rows) do 
-    push(t, {self:distance(row1,row2,cols),row2}) end
+    table.insert(t, {self:distance(row1,row2,cols),row2}) end
   table.sort(t, function (x,y) return x[1] < y[1] end)
   return t end
 
