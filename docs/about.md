@@ -10,18 +10,16 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <hr>
 
 # Config options
-Returns config options.
- 
 For any word on the command line starting with "-",
 break the word into characters. If any  character
 matches `it`, then  return a new  value. Else return  old.
 
 ```lua
-local function cli(it, b4)
+local function cli(it, old)
   for n,word in pairs(arg) do if word:sub(1,1)=="-" then
     for i = 2,#str do if it==word:sub(i,i) then
-      return (b4==false) and true or (tonumber(arg[n+1]) or arg[n+1]) end end end end 
-  return b4 end
+      return (old==false) and true or (tonumber(arg[n+1]) or arg[n+1]) end end end end 
+  return old end
 ```
 Here are the defaults.
 
@@ -42,8 +40,10 @@ local my= {
   wait=    cli("w", 10)       -- start classifying after this many rows
  }
 ```
-Return a fresh copy of the defaults.
+Return a function that always returns a fresh copy of the defaults.
 
 ```lua
-return function(  u) u={}; for k,v in pairs(my) do u[k]=v end; return u end
+return function(  u) 
+  math.randomseed(my.seed); 
+  u={}; for k,v in pairs(my) do u[k]=v end; return u end
 ```
