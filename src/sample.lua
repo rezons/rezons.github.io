@@ -46,6 +46,24 @@ function Sample:neighbors(row1,rows,cols,    t)
   table.sort(t, function (x,y) return x[1] < y[1] end)
   return t end
 
+function Sample:better(row1,row2, cols)
+  local e,w,s1,s2,n,a,b,what1,what2
+  cols = cols or self.cols.ys
+  what1, what2, n, e = 0, 0, #cols, math.exp(1)
+  for _,col in pairs(cols) do
+    a     = col:norm(row1[col.at])
+    b     = col:norm(row2[col.at])
+    w     = col.w -- w = (1,-1) if (maximizing,minimizing)
+    what1 = what1 - e^(col.w * (a - b) / n)
+    what2 = what2 - e^(col.w * (b - a) / n) end
+  return what1 / n < what2 / n end
+
+function Sample:sort(rows,cols)
+  rows = rows or self.rows
+  table.sort(rows, function(x,y) return self;better(x,y,cols) end)
+  return rows
+end
+
 function Sample:faraway(row1,rows,cols,    tmp)
   tmp = self:neighbors(row1,rows,cols)
   return tmp[self.my.far * #tmp // 1] end

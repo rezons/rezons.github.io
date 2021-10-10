@@ -15,6 +15,8 @@ function cli(it, b4)
 
 -- Here are our defaults.
 my= {
+  bins=    cli("b", .5),
+  cohen=   cli("C", .35),
   combine= cli("c", "mode"),
   data=    cli("d", "../data/auto93.csv"),
   far=     cli("f", .9),
