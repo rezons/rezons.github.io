@@ -13,7 +13,9 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
-# Inexact and Reasonable
+# Choosing Reasonable Algorithms
+
+## Inexact and Reasonable
 
 &copy; 2022 Tim Menzies, Jamie Jennings
 
@@ -36,10 +38,10 @@ For example, consider the following little experiment. Some data miner is precit
 
 So instead of being exact and precise things with simple correct outputs, there are other kinds of inexact
 algorithms
-with many itnernal design chocies. And those chpices have consequences (here, they critically effective the fairness of
+with many internal design choices. And those choices have consequences (here, they critically effective the fairness of
 the output).
-to say is that these inexact  algorithms have many choices and those choices have consqueneces.
-For example, unless we are careful, we can accidendelt chooise to generate models that
+to say is that these inexact  algorithms have many choices and those choices have consequences.
+For example, unless we are careful, we can accidentals choose to generate models that
 
 - consume too much energy
 - run too slowly
