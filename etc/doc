@@ -30,12 +30,10 @@ function apply(now,b4,last) {
     if (last !~ /^[ \t]*$/) last=last "\n"
     if (now=="CODE") {
       printf(last); 
-      #print "\n\n<ul><details><summary>code</summary>\n\n"
       print"\n```lua"  }
     if (now=="DOC")  {
       printf(last)
       if (!top)  print"```"
-      #if (!top)  print "\n\n</details></ul>\n\n" 
     }
     top=0}}' 
 }

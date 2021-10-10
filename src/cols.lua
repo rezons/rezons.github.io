@@ -3,25 +3,25 @@
 -- # Cols = holds column roles
 local oo=require"oo"
 local Cols=oo.klass"Cols"
+local is=require"is"
 
-function Cols.new() return oo.isa(Cols,{ys={},xs={},xys={},head={}}) end
-
--- Definitions of special column header roles.
-function Cols:isKlass(s) return s:find"=" end
-function Cols:isGoal(s)  return s:find"+" or s:find"-" or s:find"=" end
-function Cols:isSkip(s)  return s:find":" end
-function Cols:isNum(s)   return s:match("^[A-Z]") end
-function Cols:ako(s) 
-  return self:isSkip(s) and Skip or (self:isNum(s) and Num or Sym) end
+function Cols.new(t) 
+  self= oo.isa(Cols,{ys={},xs={},xys={},head={}})
+  self:header(t) 
+  return self end
 
 function Cols:header(t)
   self.head=new
   for at,txt in pairs(new) do 
-    col = ako(txt).new(at,txt)
+    col = is.ako(txt).new(at,txt)
     push(self.xys, col)
-    if not self:isSkip(txt) then
-      if self:isKlass(txt) then self._klass = col end
-      push(self:isGoal(txt) and self.ys or self.xs, col) end end end 
+    if not is.skip(txt) then
+      if is.klass(txt) then self._klass = col end
+      push(is.goal(txt) and self.ys or self.xs, col) end end end 
+
+function Cols:add(t)
+  for _,col in pairs(self.xys) do col:add( t[col.at] ) end
+  return t end
 
 -- Fin.
 return Cols
