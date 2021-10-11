@@ -43,16 +43,17 @@ function Num:norm(x)
 -- From https://stackoverflow.com/questions/22579434/python-finding-the-intersection-point-of-two-gaussian-curves
 function Num:border(other)
   local mu1,sd1,mu2,sd2,a,b,c,d,r1,r2
-  mu1,sd1 = self.my,  self.sd
-  mu2,sd2 = other.my, other.sd
+  mu1,sd1,mu2,sd2 = self.mu,  self.sd, other.mu, other.sd
+  if mu2 < mu1 then return self:border(mu2,sd2,mu1,sd1) end
   if sd1==sd2  then return (mu1+mu2)/2 end
-  if mu2 < mu1 then return border(mu2,sd2,mu1,sd1) end
   a  = 1/(2*sd1^2) - 1/(2*sd2^2)
   b  = mu2/(sd2^2) - mu1/(sd1^2)
   c  = mu1^2 /(2*sd1^2) - mu2^2 / (2*sd2^2) - math.log(sd2/sd1)
+  -- Solve for 0 = ax^2 +bx + c. 
   d  = math.sqrt(b^2 - 4*a*c)
   r1 = (-b + d)/(2*a)
   r2 = (-b - d)/(2*a)
+  -- Return the solution between the means.
   return mu1 <= r1 and r1 <= mu2 and r1 or r2 end
 
 -- ### Distance

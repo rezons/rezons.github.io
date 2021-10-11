@@ -64,6 +64,8 @@ function Sample:distances(row1,rows,cols,    t)
   table.sort(t, function (x,y) return x[1] < y[1] end)
   return t end
 
+-- Theory note: random projections. Hyperspace geometry.
+-- Return a point somewhat distant to `row1`.
 function Sample:faraway(row1,rows,cols,    tmp)
   tmp = self:neighbors(row1,rows,cols)
   return tmp[self.my.far * #tmp // 1] end
