@@ -1,18 +1,11 @@
-
-<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
-href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
-alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
-src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
-alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
-href="https://github.com/timm/keys/actions"><img
-src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
-
-<hr>
+-- vim: filetype=markdown: 
 
 
+--[[
 &copy; 2022 Tim Menzies, Jamie Jennings
 
 ## Inexact, yet Reasonable
+
 
 Algorithms make choices. Choices have consequences.
 Many choices are ethical but not choosing is unethical and irrational.
@@ -89,6 +82,9 @@ _reasons_
 that they do not like something until they can see specific examples.  This means we must assume that the reaosons may be ijitially empty and
 grow over time.
 
+
+
+
 ## About our technology
 
 This tutorial is is two parts: theory and practice. The theory is langauge and platform indepdnent
@@ -119,6 +115,7 @@ problems are inherently complex, others are not. And it is prudent to try simple
 before complex.
 
 ## Data 
+
 
 Here, we say that we are reasoning froma  _sample_ of data,
 _rows_ and _columns_.
@@ -165,6 +162,7 @@ that _k ∈ Z_). Usually the _Z_ values are shared across all rows
 (exception: some optimizers first cluster the data and use
 different _Z_ settings for different clusters)
 
+
 Y = F(X)
 
 Often easuer to find X than Y.
@@ -172,3 +170,4 @@ Often easuer to find X than Y.
 Samples arnot all data so we are always must guess how well some model _F_ learned from old data appies to new data.
 
 
+--]]

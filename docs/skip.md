@@ -20,6 +20,9 @@ function Skip.new(at,txt) return oo.isa(Skip,{at=at,txt=txt}) end
 
 ```lua
 function Skip:summarize(x) return self end
+```
+Fin.
 
+```lua
 return Skip
 ```

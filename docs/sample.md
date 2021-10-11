@@ -18,7 +18,8 @@ local Sym=require"Sym"
 local Num=require"Num"
 local Skip=require"Skip"
 ```
-Create. And if passed a table or a file name, add in that content.
+## Create
+If passed a table or a file name, add in that content.
 
 ```lua
 local Sample=oo.klass"Sample"
@@ -28,7 +29,8 @@ function Sample.new(my, inits)
   if type(inits)=="string" then for _,t in csv(inits)   do self:add(t) end end
   return self end
 ```
-Update with a new row. If this is the first row, then use it to create the
+## Update
+ If this is the first row, then use it to create the
 column headers.
 
 ```lua
@@ -38,6 +40,20 @@ function Sample:add(t)
   else self.cols:summarize(t)
        if self.keep then table.insert(self.rows,t) end end end
 ```
+## Query
+Return a  row's klass values (fails if there is no class).
+
+```lua
+function Sample:klass(row) return row[self._klass.at] end
+```
+Return a row's  goal values.
+
+```lua
+function Sample:ys(row,          u) 
+  u={};for _,col in pairs(self.cols.ys) do u[1+#u]=row[col.at] end; return u end
+```
+## Services
+### Distance
 Using the attributes in `cols` (default= all x values),
 return the separation of two rows.   
 Theory note: unreliable when #cols gets large.
@@ -53,22 +69,6 @@ function Sample:distance(row1,row2,cols)
     n   = n + 1 end
   return (d/n)^(1/p) end
    ```
-Zitler's domination predicate. 
-theory note. pareto frontier. no exact solution. problem of g>2 goals.
-
-```lua
-function Sample:better(row1,row2, cols)
-  local e,w,s1,s2,n,a,b,what1,what2
-  cols = cols or self.cols.ys
-  what1, what2, n, e = 0, 0, #cols, math.exp(1)
-  for _,col in pairs(cols) do
-    a     = col:norm(row1[col.at])
-    b     = col:norm(row2[col.at])
-    w     = col.w -- w = (1,-1) if (maximizing,minimizing)
-    what1 = what1 - e^(col.w * (a - b) / n)
-    what2 = what2 - e^(col.w * (b - a) / n) end
-  return what1 / n < what2 / n end
-```
 Using the columns in `cols`.
 return the `rows`, sorted by the distance to `row1`.
 
@@ -84,8 +84,24 @@ function Sample:distances(row1,rows,cols,    t)
 function Sample:faraway(row1,rows,cols,    tmp)
   tmp = self:neighbors(row1,rows,cols)
   return tmp[self.my.far * #tmp // 1] end
+```
+## Services
+### Soring
+Zitler's domination predicate. 
+theory note. pareto frontier. no exact solution. problem of g>2 goals.
 
-function Sample:klass(row) return row[self._klass.at] end
+```lua
+function Sample:better(row1,row2, cols)
+  local e,w,s1,s2,n,a,b,what1,what2
+  cols = cols or self.cols.ys
+  what1, what2, n, e = 0, 0, #cols, math.exp(1)
+  for _,col in pairs(cols) do
+    a     = col:norm(row1[col.at])
+    b     = col:norm(row2[col.at])
+    w     = col.w -- w = (1,-1) if (maximizing,minimizing)
+    what1 = what1 - e^(col.w * (a - b) / n)
+    what2 = what2 - e^(col.w * (b - a) / n) end
+  return what1 / n < what2 / n end
 ```
 Fin.
 
