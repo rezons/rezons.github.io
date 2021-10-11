@@ -60,10 +60,9 @@ function Sample:mid(         u)
 Variability around central tendency
 
 ```lua
-function Sample:soread(         u) 
+function Sample:spread(         u) 
   u={};for _,col in pairs(self.cols.xys) do u[1+#u]=col:spread() end; return u end
 ```
-## Services
 ### Distance
 Using the attributes in `cols` (default= all x values),
 return the separation of two rows.   
@@ -96,8 +95,7 @@ function Sample:faraway(row1,rows,cols,    tmp)
   tmp = self:neighbors(row1,rows,cols)
   return tmp[self.my.far * #tmp // 1] end
 ```
-## Services
-### Soring
+### Sorting
 Zitler's domination predicate. 
 theory note. pareto frontier. no exact solution. problem of g>2 goals.
 
@@ -113,6 +111,13 @@ function Sample:better(row1,row2, cols)
     what1 = what1 - e^(col.w * (a - b) / n)
     what2 = what2 - e^(col.w * (b - a) / n) end
   return what1 / n < what2 / n end
+```
+Sort all rows
+
+```lua
+function Sample:betters(cols)
+  table.sort(self.rows, function (x,y) return self:better(x,y,cols) end)
+  return self.rows end
 ```
 Fin.
 
