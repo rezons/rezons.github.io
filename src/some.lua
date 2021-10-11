@@ -36,10 +36,11 @@ function Some:mid() return self:all()[#i._all//2] end
 
 -- Variability around central  tendency.
 -- To explain this function, recall that
--- &plusmn; 1,2 standard deviations is 66,95% of the mass.
+-- &plusmn; one to two standard deviations covers 66 to 95% of the mass
+-- of a normal distribution.
 -- Well, what else is true is that +- 1.28 standard deviations
--- is 90% of the pass. To say that another way, (90-10)th/(1.28*2)
--- is one standard deviation.
+-- is 90% of the mass. To say that another way, one standard
+-- deviation is (90-10)th/(1.28*2).
 function Some:spread(   a)
    a=self:all()
    return (a[.9*#a//1] - a[.1*#a//1])//2.56 end
