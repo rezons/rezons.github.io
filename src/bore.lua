@@ -1,16 +1,13 @@
-local function klass(    k,show)
+local isa, klass, X,Y
+function it(x,y) return setmetatable(y,x) end
+function oo(    k,show)
   function show(t,    u) 
     u={}; for k,v in pairs(t) do u[1+#u]= k.."="..tostring(v) end
     return "{"..table.concat(u,", ").."}" end
   k= {__tostring=show}; k.__index=k; return k end
 
-local X=klass()
-function X.new(z) return setmetatable({a=z,b=2},X) end
-print(X.new(10))
-
-local Y=klass()
-function Y.new(z) return setmetatable({k=X.new(31),zz=2},Y) end
-print(Y.new(100))
+Num=oo();function Num.new(z) return it(Num,{a=z,b=2}) end
+Sym=oo();function Sym.new(z) return it(Sym,{k=X.new(31),zz=2}) end
 
 -- function nums(t,     mu,sd)
 --   mu=0; for _,x in pairs(t) do mu=mu+x        end; mu=mu/#t
