@@ -12,22 +12,23 @@ local function cli(it, b4)
 
 -- Here are the defaults.
 local my= {
-  bins=    cli("b", .5),
-  best=    cli("B", .5),
-  cohen=   cli("C", .35),
-  combine= cli("c", "mode"),
-  data=    cli("d", "../data/auto93.csv"),
-  far=     cli("f", .9),
-  k=       cli("k", 2),  
-  loud=    cli("l", false),
-  p=       cli("p", 2), 
-  seed=    cli("S", 10014),   -- random number see
-  some=    cli("s", 256),     -- use this many randomly nearest neighbors
-  todo=    cli("t", "hello"), -- default start up is to run Eg["todo"]
-  wait=    cli("w", 10)       -- start classifying after this many rows
+  bins=    cli("b",  .5),
+  best=    cli("B",  .5),
+  cohen=   cli("C",  .35),
+  combine= cli("c",  "mode"),
+  data=    cli("d",  "../data/auto93.csv"),
+  far=     cli("f",  .9),
+  k=       cli("k",  2),  
+  loud=    cli("l",  false),
+  p=       cli("p",  2), 
+  seed=    cli("S",  1971603567),  -- random number see
+  some=    cli("s",  256),     -- use this many randomly nearest neighbors
+  todo=    cli("t",  "hello"), -- default start up is to run Eg["todo"]
+  wait=    cli("w",  10)       -- start classifying after this many rows
  }
 
 -- Return a function that always returns a fresh copy of the defaults.
+-- Theory note: random number generation
 return function(  u) 
   math.randomseed(my.seed); 
   u={}; for k,v in pairs(my) do u[k]=v end; return u end
