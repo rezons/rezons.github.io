@@ -14,9 +14,12 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 --- # Skip= Columns to Ignore
 local oo=require"oo"
 local Skip=oo.klass"Skip"
-
 function Skip.new(at,txt) return oo.isa(Skip,{at=at,txt=txt}) end
-function Skip:add(x)      return self end
+```
+`Skip` columns never update their contents.
+
+```lua
+function Skip:summarize(x) return self end
 
 return Skip
 ```
