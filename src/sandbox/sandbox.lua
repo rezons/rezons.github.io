@@ -23,7 +23,7 @@ function permutes(t)
   return out
 end
 
-for _,x in pairs(permutes({{1,2,3},{4},{7,8}})) do print(table.concat(x,"")) end
+for _,x in pairs(permutes({ {1,2,3},{4},{7,8}})) do print(table.concat(x,"")) end
 
  
 
