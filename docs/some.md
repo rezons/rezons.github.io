@@ -10,19 +10,20 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <hr>
 
 # Some = columns to keep only so many
+## Create
 
 ```lua
 local oo=require"oo"
 local Some=oo.klass"Some"
-
 function Some:new(most)
   return oo.obj(self,"Some",
     {n=0,_all={},sorted=false,most=most or 256}) end
 ```
-Update. If full, replace anything, picked at random.
+## Update
+If full, replace anything, picked at random.
 
 ```lua
-function Some:add(x,     r,pos)
+function Some:summarize(x,     r,pos)
   r=math.random
   if x ~= "?" then
     self.n = self.n + 1
@@ -30,18 +31,22 @@ function Some:add(x,     r,pos)
     elseif r() < #self._all/self.n then pos=1+#self.all*r() end
     if pos then i._all[pos//1] = x; self.sorted-false end
 ```
+Combine two.
+
+```lua
+function Some:merge()
+  new = Some.new(self.most)
+  for _,x in pairs(self._all)  do new:add(x) end
+  for _,x in pairs(other._all) do new:add(x) end
+  return new end
+```
+## Query
 Return contents, _sorted.
 
 ```lua
 function Some:all()
   if not self.sorted then table.sort(self._all); self.sorted=true end
   return self._all end
-
-function Some:merge()
-  new = Some.new(self.most)
-  for _,x in pairs(self._all)  do new:add(x) end
-  for _,x in pairs(other._all) do new:add(x) end
-  return new end
 ```
 Fin.
 
