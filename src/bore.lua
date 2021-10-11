@@ -1,59 +1,64 @@
--- vim: ft=lua ts=2 sw=2 et:
+local function klass(    k,show)
+  function show(t,    u) 
+    u={}; for k,v in pairs(t) do u[1+#u]= k.."="..tostring(v) end
+    return "{"..table.concat(u,", ").."}" end
+  k= {__tostring=show}; k.__index=k; return k end
 
--- # Bore = best or rest
-local oo=require"oo"
-local Bore=oo.klass"Bore"
+local X=klass()
+function X.new(z) return setmetatable({a=z,b=2},X) end
+print(X.new(10))
 
-local Sym=require"Sym"
-local Some=require"Some"
+local Y=klass()
+function Y.new(z) return setmetatable({k=X.new(31),zz=2},Y) end
+print(Y.new(100))
 
-function Bore.new(all,my)
-  return oo.isa(Bore,
-    {my=my, some=function () return Some.new(the.some) end}):main(num1,num2) end
-
-function Bore:main(num1,num2,   xys)
-  xys={}
-  for _,v in pairs(num1.some:all()) do table.insert(xy,{v,true}) end
-  for _,v in pairs(num2.some:all()) do table.insert(xy,{v,false}) end
-  sd = (self.sd*self.n + other.sd*other.n) / (self.n+other.n)
-  return self:merge(
-           self:bins(xys, sd*self.my.cohen, (#xys)^self.my.bins)) end
-
-local Nums=oo.klass"Nums"
-function Nums(xs,ys,at,name,somes)
-   return oo.obj(Nums, {at=at or 0, name=name or "",
-                   xs=xs or some(), ys=ys or Sym.new()}) end
-
--- XXX clone
-function Bore:bins(xys, tiny, enough,         now,out,x,y)
-  while width <4 and width<#xy/2 do width=1.2*width end --grow small widths
-  now = Nums.new()
-  out = {now}
-  for j,xy in sort(xys,"x") do
-    x,y = xy[1],xy[2]
-    if j < #xys - enough then -- (1)
-      if x ~= xys[j+1][1] then -- (2)
-        if now.x.n > enough then -- (3)
-          if now.hi - now.lo > tiny then -- (4)
-            now= Nums.new()
-            out[ 1+#out ] = now end end end end
-    now.xs.add(x)
-    now.ys.add(y) end
-  return prune(out) end
-
--- Return a smaller version of `b4` (by subsuming ranges
--- that do not change the class distributions seen in `ys`)
-function Bore:merge(b4,         j,tmp,n,a,b,cy)
-  j, n, tmp = 1, #b4, {}
-  while j<=n do
-    a= b4[j]
-    if j < n-1 then
-      b= b4[j+1]
-      cy= a.ys:merge(b.ys)
-      if cy:var() <= (a.ys:var()*a.ys.n + b.ys:val()*b.ys.n) / cy.n then
-         a= Nums.new(a.xs:merge(b.xs),  cy)
-         j = j + 1 end end
-    tmp[1+#tmp] = a
-    j = j + 1
-  end
-  return #tmp==#b4 and tmp or merge(tmp) end
+-- function nums(t,     mu,sd)
+--   mu=0; for _,x in pairs(t) do mu=mu+x        end; mu=mu/#t
+--   sd=0; for _,x in pairs(t) do sd=sd+(x-mu)^2 end; sd=(sd/(n-1))^.5
+--   return mu,sd end
+--
+-- local is={}
+-- function is.goal(s) return s:find"+" or s:find"-" or s:find"=" end
+-- function is.skip(s) return s:find":" end
+-- function is.num(s)  return s:match("^[A-Z]") end
+-- function is.ako(s)  return is.skip(s) and Skip or (is.num(s) and Num or Sym) end
+-- function is.wght(s) return (s:find"+" and 1) or (s:find"-" and -1) or 0 end
+--
+-- local bests=klass() 
+-- function bests.new() return setmetatable({best={},rest={}},best) end
+--
+-- local num=klass()
+-- function num.new(at,) return setmetatable({lo=1E21,hi=-1E31},num) end
+--
+-- function bests:better(row1,row2, ws)
+--   local e,w,s1,s2,n,a,b,what1,what2
+--   for _ in pairs(w) do n=n+1 end
+--   what1, what2, e = 0, 0, math.exp(1)
+--   for col,w in pairs(ws) do
+--     a     = col:norm(row1[col])
+--     b     = col:norm(row2[col])
+--     w     = col.w -- w = (1,-1) if (maximizing,minimizing)
+--     what1 = what1 - e^(col.w * (a - b) / n)
+--     what2 = what2 - e^(col.w * (b - a) / n) end
+--   return what1 / n < what2 / n end
+--
+-- function yweights(names)
+--   ws={}
+--   for i,s in pairs(names) do if is.goal(s) and is.wght(s) ~= 0 then 
+--     ws[i] = is.wght(s) end end 
+--   return ws end
+--
+-- function bore(n,guess,f,names,     xs,ys)
+--   for _ = 1,(n or 256) do
+--     xs= guess()
+--     ys= f(xs)
+--     for _,zs in pairs{xs,ys} do
+--       for _,z in pairs(zs) do egs[1+#egs]=z end end end
+--   for i,name in pairs(names) do
+--     if is.num(name) then
+--       t={}, for _,eg in pairs(egs) do t[1+#t] = eg[i] end
+--       mu,sd = nums(t)
+--       stats[i] = {at=i,name=name,sd=sd,mu=mu,all={}}
+--       nums(t,stats[i])
+--     
+-- end
