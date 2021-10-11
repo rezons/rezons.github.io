@@ -3,10 +3,9 @@
 -- # Sample = summarize rows into columns
 local oo=require"oo"
 local Cols=require"Cols"
-local Sym=require"Sym"
-local Num=require"Num"
-local Skip=require"Skip"
+local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
 
+-- Theory note: dialog indepnestence
 -- ## Create
 -- If passed a table or a file name, add in that content.
 local Sample=oo.klass"Sample"
