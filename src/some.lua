@@ -32,7 +32,7 @@ function Some:all()
   return self._all end
 
 -- Central tendency
-function Some:mid() return self:all()[#i._all//2] end
+function Some:mid(   a) a=self:all(); return a[#a//2] end
 
 -- Variability around central  tendency.
 -- To explain this function, recall that
@@ -41,9 +41,7 @@ function Some:mid() return self:all()[#i._all//2] end
 -- Well, what else is true is that +- 1.28 standard deviations
 -- is 90% of the mass. To say that another way, one standard
 -- deviation is (90-10)th/(1.28*2).
-function Some:spread(   a)
-   a=self:all()
-   return (a[.9*#a//1] - a[.1*#a//1])//2.56 end
+function Some:spread(   a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])//2.56 end
 
 -- Fin.
 return Some
