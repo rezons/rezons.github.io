@@ -5,7 +5,7 @@ local oo=require"oo"
 local Cols=require"Cols"
 local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
 
--- Theory note: dialog indepnestence
+-- Theory note: dialog independence
 -- ## Create
 -- If passed a table or a file name, add in that content.
 local Sample=oo.klass"Sample"
@@ -31,6 +31,14 @@ function Sample:klass(row) return row[self._klass.at] end
 -- Return a row's  goal values.
 function Sample:ys(row,          u) 
   u={};for _,col in pairs(self.cols.ys) do u[1+#u]=row[col.at] end; return u end
+
+-- Central tendency
+function Sample:mid(         u) 
+  u={};for _,col in pairs(self.cols.xys) do u[1+#u]=col:mid() end; return u end
+
+-- Variability around central tendency
+function Sample:soread(         u) 
+  u={};for _,col in pairs(self.cols.xys) do u[1+#u]=col:spread() end; return u end
 
 -- ## Services
 -- ### Distance

@@ -10,7 +10,7 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 <hr>
 
 # Num = columns to treat as numbers
-Theory note: CRUD. Delegation
+Theory note: CRUD. Delegation, normals
 ## Create
 `lo` and  `hi` are initialized to ridiculous high and  low values
 so that  every number that arrives afterwards is lower than
@@ -40,21 +40,15 @@ function Num:summarize(x,    d)
     self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end end
 ```
 ## Query
+Central  tendency
+
+```lua
+function Num:mid() return self.mu end
+```
 Variability about the central tendency.
 
 ```lua
 function Num:spread() return self.sd end
-```
-## Services
-Aha's distance measure. If missing values, make the assumptions
-that maximizes the distance.
-
-```lua
-function Num:dist(x,y)
-  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
-  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
-  else   x,y = self:norm(x), self:norm(y)  end
-  return math.abs(x-y) end
 ```
 Normalization of `x` 0..1 for `lo..hi`.
 
@@ -62,7 +56,12 @@ Normalization of `x` 0..1 for `lo..hi`.
 function Num:norm(x)
   local lo,hi=self.lo,self.hi
   return (x=="?" and x) or (math.abs(lo-hi)<1E-32 and 0) or (x-lo)/(hi-lo) end  
+```
+To divide a distribution containing two normal curves,
+use their mid-mu intersection.
+From https://stackoverflow.com/questions/22579434/python-finding-the-intersection-point-of-two-gaussian-curves
 
+```lua
 function Num:border(other)
   local mu1,sd1,mu2,sd2,a,b,c,d,r1,r2
   mu1,sd1 = self.my,  self.sd
@@ -77,7 +76,18 @@ function Num:border(other)
   r2 = (-b - d)/(2*a)
   return mu1 <= r1 and r1 <= mu2 and r1 or r2 end
 ```
-Fin.
+### Distance
+Aha's distance measure. If missing values, make the assumptions
+that maximizes the distance.
+
+```lua
+function Num:dist(x,y)
+  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
+  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
+  else   x,y = self:norm(x), self:norm(y)  end
+  return math.abs(x-y) end
+```
+## Fin
 
 ```lua
 return Num

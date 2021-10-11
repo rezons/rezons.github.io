@@ -7,16 +7,21 @@
 -- named method (but add methods  with the same key to different
 -- metatables).
 
+-- Theory noRe: encapsulation, polymorphic. Protocols here "summarize"
+-- dist, mid,spread
 local klass,  -- define a new klass
       isa,    -- define a new instance  of a klass
       out,    -- generate an instance print string
       shout   -- print the string generated via `out`.
--- Functions
+
+-- ## Creation
 function isa(mt,t) return setmetatable(t,mt) end
 
 function klass(name,  k) 
     k={_name=name,__tostring=out};k.__index=k; return k end
 
+-- ## Query
+-- Generate print string.
 function shout(t) print(out(t)) end
 
 function out(t,     tmp,ks)
@@ -31,7 +36,6 @@ function out(t,     tmp,ks)
   table.sort(ks)
   for _,k in pairs(ks) do tmp[1+#tmp] = k.."="..pretty(t[k]) end
   return (t._name or "").."("..table.concat(tmp,", ")..")" end
---
+
+-- # Fin
 return {klass=klass, isa=isa, out=out, shout=shout}
-
-

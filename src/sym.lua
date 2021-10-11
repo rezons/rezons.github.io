@@ -1,15 +1,14 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
 -- # Sym = columns to treat as symbols
--- Create.
+-- ## Create
 local oo=require"oo"
 local Sym=oo.klass"Sym"
-
 function Sym.new(at,txt) 
   return oo.isa(Sym,{at=at,txt=txt,n=0,mode=nil,most=1,has={}},Num) end
 
--- Update.
-function Sym:add(x,  inc) 
+--  ## Update
+function Sym:sumamrize(x,  inc) 
   if x ~= "?" then
     inc = inc or 1
     i.n = i.n + inc
@@ -17,6 +16,17 @@ function Sym:add(x,  inc)
     if self.has[x] > self.most then
       self.most, self.mode = self.has[x], x end end 
   return self end
+
+-- Combine two symbols
+function Sym:merge(other)
+  new = Sym.new(self.at, self.txt)
+  for k,inc in pairs(self.has)  do new:summarize(k,inc) end
+  for k,cin in pairs(other.has) do new:summarize(k,inc) end
+  return new end
+
+-- ## Query
+-- Central tendency.
+function Sym:mid() return self.mu end 
 
 -- Variability about the central tendency.
 function Sym:spread(    e) 
@@ -27,13 +37,6 @@ function Sym:spread(    e)
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
--- Combine to Symbols
-function Sym:merge(other)
-  new = Sym.new(self.at, self.txt)
-  for k,n in pairs(self.has)  do new:summarize(k,n) end
-  for k,n in pairs(other.has) do new:summarize(k,n) end
-  return new end
-
--- Fin
+-- ## Fin
 return Sym
 
