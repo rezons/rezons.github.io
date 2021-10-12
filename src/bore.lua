@@ -1,9 +1,11 @@
 local isa, klass, X,Y
 function it(x,y) return setmetatable(y,x) end
 function oo(    k,show)
-  function show(t,    u) 
-    u={}; for k,v in pairs(t) do u[1+#u]= k.."="..tostring(v) end
-    return "{"..table.concat(u,", ").."}" end
+  function show(t,    t1,t2) 
+    t1={}; for k,_ in pairs(t) do t1[1+#t1]= k end
+    table.sort(t1)
+    t2={}; for _,k in pairs(t1) do t2[1+#t2]= k.."="..tostring(t[k]) end
+    return "{"..table.concat(t2,", ").."}" end
   k= {__tostring=show}; k.__index=k; return k end
 
 Num=oo();function Num.new(z) return it(Num,{a=z,b=2}) end
