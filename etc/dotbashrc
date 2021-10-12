@@ -40,7 +40,7 @@ alias ls="ls -G"
 alias tmux="tmux -f $here/etc/tmux-conf"
 alias vi="vim -u $here/etc/vimrc "
 alias vims="vim +PluginInstall +qall"         
-alias pdoc="$HOME/Library/Python/3.8/bin/pdoc"
+alias mds="cd $here/src; ../etc/md *.lua; gp"
 
 doc() {
   mkdir -p $here/docs

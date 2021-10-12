@@ -58,6 +58,9 @@ but also:
 - the data they analyze (which may chage from day to day). 
 - and the particular goals we want to achieve (which may change from user to user).
 
+It turns out that this data-centric and goal-centric approach is astonoshingly useful. semu supervised
+learning  manifolds data reduction.
+
 Hence we offer a data-centric and human-centric of inexact algorithms. Our approach includes data mining and optimization and geometry.
 ALso, we will talk  about human psychology., inparticualr heuristics, satisficing, and knowledge acqusition.
 
