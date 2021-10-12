@@ -12,14 +12,18 @@ local function cli(it, b4)
 
 -- Here are the defaults.
 local my= {
+  sames=   cli("A",   512), -- number of things to use in stats tests
   bins=    cli("b",  .5),
   best=    cli("B",  .5),
   cohen=   cli("C",  .35),
   combine= cli("c",  "mode"),
   data=    cli("d",  "../data/auto93.csv"),
   far=     cli("f",  .9),
+  conf=    cli("F",  .05), -- confidence limits for stats
   k=       cli("k",  2),  
+  cliffs=  cli("I",  (.147+.33)/2), -- small effect size threshold
   loud=    cli("l",  false),
+  bootstraps=cli("O", 512),
   p=       cli("p",  2), 
   seed=    cli("S",  1971603567),  -- random number see
   some=    cli("s",  256),     -- use this many randomly nearest neighbors

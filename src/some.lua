@@ -14,7 +14,7 @@ function Some:summarize(x,     r,pos)
   r=math.random
   if x ~= "?" then
     self.n = self.n + 1
-    if #self._all < self.most      then pos=#self._all + 1
+    if     #self._all < self.most  then pos=#self._all + 1
     elseif r() < #self._all/self.n then pos=#self._all * r() end
     if pos then i._all[pos//1] = x; self.sorted=false end end end
 
@@ -41,7 +41,7 @@ function Some:mid(   a) a=self:all(); return a[#a//2] end
 -- Well, what else is true is that &plusmn;+-1.28 standard deviations
 -- is 90% of the mass. To say that another way, one standard
 -- deviation is (90-10)th/(1.28*2).
-function Some:spread(   a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])//2.56 end
+function Some:spread(   a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])/2.56 end
 
 -- Fin.
 return Some
