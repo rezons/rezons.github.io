@@ -9,14 +9,14 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 
 <hr>
 
-tdo samples all delta
+todo samples all delta     
+Theory note: parametric/non-parametric. effect size, significance tests
 
 ```lua
 local same,cliffsDelta,bootstrap
 local Num=require"num"
 ```
 ## Effect Size 
-Theory note: parametric/non-parametric. effect size, significance tests
 Two lists re the same if an effect size test and significance test say so,
 
 ```lua

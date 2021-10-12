@@ -1,11 +1,11 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
--- tdo samples all delta
+-- todo samples all delta     
+-- Theory note: parametric/non-parametric. effect size, significance tests
 local same,cliffsDelta,bootstrap
 local Num=require"num"
 
 -- ## Effect Size 
--- Theory note: parametric/non-parametric. effect size, significance tests
 -- Two lists re the same if an effect size test and significance test say so,
 function same(xs,ys, my,     sames)
   sames = my and my.sames or 512
