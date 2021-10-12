@@ -27,9 +27,9 @@ function Some:summarize(x,     r,pos)
   r=math.random
   if x ~= "?" then
     self.n = self.n + 1
-    if #self._all < self.most      then pos=#self.all + 1
-    elseif r() < #self._all/self.n then pos=#self.all * r() end
-    if pos then i._all[pos//1] = x; self.sorted-false end
+    if #self._all < self.most      then pos=#self._all + 1
+    elseif r() < #self._all/self.n then pos=#self._all * r() end
+    if pos then i._all[pos//1] = x; self.sorted=false end end end
 ```
 Combine two.
 

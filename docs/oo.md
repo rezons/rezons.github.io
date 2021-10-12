@@ -18,13 +18,15 @@ local klass,  -- define a new klass
       out,    -- generate an instance print string
       shout   -- print the string generated via `out`.
 ```
-## Creation
+## Klass creation
+
+```lua
+function klass(name,  k) k={_name=name,__tostring=out};k.__index=k; return k end
+```
+## Instance creation
 
 ```lua
 function isa(mt,t) return setmetatable(t,mt) end
-
-function klass(name,  k) 
-    k={_name=name,__tostring=out};k.__index=k; return k end
 ```
 ## Query
 Generate print string.
@@ -33,19 +35,18 @@ Generate print string.
 function shout(t) print(out(t)) end
 
 function out(t,     tmp,ks)
-  local function pretty(x)
-    return (
-      type(x)=="function" and  "function") or (
-      getmetatable(x) and getmetatable(x).__tostring and tostring(x)) or (
-      type(x)=="table" and "#"..tostring(#x)) or ( 
-      tostring(x)) end
-  tmp,ks = {},{}
-  for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then  ks[1+#ks]=k end end
+  local function pretty(x) 
+    return ( type(x)=="function" and  "function"
+      ) or ( getmetatable(x)     and getmetatable(x).__tostring and tostring(x)
+      ) or ( type(x)=="table"    and "#"..tostring(#x)
+      ) or ( tostring(x)) end
+  tmp,ks={},{}
+  for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then ks[1+#ks]=k end end
   table.sort(ks)
   for _,k in pairs(ks) do tmp[1+#tmp] = k.."="..pretty(t[k]) end
   return (t._name or "").."("..table.concat(tmp,", ")..")" end
 ```
-# Fin
+## Fin
 
 ```lua
 return {klass=klass, isa=isa, out=out, shout=shout}

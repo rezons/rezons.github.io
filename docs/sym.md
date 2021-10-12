@@ -21,7 +21,7 @@ function Sym.new(at,txt)
  ## Update
 
 ```lua
-function Sym:sumamrize(x,  inc) 
+function Sym:summarize(x,  inc) 
   if x ~= "?" then
     inc = inc or 1
     i.n = i.n + inc
