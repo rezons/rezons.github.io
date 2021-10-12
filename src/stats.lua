@@ -64,13 +64,13 @@ function bootstrap(y0,z0,my)
 -- the top halves are statistically indistinguishable. 
 -- Only calls the stats tests a logarithmic number of times.
 function scottKnot(nums,the,      all,cohen)
-  local mid = function (z) return z.some:mid() end
-
+  local mid = function (z) return z.some:mid() 
+  end --------------------------------
   local function summary(i,j,    out)
     out = copy( nums[i] )
     for k = i+1, j do out = out:merge(nums[k]) end
-    return out end 
-
+    return out 
+  end --------------------------- 
   local function div(lo,hi,rank,b4,       cut,best,l,l1,r,r1,now)
     best = 0
     for j = lo,hi do
@@ -88,8 +88,8 @@ function scottKnot(nums,the,      all,cohen)
       rank = div(cut+1, hi,  rank, r1) 
     else
       for i = lo,hi do nums[i].rank = rank end end
-    return rank end 
-
+    return rank 
+  end ------------------------------------------------------ 
   table.sort(nums, function(x,y) return mid(x) < mid(y) end)
   all   = summary(1,#nums)
   cohen = all.sd * the.iota
