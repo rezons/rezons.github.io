@@ -1,0 +1,23 @@
+name: tests
+on: [push]
+jobs:
+  Unit-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Install lua
+        run: |
+          cd ${{ github.workspace }}; \
+          curl -R -O http://www.lua.org/ftp/lua-5.4.3.tar.gz; \
+          tar zxf lua-5.4.3.tar.gz; \
+          cd lua-5.4.3; \
+          make linux test 
+      - name: Run tests  
+        run: |
+          cd ${{ github.workspace }}/test; \
+          ../lua-5.4.3/src/lua ok.lua *.lua
+      - run: echo "🍏 This job's status is ${{ job.status }}."
