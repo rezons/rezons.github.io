@@ -4,6 +4,7 @@
 local same,cliffsDelta,bootstrap
 local Num=require"num"
 
+-- ## Effect Size 
 -- Theory note: parametric/non-parametric. effect size, significance tests
 -- Two lists re the same if an effect size test and significance test say so,
 function same(xs,ys, my,     sames)
@@ -25,6 +26,7 @@ function cliffsDelta(xs,ys,my,       lt,gt,thresholds)
       if y < x then lt = lt + 1 end end end
   return math.abs(gt - lt)/(#xs * #ys) <= threshold end
 
+-- ## Significance
 -- Non parametric "significance"  test (i.e. is it possible to
 -- distinguish if an item belongs to one population of
 -- another).  Two populations are the same if no difference can be
@@ -55,6 +57,7 @@ function bootstrap(y0,z0,my)
     then n = n + 1 end end
   return n / bootstraps >= conf end
 
+-- ## Comparing Multiple Treatments
 -- Do a top-down division of the `Num`s  in `nums`.
 -- Divide  at the cut that maximizes  the  difference between
 --  the  mean before and  after the cut. Stop cutting if
@@ -93,5 +96,5 @@ function scottKnot(nums,the,      all,cohen)
   div(1, #nums, 1, all)
   return nums end
 
--- ## Find
+-- ## Fin
 return {same=same, cliffsDelta=cliffsDelta, bootstrap=bootstrap} 
