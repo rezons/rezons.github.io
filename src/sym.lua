@@ -8,7 +8,7 @@ function Sym.new(at,txt)
   return oo.isa(Sym,{at=at,txt=txt,n=0,mode=nil,most=1,has={}},Num) end
 
 --  ## Update
-function Sym:sumamrize(x,  inc) 
+function Sym:summarize(x,  inc) 
   if x ~= "?" then
     inc = inc or 1
     i.n = i.n + inc
@@ -39,4 +39,3 @@ function Sym:dist(x,y)
 
 -- ## Fin
 return Sym
-

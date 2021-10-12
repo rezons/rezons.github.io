@@ -8,16 +8,14 @@
 -- the initial low and higher than the initia, high,
 local oo=require"oo"
 local Num=oo.klass"Num"
-
 function Num.new(at,txt) 
-  return oo.isa(Num,{at=at,txt=txt, 
-    n=0, mu=0, m2=0, sd=0, lo=1E32,hi -1E32},Num) end
+  return oo.isa(Num,{at=at, txt=txt,n=0, mu=0,m2=0, sd=0,lo=1E32, hi=-1E32}) end
 
 -- ## Update
 -- Knuth's incremental valuation  of  standard deviation.
 function Num:summarize(x,    d)
   if x~="?" then
-    if self.some then self.some:add(x) end
+    if self.some then self.some:summarize(x) end
     self.n  = self.n + 1
     self.lo = math.min(self.lo,x)
     self.hi = math.max(self.hi,x) 
@@ -27,7 +25,7 @@ function Num:summarize(x,    d)
     self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end end
 
 -- ## Query
--- Central  tendency
+-- Central tendency
 function Num:mid() return self.mu end
 
 -- Variability about the central tendency.

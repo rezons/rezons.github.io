@@ -9,16 +9,16 @@ local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
 -- ## Create
 -- If passed a table or a file name, add in that content.
 local Sample=oo.klass"Sample"
-function Sample.new(my, inits)
+function Sample.new(my, x)
   self= oo.isa(Sample, {rows={}, cols=nil, my=my, keep=true}) 
-  if type(inits)=="table"  then for _,t in pairs(inits) do self:add(t) end end
-  if type(inits)=="string" then for _,t in csv(inits)   do self:add(t) end end
+  if type(x)=="table"  then for _,t in pairs(x) do self:summarize(t) end end
+  if type(x)=="string" then for _,t in csv(x)   do self:summarize(t) end end
   return self end
 
 -- ## Update
 --  If this is the first row, then use it to create the
 -- column headers.
-function Sample:add(t)
+function Sample:summarize(t)
   if   not self.cols 
   then self.cols = Cols.new(t) 
   else self.cols:summarize(t)
