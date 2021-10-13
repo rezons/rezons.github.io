@@ -5,7 +5,7 @@ alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
 src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
 alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
 href="https://github.com/timm/keys/actions"><img
-src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
 
 <hr>
 
@@ -15,21 +15,20 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 ```lua
 local oo=require"oo"
 local Some=oo.klass"Some"
-function Some:new(most)
-  return oo.obj(self,"Some",
-    {n=0,_all={},sorted=false,most=most or 256}) end
+function Some.new(most)
+  return oo.isa(Some,{n=0,_all={},sorted=false,most=most or 256}) end
 ```
 ## Update
 If full, replace anything, picked at random.
 
 ```lua
-function Some:summarize(x,     r,pos)
-  r=math.random
-  if x ~= "?" then
-    self.n = self.n + 1
-    if     #self._all < self.most  then pos=#self._all + 1
-    elseif r() < #self._all/self.n then pos=#self._all * r() end
-    if pos then i._all[pos//1] = x; self.sorted=false end end end
+function Some:add(x,     r,pos)
+  r = math.random
+  if x == "?" then return end
+  self.n = self.n + 1
+  if     #self._all < self.most  then pos=#self._all + 1
+  elseif r() < #self._all/self.n then pos=#self._all * r() end
+  if pos then self._all[pos//1] = x; self.sorted=false end end 
 ```
 Combine two.
 

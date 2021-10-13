@@ -5,7 +5,7 @@ alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
 src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
 alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
 href="https://github.com/timm/keys/actions"><img
-src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
 
 <hr>
 
@@ -15,6 +15,7 @@ src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a
 local oo=require"oo"
 local Cols=require"Cols"
 local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
+local csv=require("lib").csv
 ```
 Theory note: dialog independence
 ## Create
@@ -22,10 +23,10 @@ If passed a table or a file name, add in that content.
 
 ```lua
 local Sample=oo.klass"Sample"
-function Sample.new(my, x)
+function Sample.new(my, inits)
   self= oo.isa(Sample, {rows={}, cols=nil, my=my, keep=true}) 
-  if type(x)=="table"  then for _,t in pairs(x) do self:summarize(t) end end
-  if type(x)=="string" then for _,t in csv(x)   do self:summarize(t) end end
+  if type(inits)=="table"  then for _,t in pairs(inits) do self:add(t) end end
+  if type(inits)=="string" then for _,t in csv(inits)   do self:add(t) end end
   return self end
 ```
 ## Update
@@ -33,10 +34,10 @@ function Sample.new(my, x)
 column headers.
 
 ```lua
-function Sample:summarize(t)
+function Sample:add(t)
   if   not self.cols 
   then self.cols = Cols.new(t) 
-  else self.cols:summarize(t)
+  else self.cols:add(t)
        if self.keep then table.insert(self.rows,t) end end end
 ```
 ## Query

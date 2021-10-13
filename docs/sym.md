@@ -5,7 +5,7 @@ alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
 src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
 alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
 href="https://github.com/timm/keys/actions"><img
-src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
 
 <hr>
 
@@ -19,24 +19,33 @@ function Sym.new(at,txt)
   return oo.isa(Sym,{at=at,txt=txt,n=0,mode=nil,most=1,has={}},Num) end
 ```
  ## Update
+Increments.
 
 ```lua
-function Sym:summarize(x,  inc) 
-  if x ~= "?" then
-    inc = inc or 1
-    i.n = i.n + inc
-    self.has[x] = inc + (self.has[x] or 0) 
-    if self.has[x] > self.most then
-      self.most, self.mode = self.has[x], x end end 
-  return self end
+function Sym:add(x,  inc) 
+  if x == "?" then return end
+  inc = inc or 1
+  self.n = self.n + inc
+  self.has[x] = inc + (self.has[x] or 0) 
+  if self.has[x] > self.most then
+    self.most, self.mode = self.has[x], x end end
+```
+Decrements.
+
+```lua
+function Sym:sub(x,  dec) 
+  if x == "?" then return end
+  dec = dec or 1
+  self.n = self.n - dec
+  self.has[x] = self.has[x] - dec end
 ```
 Combine two symbols
 
 ```lua
 function Sym:merge(other)
   new = Sym.new(self.at, self.txt)
-  for k,inc in pairs(self.has)  do new:summarize(k,inc) end
-  for k,cin in pairs(other.has) do new:summarize(k,inc) end
+  for k,inc in pairs(self.has)  do new:add(k,inc) end
+  for k,cin in pairs(other.has) do new:add(k,inc) end
   return new end
 ```
 ## Query
@@ -49,7 +58,8 @@ Variability about the central tendency.
 
 ```lua
 function Sym:spread(    e) 
-  e=0; for _,v in pairs(self.has) do e= e- v/self.n * math.log(v/self.n,2) end
+  e=0; for _,v in pairs(self.has) do 
+         if v>0 then e= e- v/self.n * math.log(v/self.n,2) end end
   return e end
 ```
 Aha's distance calculation. Symbols are either zero or one apart.

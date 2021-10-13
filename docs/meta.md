@@ -5,7 +5,7 @@ alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
 src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
 alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
 href="https://github.com/timm/keys/actions"><img
-src="https://github.com/timm/keys/actions/workflows/unit-test.yml/badge.svg"></a>
+src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
 
 <hr>
 
