@@ -4,25 +4,25 @@
 local oo=require"oo"
 local Cols=require"Cols"
 local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
-local csv=require("misc").csv
+local csv=require("lib").csv
 
 -- Theory note: dialog independence
 -- ## Create
 -- If passed a table or a file name, add in that content.
 local Sample=oo.klass"Sample"
-function Sample.new(my, x)
+function Sample.new(my, inits)
   self= oo.isa(Sample, {rows={}, cols=nil, my=my, keep=true}) 
-  if type(x)=="table"  then for _,t in pairs(x) do self:summarize(t) end end
-  if type(x)=="string" then for _,t in csv(x)   do self:summarize(t) end end
+  if type(inits)=="table"  then for _,t in pairs(inits) do self:add(t) end end
+  if type(inits)=="string" then for _,t in csv(inits)   do self:add(t) end end
   return self end
 
 -- ## Update
 --  If this is the first row, then use it to create the
 -- column headers.
-function Sample:summarize(t)
+function Sample:add(t)
   if   not self.cols 
   then self.cols = Cols.new(t) 
-  else self.cols:summarize(t)
+  else self.cols:add(t)
        if self.keep then table.insert(self.rows,t) end end end
 
 -- ## Query
