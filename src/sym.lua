@@ -8,20 +8,27 @@ function Sym.new(at,txt)
   return oo.isa(Sym,{at=at,txt=txt,n=0,mode=nil,most=1,has={}},Num) end
 
 --  ## Update
-function Sym:summarize(x,  inc) 
-  if x ~= "?" then
-    inc = inc or 1
-    i.n = i.n + inc
-    self.has[x] = inc + (self.has[x] or 0) 
-    if self.has[x] > self.most then
-      self.most, self.mode = self.has[x], x end end 
-  return self end
+-- Increments.
+function Sym:add(x,  inc) 
+  if x == "?" then return end
+  inc = inc or 1
+  self.n = self.n + inc
+  self.has[x] = inc + (self.has[x] or 0) 
+  if self.has[x] > self.most then
+    self.most, self.mode = self.has[x], x end end
+
+-- Decrements.
+function Sym:sub(x,  dec) 
+  if x == "?" then return end
+  dec = dec or 1
+  self.n = self.n - dec
+  self.has[x] = self.has[x] - dec end
 
 -- Combine two symbols
 function Sym:merge(other)
   new = Sym.new(self.at, self.txt)
-  for k,inc in pairs(self.has)  do new:summarize(k,inc) end
-  for k,cin in pairs(other.has) do new:summarize(k,inc) end
+  for k,inc in pairs(self.has)  do new:add(k,inc) end
+  for k,cin in pairs(other.has) do new:add(k,inc) end
   return new end
 
 -- ## Query

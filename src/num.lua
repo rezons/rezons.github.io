@@ -12,17 +12,27 @@ function Num.new(at,txt)
   return oo.isa(Num,{at=at, txt=txt,n=0, mu=0,m2=0, sd=0,lo=1E32, hi=-1E32}) end
 
 -- ## Update
+
 -- Knuth's incremental valuation  of  standard deviation.
-function Num:summarize(x,    d)
-  if x~="?" then
-    if self.some then self.some:summarize(x) end
-    self.n  = self.n + 1
-    self.lo = math.min(self.lo,x)
-    self.hi = math.max(self.hi,x) 
-    d       = x - self.mu
-    self.mu = self.mu + d/self.n
-    self.m2 = self.m2 + d*(x - self.mu)
-    self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end end
+function Num:add(x,    d)
+  if x   == "?" then return end
+  self.n  = self.n + 1
+  d       = x - self.mu
+  self.mu = self.mu + d/self.n
+  self.m2 = self.m2 + d*(x - self.mu)
+  self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 
+  self.lo = math.min(self.lo,x)
+  self.hi = math.max(self.hi,x) 
+  if self.some then self.some:add(x) end end
+
+-- Forget a number
+function Num:sub(x,     d)
+  if x   == "?" then return end
+  self.n  = self.n - 1
+  d       = x - self.mu
+  self.mu = self.mu - d / self.n
+  self.m2 = self.m2 - d * (x - self.mu) 
+  self.sd = self.n<2 and 0 or (self.m2/(self.n-1))^0.5 end 
 
 -- ## Query
 -- Central tendency
