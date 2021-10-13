@@ -4,6 +4,7 @@
 local oo=require"oo"
 local Cols=require"Cols"
 local Sym,Num,Skip = require"Sym", require"Num", require"Skip"
+local csv=require("misc").csv
 
 -- Theory note: dialog independence
 -- ## Create
