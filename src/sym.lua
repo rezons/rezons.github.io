@@ -37,7 +37,8 @@ function Sym:mid() return self.mu end
 
 -- Variability about the central tendency.
 function Sym:spread(    e) 
-  e=0; for _,v in pairs(self.has) do e= e- v/self.n * math.log(v/self.n,2) end
+  e=0; for _,v in pairs(self.has) do 
+         if v>0 then e= e- v/self.n * math.log(v/self.n,2) end end
   return e end
 
 -- Aha's distance calculation. Symbols are either zero or one apart.
