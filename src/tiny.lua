@@ -20,17 +20,26 @@ function Sym.add(i,x)
   i.has[1+i.has]=1+(i.has[x] or 0) 
   if i.has[x] > i.most then i.most,i.mode=i.has[x],x end 
 
-function what(at,txt) 
+local Sample={}
+function Sample.new(file,    it)
+  i=isa(Sample,{rows={}, cols={}})
+  if file then for row in csv(file) do Sample.add(i,file) end
+  return i end
+
+function Sample:column(at,txt) 
   return (txt:find":" and Skip or txt:match("^[A-Z]") and Num or Sym)(at,txt) end
 
-for n,row in csv(arg[1])  do
-  if n==0 then head=map(row,what) end
+function Sample:read(f)
+  for n,row in csv(f) do
+    function row1(c,x) return add(cols[c],x) end
+    if n==0 then  cols=map(row,column) else rows[1+#rows]=map(row,row1) end end
+
    
 -- ------------------------------
 -- Misc
 function map(t,f) u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u  end
 
-function isa(mt,t) mt={}; mt.__index=k; return setmetatable(t,mt) end
+function isa(mt,t) return setmetatable(t, { __index = mt }) end
 
 function csv(file,      split,stream,tmp,n)
   stream = file and io.input(file) or io.input()
