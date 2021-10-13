@@ -4,19 +4,18 @@
 -- ## Create
 local oo=require"oo"
 local Some=oo.klass"Some"
-function Some:new(most)
-  return oo.obj(self,"Some",
-    {n=0,_all={},sorted=false,most=most or 256}) end
+function Some.new(most)
+  return oo.isa(Some,{n=0,_all={},sorted=false,most=most or 256}) end
 
 -- ## Update
 -- If full, replace anything, picked at random.
-function Some:summarize(x,     r,pos)
-  r=math.random
-  if x ~= "?" then
-    self.n = self.n + 1
-    if     #self._all < self.most  then pos=#self._all + 1
-    elseif r() < #self._all/self.n then pos=#self._all * r() end
-    if pos then i._all[pos//1] = x; self.sorted=false end end end
+function Some:add(x,     r,pos)
+  r = math.random
+  if x == "?" then return end
+  self.n = self.n + 1
+  if     #self._all < self.most  then pos=#self._all + 1
+  elseif r() < #self._all/self.n then pos=#self._all * r() end
+  if pos then self._all[pos//1] = x; self.sorted=false end end 
 
 -- Combine two.
 function Some:merge()

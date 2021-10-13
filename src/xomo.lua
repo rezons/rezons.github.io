@@ -1,8 +1,7 @@
 -- vim: ft=lua ts=2 sw=2 et:
 
-oo=require"oo"
+local oo=require"oo"
 local Cocomo=oo.klass"Comoco"
-
 function Cocomo.new(project) 
   return oo.isa(Cocomo,{x={},y={}}):ready(project) end
 

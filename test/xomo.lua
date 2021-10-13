@@ -7,5 +7,5 @@ for _=1,10 do
   e1= c:effort()
   local c=Cocomo.new{loc={2,2}}
   e2= c:effort()
-  print(e1/e2)
+  --print(e1/e2)
 end
