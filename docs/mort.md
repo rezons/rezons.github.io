@@ -1,15 +1,28 @@
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
--- # Mort = Multi-Objective Reasoaable Trees
--- Separate data samoles into two. Apply some _reasons_ of the `x` or `y` variables
--- to favor one half. Find the variable range that most distinguishes favored from
--- other. Cull half the data. Repeat.
+<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
+href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
+alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
+src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
+alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
+href="https://github.com/timm/keys/actions"><img
+src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
+
+<hr>
+
+# Mort = Multi-Objective Reasoaable Trees
+Separate data samoles into two. Apply some _reasons_ of the `x` or `y` variables
+to favor one half. Find the variable range that most distinguishes favored from
+other. Cull half the data. Repeat.
+
+```lua
 
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
+```
+## Settings, CLI
+Check if `the` config variables are updated on the command-line interface.
 
--- ## Settings, CLI
--- Check if `the` config variables are updated on the command-line interface.
+```lua
 local function cli(flag, b4)
  for n,word in ipairs(arg) do if word==flag then
    return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
@@ -18,13 +31,17 @@ local function cli(flag, b4)
 the = {p=    cli("-p",2),
        far=  cli("-f",.9)
       }
+```
+## Classes
 
--- ## Classes
+```lua
 function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
+```
+## Initialization
 
--- ## Initialization
+```lua
 
 function Skip.new(c,s) return isa(Skip,{n=0,s=s,c=c}) end
 function Sym.new(c,s)  return isa(Sym,{n=0,s=s,c=c,has={},most=0,mode="?"}) end
@@ -35,8 +52,10 @@ function Num.new(c,s)
   s = s or ""
   return isa(Num,{n=0,s=s,c=c, hi=-1E364,lo=1E64,has={},
                   w=s:find"+" and 1 or s:find"-" and -1 or 0}) end
+```
+## Initialization Support
 
--- ## Initialization Support
+```lua
 function Sample:init(file) 
   if file then for row in csv(file) do self:add(row) end end
   return self end
@@ -51,8 +70,10 @@ function Cols:init(t,      u,is,goalp,new)
     if not name:find":" then
       push(goalp(name) and self.ys or self.ys, new) end end 
   return self end
+```
+## Updating
 
--- ## Updating
+```lua
 function add(i,x) if x~="?" then i.n = i.n+1; i:add(x) end; return x end
 
 function Skip:add(x) return end
@@ -70,8 +91,10 @@ function Sample:add(t,     adder)
   if   not self.cols 
   then self.cols=Cols.new(t) 
   else push(self.rows, map(t, adder)) end end
+```
+## Distance
 
--- ## Distance
+```lua
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
@@ -90,8 +113,10 @@ function Sample:dist(row1,row2,cols)
     d   = d + inc^p 
     n   = n + 1 end
   return (d/n)^(1/p) end
+```
+## Clustering
 
--- ## Clustering
+```lua
 function Sample:dists(row1,    t)
   t={}
   -- map XXX
@@ -117,10 +142,12 @@ function Sample:seperate(rows,         one,two,c,a,b,mid)
   rows = sorted(rows,"projection") -- sort on the "projection" field
   mid  = #rows//2
   return slice(rows,1,mid), slice(rows,mid+1) end -- For Python people: rows[1:mid], rows[mid+1:]
+```
+------------------------------
+## Lib
+### Printing
 
--- ------------------------------
--- ## Lib
--- ### Printing
+```lua
 function shout(t) print(#t>0 and str(t) or out(t)) end
 
 function out(t)
@@ -133,14 +160,18 @@ function out(t)
 function str(t,      u)
   u={}; for _,v in ipairs(t) do u[1+#u] = tostring(v) end 
   return '{'..table.concat(u, ", ").."}"  end
+```
+### Meta
 
--- ### Meta
+```lua
 function map(t,f,      u) 
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 function isa(mt,t) return setmetatable(t, mt) end
+```
+### Files
 
--- ### Files
+```lua
 function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
@@ -153,8 +184,10 @@ function csv(file,      split,stream,tmp)
       then for j,x in pairs(t) do t[j] = tonumber(x) or x end
            return t end
     else io.close(stream) end end end
+```
+## Examples
 
--- ## Examples
+```lua
 local Eg = {}
 function Eg.num1(      n)
   n=Num.new()
@@ -173,6 +206,9 @@ function Eg.sample(      s)
   shout(s.cols.all[3]) end
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
--- ## Fin.
-return {sample=Sample}
+```
+## Fin.
 
+```lua
+return {sample=Sample}
+```
