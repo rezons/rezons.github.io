@@ -2,7 +2,7 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
 -- # R101: an example reasonable algorithm
 -- <img align=right width=300 src="r101.jpg">
--- - Find two remote points.
+-- - Find a pair of two faraway points.
 -- - Divide data samples in two (using distance to these pairs) 
 -- - Apply some _reasons_ over the `x` or `y` variables to favor one half. 
 -- - Find and print the variable range that selects for best.
@@ -20,7 +20,9 @@ local function cli(flag, b4)
   return b4 end
 
 the = {p=    cli("-p",2),
-       far=  cli("-f",.9)
+       far=  cli("-f",.9),
+       todo= cli("-t","hello"),
+       tests= cli("-T",false)
       }
 
 -- ## Classes
@@ -174,6 +176,10 @@ function csv(file,      split,stream,tmp)
 
 -- ## Examples
 local Eg = {}
+function Eg.all()
+  for k,f in pairs(Eg) do math.randomseed(the.seed); f() end end
+function Eg.toc()
+  for k,_ in pairs(Eg) do print("   "..k) end end
 function Eg.num1(      n)
   n=Num.new()
   for _,x in pairs{10,20,30,40} do add(n,x) end
@@ -191,8 +197,13 @@ function Eg.sample(      s)
   shout(s.cols.all[3]) end
 
 -- ## Fin.
+local  fails=0
+if     the.tests then Eg.all()
+elseif the.toc  then Eg.toc()
+else math.randomseed(the.seed)
+       Eg[the.todo]()
+end
 -- Report any rogue globals
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
--- Return.
-return {the=the,sample=Sample,egs=Egs}
+os.exit(fails)
 
