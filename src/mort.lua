@@ -1,22 +1,15 @@
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
-<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
-href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
-alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
-src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
-alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
-href="https://github.com/timm/keys/actions"><img
-src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
+-- # Mort = Multi-Objective Reasoaable Trees
+-- Separate data samoles into two. Apply some _reasons_ of the `x` or `y` variables
+-- to favor one half. Find the variable range that most distinguishes favored from
+-- other. Cull half the data. Repeat.
 
-<hr>
-
-
-```lua
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
-```
-## Settings, CLI
 
-```lua
+-- ## Settings, CLI
+-- Check if `the` config variables are updated on the command-line interface.
 local function cli(flag, b4)
  for n,word in ipairs(arg) do if word==flag then
    return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
@@ -25,49 +18,41 @@ local function cli(flag, b4)
 the = {p=    cli("-p",2),
        far=  cli("-f",.9)
       }
-```
-## Classes
 
-```lua
+-- ## Classes
 function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
-```
-## Initialization
 
-```lua
+-- ## Initialization
 
-function Skip.new(at,txt) return isa(Skip,{n=0,txt=txt,at=at}) end
-function Sym.new(at,txt)  return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
-function Cols.new(t)      return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
+function Skip.new(c,s) return isa(Skip,{n=0,s=s,c=c}) end
+function Sym.new(c,s)  return isa(Sym,{n=0,s=s,c=c,has={},most=0,mode="?"}) end
+function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
 function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
 
-function Num.new(at,txt) 
-  txt = txt or ""
-  return isa(Num,{n=0,txt=txt,at=at, hi=-1E21,lo=1E31,has={},
-                  w=txt:find"+" and 1 or txt:find"-" and -1 or 0}) end
-```
-## Initialization Support
+function Num.new(c,s) 
+  s = s or ""
+  return isa(Num,{n=0,s=s,c=c, hi=-1E364,lo=1E64,has={},
+                  w=s:find"+" and 1 or s:find"-" and -1 or 0}) end
 
-```lua
+-- ## Initialization Support
 function Sample:init(file) 
   if file then for row in csv(file) do self:add(row) end end
   return self end
 
-function Cols:init(t,      u,is,goalp) 
+function Cols:init(t,      u,is,goalp,new) 
   function is(s) return s:find":" and Skip or s:match"^[A-Z]" and Num or Sym end
   function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
   self.names = t
   for at,name in pairs(t) do
-    local new = is(name).new(at,name) 
+    new = is(name).new(at,name) 
     push(self.all, new)
     if not name:find":" then
       push(goalp(name) and self.ys or self.ys, new) end end 
   return self end
-```
-## Updating
 
-```lua
+-- ## Updating
 function add(i,x) if x~="?" then i.n = i.n+1; i:add(x) end; return x end
 
 function Skip:add(x) return end
@@ -85,10 +70,8 @@ function Sample:add(t,     adder)
   if   not self.cols 
   then self.cols=Cols.new(t) 
   else push(self.rows, map(t, adder)) end end
-```
-## Distance
 
-```lua
+-- ## Distance
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
@@ -107,10 +90,8 @@ function Sample:dist(row1,row2,cols)
     d   = d + inc^p 
     n   = n + 1 end
   return (d/n)^(1/p) end
-```
-## Clustering
 
-```lua
+-- ## Clustering
 function Sample:dists(row1,    t)
   t={}
   -- map XXX
@@ -136,11 +117,10 @@ function Sample:seperate(rows,         one,two,c,a,b,mid)
   rows = sorted(rows,"projection") -- sort on the "projection" field
   mid  = #rows//2
   return slice(rows,1,mid), slice(rows,mid+1) end -- For Python people: rows[1:mid], rows[mid+1:]
-```
-------------------------------
-Misc
 
-```lua
+-- ------------------------------
+-- ## Lib
+-- ### Printing
 function shout(t) print(#t>0 and str(t) or out(t)) end
 
 function out(t)
@@ -154,11 +134,13 @@ function str(t,      u)
   u={}; for _,v in ipairs(t) do u[1+#u] = tostring(v) end 
   return '{'..table.concat(u, ", ").."}"  end
 
+-- ### Meta
 function map(t,f,      u) 
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 function isa(mt,t) return setmetatable(t, mt) end
 
+-- ### Files
 function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
@@ -172,18 +154,25 @@ function csv(file,      split,stream,tmp)
            return t end
     else io.close(stream) end end end
 
-local n=Num.new()
-for _,x in pairs{10,20,30,40} do add(n,x) end
-shout(n)
+-- ## Examples
+local Eg = {}
+function Eg.num1(      n)
+  n=Num.new()
+  for _,x in pairs{10,20,30,40} do add(n,x) end
+  shout(n)
 
-local s=Sym.new()
-for _,x in pairs{10,10,10,10,20,20,30} do add(s,x) end
-shout(s.has)
+function Eg.sym(      s)
+  local s=Sym.new()
+  for _,x in pairs{10,10,10,10,20,20,30} do add(s,x) end
+  shout(s.has)
 
-local s=Sample.new()
-shout(s)
-local s=Sample.new("../data/auto93.csv")
-shout(s.cols.all[3])
+function Eg.sample(      s)
+  local s=Sample.new()
+  shout(s)
+  local s=Sample.new("../data/auto93.csv")
+  shout(s.cols.all[3])
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
-```
+-- ## Fin.
+return {sample=Sample}
+
