@@ -10,7 +10,6 @@ local function cli(flag, b4)
  return b4 end
 
 the = {p=    cli("-p",2),
-       some= cli("-s",256),
        far=  cli("-f",.9)
       }
 
@@ -87,17 +86,31 @@ function Sample:dist(row1,row2,cols)
   return (d/n)^(1/p) end
 
 -- ## Clustering
-function Sample:dists(row1,rows,cols,    t)
-  rows = rows or top(the.some, shuffle(self.rows))
+function Sample:dists(row1,    t)
   t={}
-  for _,row2 in pairs(rows) do 
-    push(t, {self:dist(row1,row2,cols),row2}) end
+  -- map XXX
+  for _,row2 in pairs(self.rows) do 
+    push(t, {self:dist(row1,row2),row2}) end
   table.sort(t, function (x,y) return x[1] < y[1] end)
   return t end
 
-function Sample:far(row1,rows,cols,    tmp)
-  tmp = self:neighbors(row1,rows,cols)
+function Sample:far(row1,    tmp)
+  tmp = self:dists(row1)
   return tmp[the.far * #tmp // 1] end
+
+function Sample:seperate(rows,         one,two,c,a,b,mid)
+  one  = self:far(any(rows))
+  two  = self:far(one)
+  c    = self:dist(one,two)
+  -- map
+  for _,row in pairs(rows) do
+    a  = self:dist(one)
+    b  = self:dist(two)
+    row.projection = (a^2 + c^2 - b^2) / (2*c) -- from task2
+  end
+  rows = sorted(rows,"projection") -- sort on the "projection" field
+  mid  = #rows//2
+  return slice(rows,1,mid), slice(rows,mid+1) end -- For Python people: rows[1:mid], rows[mid+1:]
 
 -- ------------------------------
 -- Misc
