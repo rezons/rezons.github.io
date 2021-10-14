@@ -1,4 +1,5 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
+
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
 
@@ -17,7 +18,7 @@ function Num.new(at,txt)
 function Sym.new(at,txt)
   return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
 
-function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}) end
+function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
 
 function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
 
@@ -26,15 +27,16 @@ function Sample:init(file)
   if file then for row in csv(file) do self:add(row) end end
   return self end
 
-function Cols:init(t) 
+function Cols:init(t,      u,is,goalp) 
   function is(s) return s:find":" and Skip or s:match"^[A-Z]" and Num or Sym end
   function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
   self.names = t
   for at,name in pairs(t) do
-    new = is(name)(at,name) 
-    push(self.cols, new)
+    local new = is(name).new(at,name) 
+    push(self.all, new)
     if not name:find":" then
-      push(goalp(name) and self.ys or self.ys, new) end end end
+      push(goalp(name) and self.ys or self.ys, new) end end 
+  return self end
     
 -- ## Updating
 function add(i,x) if x~="?" then i.n = i.n+1; i:add(x) end; return x end
@@ -50,13 +52,10 @@ function Sym.add(i,x)
   if i.has[x] > i.most then i.most,i.mode = i.has[x],x end end
 
 function Sample:add(t)
-  local function worker(c,x) return add(self.cols[c],x) end
+  local function worker(c,x)  return add(self.cols.all[c],x) end
   if   not self.cols 
   then self.cols=Cols.new(t) 
-  else print(21)
-       map(t, worker)
-       print(22)
-       push(self.rows, map(t,worker)) end end
+  else push(self.rows, map(t,worker)) end end
 
 -- ## Distance
 
@@ -104,5 +103,6 @@ shout(s.has)
 local s=Sample.new()
 shout(s)
 local s=Sample.new("../data/auto93.csv")
+shout(s.cols.all[3])
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
