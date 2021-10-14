@@ -1,6 +1,6 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
--- # r101 = an example reasonable algorithm
+-- # R0: an example reasonable algorithm
 -- Divide data samples in two. Apply some _reasons_ over the `x` or `y` variables
 -- to favor one half. Find and print the variable range that most distinguishes favored from
 -- other. Cull half the data. Repeat.
