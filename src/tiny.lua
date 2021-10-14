@@ -16,8 +16,7 @@ function Num.new(at,txt)
   return isa(Num,{n=0,txt=txt,at=at, hi=-1E21,lo=1E31,has={},
                   w=txt:find"+" and 1 or txt:find"-" and -1 or 0}) end
 
-function Sym.new(at,txt)
-  return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
+function Sym.new(at,txt) return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
 
 function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
 
