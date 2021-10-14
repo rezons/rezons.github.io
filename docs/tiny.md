@@ -20,7 +20,10 @@ local push=table.insert
 function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
+```
+## Initialization
 
+```lua
 function Skip.new(at,txt) return isa(Skip,{n=0,txt=txt,at=at}) end
 
 function Num.new(at,txt) 
@@ -52,7 +55,7 @@ function Cols:init(t,      u,is,goalp)
     if not name:find":" then
       push(goalp(name) and self.ys or self.ys, new) end end 
   return self end
-    ```
+```
 ## Updating
 
 ```lua
