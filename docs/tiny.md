@@ -24,18 +24,16 @@ local Cols,Sample  = obj"Cols", obj"Sample"
 ## Initialization
 
 ```lua
+
 function Skip.new(at,txt) return isa(Skip,{n=0,txt=txt,at=at}) end
+function Sym.new(at,txt)  return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
+function Cols.new(t)      return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
+function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
 
 function Num.new(at,txt) 
   txt = txt or ""
   return isa(Num,{n=0,txt=txt,at=at, hi=-1E21,lo=1E31,has={},
                   w=txt:find"+" and 1 or txt:find"-" and -1 or 0}) end
-
-function Sym.new(at,txt) return isa(Sym,{n=0,txt=txt,at=at,has={},most=0,mode="?"}) end
-
-function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
-
-function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
 ```
 ## Initialization Support
 
