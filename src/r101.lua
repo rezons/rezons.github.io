@@ -15,9 +15,9 @@ local push=table.insert
 -- ## Settings, CLI
 -- Check if `the` config variables are updated on the command-line interface.
 local function cli(flag, b4)
- for n,word in ipairs(arg) do if word==flag then
-   return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
- return b4 end
+  for n,word in ipairs(arg) do if word==flag then
+    return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
+  return b4 end
 
 the = {p=    cli("-p",2),
        far=  cli("-f",.9)
