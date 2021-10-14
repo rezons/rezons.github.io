@@ -2,9 +2,12 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
 -- # R101: an example reasonable algorithm
 -- <img align=right width=300 src="r101.jpg">
--- Divide data samples in two. Apply some _reasons_ over the `x` or `y` variables
--- to favor one half. Find and print the variable range that most distinguishes one half from the over.
--- Cull anything that contradicts that range. Repeat.
+-- - Divide data samples in two. 
+-- - Apply some _reasons_ over the `x` or `y` variables
+-- to favor one half. 
+-- - Find and print the variable range that most distinguishes one half from the over.
+-- - Cull anything that contradicts that range. 
+-- - Repeat.
 -- <br clear=all>
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
