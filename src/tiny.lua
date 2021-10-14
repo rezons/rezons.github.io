@@ -3,6 +3,17 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
 
+-- ## Settings, CLI
+local function cli(flag, b4)
+ for n,word in ipairs(arg) do if word==flag then
+   return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
+ return b4 end
+
+the = {p=    cli("-p",2),
+       some= cli("-s",256),
+       far=  cli("-f",.9)
+      }
+
 -- ## Classes
 function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
@@ -45,17 +56,48 @@ function Num:add(x)
   self.has[1+#self.has]=x
   self.lo=math.min(x,self.lo); self.hi=math.max(x,self.hi) end
 
-function Sym.add(i,x)
-  i.has[x] = 1+(i.has[x] or 0) 
-  if i.has[x] > i.most then i.most,i.mode = i.has[x],x end end
+function Sym:add(x)
+  self.has[x] = 1+(self.has[x] or 0) 
+  if self.has[x] > self.most then self.most, self.mode=self.has[x], x end end
 
-function Sample:add(t)
-  local function worker(c,x)  return add(self.cols.all[c],x) end
+function Sample:add(t,     adder)
+  function adder(c,x) return add(self.cols.all[c],x) end
   if   not self.cols 
   then self.cols=Cols.new(t) 
-  else push(self.rows, map(t,worker)) end end
+  else push(self.rows, map(t, adder)) end end
 
 -- ## Distance
+function Sym:dist(x,y) 
+  return  x==y and 0 or 1 end
+
+function Num:dist(x,y)
+  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
+  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
+  else   x,y = self:norm(x), self:norm(y)  end
+  return math.abs(x-y) end
+
+function Sample:dist(row1,row2,cols)
+  local d,n,p,x,y,inc
+  d, n, p = 0, 1E-32, the.p
+  for _,col in pairs(cols or self.cols.xs) do
+    x,y = row1[col.at], row2[col.at]
+    inc = x=="?" and y=="?" and 1 or col:dist(x,y)
+    d   = d + inc^p 
+    n   = n + 1 end
+  return (d/n)^(1/p) end
+
+-- ## Clustering
+function Sample:dists(row1,rows,cols,    t)
+  rows = rows or top(the.some, shuffle(self.rows))
+  t={}
+  for _,row2 in pairs(rows) do 
+    push(t, {self:dist(row1,row2,cols),row2}) end
+  table.sort(t, function (x,y) return x[1] < y[1] end)
+  return t end
+
+function Sample:far(row1,rows,cols,    tmp)
+  tmp = self:neighbors(row1,rows,cols)
+  return tmp[the.far * #tmp // 1] end
 
 -- ------------------------------
 -- Misc
