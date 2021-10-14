@@ -75,3 +75,10 @@ function Num:dist(x,y)
 
 -- ## Fin
 return Num
+--
+-- trianguage a,c,b c=(a+b)/2
+-- f(x) = 2(x-a)/((b-a)(c-a)) ...c
+-- f(x) = 2(b-x)/((b-a)(b-c)) c...
+-- f(x) = 0 otherwise
+-- N(mu,sd^2)
+-- c = mu;  b,a = c +- sd*sqrt(6) 
