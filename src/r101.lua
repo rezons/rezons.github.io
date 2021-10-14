@@ -185,7 +185,9 @@ function Eg.sample(      s)
   local s=Sample.new("../data/auto93.csv")
   shout(s.cols.all[3]) end
 
-for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
 -- ## Fin.
+-- Report any rogue globals
+for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
+-- Return.
 return {sample=Sample}
 
