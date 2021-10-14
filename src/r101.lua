@@ -1,28 +1,14 @@
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
-<img alt="Lua" src="https://img.shields.io/badge/lua-v5.4-blue">&nbsp;<a 
-href="https://github.com/timm/keys/blob/master/LICENSE.md"><img
-alt="License" src="https://img.shields.io/badge/license-unlicense-red"></a> <img
-src="https://img.shields.io/badge/purpose-ai%20,%20se-blueviolet"> <img
-alt="Platform" src="https://img.shields.io/badge/platform-osx%20,%20linux-lightgrey"> <a
-href="https://github.com/timm/keys/actions"><img
-src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badge.svg"></a>
-
-<hr>
-
-# Mort = Multi-Objective Reasoaable Trees
-Separate data samoles into two. Apply some _reasons_ of the `x` or `y` variables
-to favor one half. Find the variable range that most distinguishes favored from
-other. Cull half the data. Repeat.
-
-```lua
-
+-- # r101 = an example reasonable algorithm
+-- Divide data samples in two. Apply some _reasons_ over the `x` or `y` variables
+-- to favor one half. Find and print the variable range that most distinguishes favored from
+-- other. Cull half the data. Repeat.
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
-```
-## Settings, CLI
-Check if `the` config variables are updated on the command-line interface.
 
-```lua
+-- ## Settings, CLI
+-- Check if `the` config variables are updated on the command-line interface.
 local function cli(flag, b4)
  for n,word in ipairs(arg) do if word==flag then
    return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
@@ -31,20 +17,17 @@ local function cli(flag, b4)
 the = {p=    cli("-p",2),
        far=  cli("-f",.9)
       }
-```
-## Classes
 
-```lua
+-- ## Classes
+-- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
+-- `Sample`s hold rows of data, summarized into `Cols` (columns).
 function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
-```
-## Initialization
 
-```lua
-
-function Skip.new(c,s) return isa(Skip,{n=0,s=s,c=c}) end
-function Sym.new(c,s)  return isa(Sym,{n=0,s=s,c=c,has={},most=0,mode="?"}) end
+-- ## Initialization
+function Skip.new(c,s) return isa(Skip,{n=0,txt=s,at=c}) end
+function Sym.new(c,s) return isa(Sym,{n=0,txt=s,at=c,has={},most=0,mode="?"}) end
 function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
 function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
 
@@ -52,14 +35,20 @@ function Num.new(c,s)
   s = s or ""
   return isa(Num,{n=0,s=s,c=c, hi=-1E364,lo=1E64,has={},
                   w=s:find"+" and 1 or s:find"-" and -1 or 0}) end
-```
-## Initialization Support
 
-```lua
+-- ## Initialization Support
+-- Samples can be initialized from csv files
 function Sample:init(file) 
   if file then for row in csv(file) do self:add(row) end end
   return self end
 
+-- `Cols` are initialized from the names in row1. e.g. Upper case
+-- names are numeric, anything with `:` is skipped over (and all other columns
+-- are symbolic. Columns have roles. 
+-- - Some columns are goals to be minimized or maximized (those marked with a `+`,`-`);
+-- - Some columns are goals to be predicted (marked with `!`);
+-- - All the goals are dependent `y` variables;
+-- - Anything that is not a goal is a dependent `x` variable.
 function Cols:init(t,      u,is,goalp,new) 
   function is(s) return s:find":" and Skip or s:match"^[A-Z]" and Num or Sym end
   function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
@@ -70,31 +59,32 @@ function Cols:init(t,      u,is,goalp,new)
     if not name:find":" then
       push(goalp(name) and self.ys or self.ys, new) end end 
   return self end
-```
-## Updating
 
-```lua
+-- ## Updating
+-- Skip any unknown cells. Otherwise, add one to the counter `n` and do the update.
 function add(i,x) if x~="?" then i.n = i.n+1; i:add(x) end; return x end
 
+-- Don't bother updating some columns.
 function Skip:add(x) return end
 
+-- Track the numerics seen so far, as well as the `lo,hi` values.
 function Num:add(x)
   self.has[1+#self.has]=x
   self.lo=math.min(x,self.lo); self.hi=math.max(x,self.hi) end
 
+-- Update the symbol counts and, maybe, the most commonly seen symbol (the `mode`).
 function Sym:add(x)
   self.has[x] = 1+(self.has[x] or 0) 
   if self.has[x] > self.most then self.most, self.mode=self.has[x], x end end
 
+-- Row1 creates the column headers. All other rows update the summaries in the column headers.
 function Sample:add(t,     adder)
   function adder(c,x) return add(self.cols.all[c],x) end
   if   not self.cols 
   then self.cols=Cols.new(t) 
   else push(self.rows, map(t, adder)) end end
-```
-## Distance
 
-```lua
+-- ## Distance
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
@@ -113,10 +103,8 @@ function Sample:dist(row1,row2,cols)
     d   = d + inc^p 
     n   = n + 1 end
   return (d/n)^(1/p) end
-```
-## Clustering
 
-```lua
+-- ## Clustering
 function Sample:dists(row1,    t)
   t={}
   -- map XXX
@@ -142,12 +130,10 @@ function Sample:seperate(rows,         one,two,c,a,b,mid)
   rows = sorted(rows,"projection") -- sort on the "projection" field
   mid  = #rows//2
   return slice(rows,1,mid), slice(rows,mid+1) end -- For Python people: rows[1:mid], rows[mid+1:]
-```
-------------------------------
-## Lib
-### Printing
 
-```lua
+-- ------------------------------
+-- ## Lib
+-- ### Printing
 function shout(t) print(#t>0 and str(t) or out(t)) end
 
 function out(t)
@@ -160,18 +146,14 @@ function out(t)
 function str(t,      u)
   u={}; for _,v in ipairs(t) do u[1+#u] = tostring(v) end 
   return '{'..table.concat(u, ", ").."}"  end
-```
-### Meta
 
-```lua
+-- ### Meta
 function map(t,f,      u) 
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 function isa(mt,t) return setmetatable(t, mt) end
-```
-### Files
 
-```lua
+-- ### Files
 function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
@@ -184,10 +166,8 @@ function csv(file,      split,stream,tmp)
       then for j,x in pairs(t) do t[j] = tonumber(x) or x end
            return t end
     else io.close(stream) end end end
-```
-## Examples
 
-```lua
+-- ## Examples
 local Eg = {}
 function Eg.num1(      n)
   n=Num.new()
@@ -206,9 +186,6 @@ function Eg.sample(      s)
   shout(s.cols.all[3]) end
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
-```
-## Fin.
-
-```lua
+-- ## Fin.
 return {sample=Sample}
-```
+
