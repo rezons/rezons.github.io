@@ -20,7 +20,6 @@ function Num.new(at,txt)
   return isa(Num,{n=0,txt=txt,at=at, hi=-1E21,lo=1E31,has={},
                   w=txt:find"+" and 1 or txt:find"-" and -1 or 0}) end
 
-
 -- ## Initialization Support
 function Sample:init(file) 
   if file then for row in csv(file) do self:add(row) end end
