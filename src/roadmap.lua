@@ -1,5 +1,10 @@
 --[[
 
+notes with matt
+
+- cs505 algorithm
+- hpothesis, geenerate random data has tha the feature of interest
+
 - strucutres
   1. business vieww: (fromhttp://web.eecs.umich.edu/~weimerw/2019-481F/readings/infose.pdf:#page=9
      - When = past, present, future
