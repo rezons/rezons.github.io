@@ -11,6 +11,39 @@ Algorithms make choices. Choices have consequences.
 Many choices are ethical but not choosing is unethical and irrational.
 Algorithms, once written, have to be wrangled. Do you know how to reason with your algorithms?
 
+For example:
+
+<table>
+<tr> 
+<td>
+<small>
+<pre>
+local my= {
+sames=      512, 
+bins=      .5,
+best=      .5,
+cohen=     .35,
+combine=   "mode",
+far=       .9,
+conf=      .05,
+k=         2,  
+cliffs=    .25,
+loud=      false,
+bootstraps=512,
+p=         2, 
+seed=      10011,
+some=      256,
+wait=      10
+}
+</pre>
+</small>
+</td>
+<td>
+<img src="https://user-images.githubusercontent.com/29195/130842711-01c78419-c8d4-4b96-8064-2fba3c33d6c4.png">
+</td>
+</tr>
+</table>
+
 But before answering that, perhaps we should ask "why is it important to ask that question?"
 It has often been said, this is the age of the algorithm. Algorithms control nearly all aspects of our life from the power distribution to the cars,
 to how we find new friends on the internet, right down to the beating of our hearts (as controlled by pacemakers). We once asked ours students "can you think of
