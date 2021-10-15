@@ -1,5 +1,4 @@
 -- vim: ft=lua ts=2 sw=2 et:
-
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
 -- # IBC: iterative bi-clustering
