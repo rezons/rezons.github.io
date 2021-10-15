@@ -26,23 +26,22 @@ For example:
 <small>
 <pre>
 local my= {
-  sames=   cli("A",   512), 
-  bins=    cli("b",  .5),
-  best=    cli("B",  .5),
-  cohen=   cli("C",  .35),
-  combine= cli("c",  "mode"),
-  far=     cli("f",  .9),
-  conf=    cli("F",  .05),
-  k=       cli("k",  2),  
-  cliffs=  cli("I",  .25,
-  loud=    cli("l",  false),
-  bootstraps=cli("O", 512),
-  p=       cli("p",  2), 
-  seed=    cli("S",  10011),
-  some=    cli("s",  256),
-  todo=    cli("t",  "hello"),
-  wait=    cli("w",  10)
- }
+sames=   cli("A",   512), 
+bins=    cli("b",  .5),
+best=    cli("B",  .5),
+cohen=   cli("C",  .35),
+combine= cli("c",  "mode"),
+far=     cli("f",  .9),
+conf=    cli("F",  .05),
+k=       cli("k",  2),  
+cliffs=  cli("I",  .25,
+loud=    cli("l",  false),
+bootstraps=cli("O", 512),
+p=       cli("p",  2), 
+seed=    cli("S",  10011),
+some=    cli("s",  256),
+wait=    cli("w",  10)
+}
 </pre>
 </small>
 </td>
