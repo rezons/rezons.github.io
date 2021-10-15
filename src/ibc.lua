@@ -102,10 +102,10 @@ function Num:dist(x,y)
   else   x,y = self:norm(x), self:norm(y)  end
   return math.abs(x-y) end
 
-function Sample:dist(row1,row2,cols)
+function Sample:dist(row1,row2)
   local d,n,p,x,y,inc
   d, n, p = 0, 1E-32, the.p
-  for _,col in pairs(cols or self.cols.xs) do
+  for _,col in pairs(self.cols.xs) do
     x,y = row1[col.at], row2[col.at]
     inc = x=="?" and y=="?" and 1 or col:dist(x,y)
     d   = d + inc^p 
@@ -115,7 +115,6 @@ function Sample:dist(row1,row2,cols)
 -- ## Clustering
 function Sample:dists(row1,    t)
   t={}
-  -- map XXX
   for _,row2 in pairs(self.rows) do 
     push(t, {self:dist(row1,row2),row2}) end
   table.sort(t, function (x,y) return x[1] < y[1] end)
