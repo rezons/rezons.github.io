@@ -176,8 +176,7 @@ function csv(file,      split,stream,tmp)
            return t end
     else io.close(stream) end end end
 
--- ----------------------------------------------
--- ## Examples
+-- ### Unit tests
 local Eg, fails = {}, 0
 local function go(x,     ok,msg) 
   math.randomseed(the.seed) 
@@ -187,6 +186,7 @@ local function go(x,     ok,msg)
   then print("\27[1m\27[32mPASS: \27[0m",x) 
   else print("\27[1m\27[31mFAIL: \27[0m",x,msg); fails=fails+1 end end
 
+-- ## Examples
 function Eg.ls(   t) 
   t={}; for k,_ in pairs(Eg) do t[1+#t]=k end
   table.sort(t)
@@ -211,6 +211,7 @@ function Eg.sample(      s)
   local s=Sample.new("../data/auto93.csv")
   shout(s.cols.all[3]) end
 
+-- ## Start-up
 go(the.todo) 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
 os.exit(fails) 
