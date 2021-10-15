@@ -30,7 +30,6 @@ local my= {
   best=    cli("B",  .5),
   cohen=   cli("C",  .35),
   combine= cli("c",  "mode"),
-  data=    cli("d",  "../data/auto93.csv"),
   far=     cli("f",  .9),
   conf=    cli("F",  .05),
   k=       cli("k",  2),  
