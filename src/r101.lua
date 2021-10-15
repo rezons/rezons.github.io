@@ -19,11 +19,13 @@ local function cli(flag, b4)
     return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
   return b4 end
 
-the = {p=    cli("-p",2),
-       far=  cli("-f",.9),
-       todo= cli("-t","hello"),
-       tests= cli("-T",false)
-      }
+local the = {
+  p=    cli("-p" ,2),
+  far=  cli("-f", .9),
+  seed= cli("-S", 937162211),
+  todo= cli("-t", "ls"),
+  wild= cli("-W", false)
+}
 
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
@@ -174,13 +176,26 @@ function csv(file,      split,stream,tmp)
            return t end
     else io.close(stream) end end end
 
+-- ----------------------------------------------
 -- ## Examples
-local Eg = {}
-function Eg.all()
-  for k,f in pairs(Eg) do math.randomseed(the.seed); f() end end
-function Eg.toc()
-  for k,_ in pairs(Eg) do print("   "..k) end end
-function Eg.num1(      n)
+local Eg, fails = {}, 0
+local function go(x,     ok,msg) 
+  math.randomseed(the.seed) 
+  if the.wild then return Eg[x]() end
+  ok, msg = pcall(Eg[x])
+  if   ok 
+  then print("\27[1m\27[32mPASS: \27[0m",x) 
+  else print("\27[1m\27[31mFAIL: \27[0m",x,msg); fails=fails+1 end end
+
+function Eg.ls(   t) 
+  t={}; for k,_ in pairs(Eg) do t[1+#t]=k end
+  table.sort(t)
+  for _,k in pairs(t) do print("    "..k) end end
+
+function Eg.all() 
+  for k,_ in pairs(Eg) do if k ~= "all" then go(k) end end end
+
+function Eg.num(      n)
   n=Num.new()
   for _,x in pairs{10,20,30,40} do add(n,x) end
   shout(n) end
@@ -196,14 +211,6 @@ function Eg.sample(      s)
   local s=Sample.new("../data/auto93.csv")
   shout(s.cols.all[3]) end
 
--- ## Fin.
-local  fails=0
-if     the.tests then Eg.all()
-elseif the.toc  then Eg.toc()
-else math.randomseed(the.seed)
-       Eg[the.todo]()
-end
--- Report any rogue globals
-for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v))  end end 
-os.exit(fails)
-
+go(the.todo) 
+for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
+os.exit(fails) 
