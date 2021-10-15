@@ -1,14 +1,12 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
--- # R101: an example reasonable algorithm
--- <img align=right width=300 src="r101.jpg">
+-- # IBC: iterative bi-clustering
 -- - Find a pair of two faraway points.
 -- - Divide data samples in two (using distance to these pairs) 
 -- - Apply some _reasons_ over the `x` or `y` variables to favor one half. 
 -- - Find and print the variable range that selects for best.
 -- - Cull the rest.
 -- - Repeat.
--- <br clear=all>
 local csv,map,isa,obj,add,out,shout,str
 local push=table.insert
 
