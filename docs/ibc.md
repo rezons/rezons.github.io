@@ -9,6 +9,10 @@ src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badg
 
 <hr>
 
+
+```lua
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
+```
 # IBC: iterative bi-clustering
 - Find a pair of two faraway points.
 - Divide data samples in two (using distance to these pairs) 
