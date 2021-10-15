@@ -16,6 +16,7 @@ For example:
 <table>
 <tr> 
 <td>
+<small>
 <pre>
 local my= {
   sames=   cli("A",   512), 
@@ -36,6 +37,7 @@ local my= {
   wait=    cli("w",  10)
  }
 </pre>
+</small>
 </td>
 <td>
 <img src="https://user-images.githubusercontent.com/29195/130842711-01c78419-c8d4-4b96-8064-2fba3c33d6c4.png">
