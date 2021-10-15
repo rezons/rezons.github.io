@@ -113,30 +113,23 @@ function Sample:dist(row1,row2)
   return (d/n)^(1/p) end
 
 -- ## Clustering
-function Sample:dists(row1,    t)
-  t={}
-  for _,row2 in pairs(self.rows) do 
-    push(t, {self:dist(row1,row2),row2}) end
-  table.sort(t, function (x,y) return x[1] < y[1] end)
-  return t end
+function Sample:dists(row1,    aux)
+  function aux(_,row2) return {self:dist(row1,row2),row2} end
+  return sort(map(self.rows, aux),first) end
 
-function Sample:far(row1,    tmp)
-  tmp = self:dists(row1)
-  return tmp[the.far * #tmp // 1] end
+function Sample:far(row1,   t) 
+  t = self:dists(row); return t[the.far * #t // 1] end
 
-function Sample:seperate(rows,         one,two,c,a,b,mid)
-  one  = self:far(any(rows))
-  two  = self:far(one)
-  c    = self:dist(one,two)
-  -- map
-  for _,row in pairs(rows) do
-    a  = self:dist(one)
-    b  = self:dist(two)
-    row.projection = (a^2 + c^2 - b^2) / (2*c) -- from task2
-  end
-  rows = sorted(rows,"projection") -- sort on the "projection" field
-  mid  = #rows//2
-  return slice(rows,1,mid), slice(rows,mid+1) end -- For Python people: rows[1:mid], rows[mid+1:]
+function Sample:biCluster(rows,         one,two,c,a,b,mid)
+  rows  = rows or self.rows
+  _,one = self:far(any(rows))
+  c,two = self:far(one)
+  function aux(_,x) 
+    a=self:dist(x,one); b=self:dist(x,two); return {(a^2+c^2-b^2)/(2*c),x)} end
+  todo = sort(map(rows, aux),first)
+  left,right,mid  = {},{},#todo//2
+  for i,x in pairs(todo) do push(i<=mid and left or right, x) end
+  return left,right
 
 -- ------------------------------
 -- ## Lib
@@ -147,8 +140,7 @@ function out(t)
   local function show(k)     k=tostring(k); return k:sub(1,1) ~= "_" end 
   local function pretty(_,v) return string.format(":%s %s", v[1], v[2]) end
   local u={}; for k,v in pairs(t) do if show(k) then u[1+#u] = {k,v} end end
-  table.sort(u, function(x,y) return x[1] < y[1] end)
-  return (t._name or "")..str(map(u, pretty)) end 
+  return (t._name or "")..str(map(sort(u,first), pretty)) end 
 
 function str(t,      u)
   u={}; for _,v in ipairs(t) do u[1+#u] = tostring(v) end 
@@ -159,6 +151,10 @@ function map(t,f,      u)
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 function isa(mt,t) return setmetatable(t, mt) end
+
+function first(t) return t[1] end
+function any(t)   return t[1 + #t*math.random()//1] end
+function sort(t,f) table.sort(t,f); return t end
 
 -- ### Files
 function csv(file,      split,stream,tmp)
