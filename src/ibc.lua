@@ -19,11 +19,13 @@ local function cli(flag, b4)
   return b4 end
 
 local the = {
-  p=    cli("-p" ,2),
-  far=  cli("-f", .9),
-  seed= cli("-S", 937162211),
-  todo= cli("-t", "ls"),
-  wild= cli("-W", false)
+  bins=  cli("-b", .5),
+  cohen= cli("-c", .35),
+  far=   cli("-f", .9),
+  p=     cli("-p" , 2),
+  seed=  cli("-S",  937162211),
+  todo=  cli("-t",  "ls"),
+  wild=  cli("-W",  false)
 }
 
 -- ## Classes
@@ -70,18 +72,21 @@ function Cols:init(t,      u,is,goalp,new)
 
 -- ## Updating
 -- Skip any unknown cells. Otherwise, add one to the counter `n` and do the update.
-function add(i,x) if x~="?" then i.n = i.n+1; i:add(x) end; return x end
+function add(i,x,n) 
+  n = n or 1
+  if x~="?" then i.n = i.n + n; i:add(x,n) end; return x end
 
 -- Don't bother updating some columns.
-function Skip:add(x) return end
+function Skip:add(x,n) return end
 
 -- Track the numerics seen so far, as well as the `lo,hi` values.
-function Num:add(x)
-  self.has[1+#self.has]=x
-  self.lo=math.min(x,self.lo); self.hi=math.max(x,self.hi) end
+function Num:add(x,n)
+  for _ = 1,n do self.has[1+#self.has] = x end
+  self.lo = math.min(x,self.lo); self.hi = math.max(x,self.hi) end
 
 -- Update the symbol counts and, maybe, the most commonly seen symbol (the `mode`).
-function Sym:add(x)
+function Sym:add(x,n)
+  n = n or 1
   self.has[x] = 1+(self.has[x] or 0) 
   if self.has[x] > self.most then self.most, self.mode=self.has[x], x end end
 
@@ -91,6 +96,30 @@ function Sample:add(t,     adder)
   if   not self.cols 
   then self.cols=Cols.new(t) 
   else push(self.rows, map(t, adder)) end end
+
+-- ## Query
+function Sym:br(other,     best,rest)
+  best = self.has[true]  + other.has[true]  + 1E-32
+  rest = self.has[false] + other.has[false] + 1E-32
+  return  self.has[true]/best, other.has[false]/rest end
+
+function Sym:novel(other) b,r=self:br(other); return 1/(b+r) end
+function Sym:bad(other)   b,r=self:br(other); return r<=b and 0 or r^2/(b+r) end
+function Sym:good(other)  b,r=self:br(other); return b<=r and 0 or b^2/(b+r) end
+  
+-- Standard deviation.
+function Sym:spread(   sum1,sum2,mu)
+  sum1=0; for _,x in pairs(self.has) do sum1 = sum1 + x end
+  mu = sum1/#self.has
+  sum2=0; for _,x in pairs(self.has) do sum2 = sum2 + (x-mu)^2 end 
+  return math.sqrt(sum2 / (#self.has - 1)) end 
+
+-- Entropy.
+function Num:spread(t,    e)
+  e = 0
+  for _,v in pairs(self.has) do 
+    if v>0 then e = e - v/self.n * math.log(v/self.n,2) end end
+  return e end
 
 -- ## Distance
 function Sym:dist(x,y) 
@@ -112,24 +141,53 @@ function Sample:dist(row1,row2)
     n   = n + 1 end
   return (d/n)^(1/p) end
 
--- ## Clustering
 function Sample:dists(row1,    aux)
   function aux(_,row2) return {self:dist(row1,row2),row2} end
   return sort(map(self.rows, aux),first) end
 
-function Sample:far(row1,   t) 
-  t = self:dists(row); return t[the.far * #t // 1] end
-
-function Sample:biCluster(rows,         one,two,c,a,b,mid)
+function Sample:biCluster(rows,        one,two,c,todo,left,right,mid,far,aux)
+  function far(row,   t) 
+    t=self:dists(row); return t[the.far*#t//1] end 
+  function aux(_,x) 
+    a,b=self:dist(x,one),self:dist(x,two); return {(a^2+c^2-b^2)/(2*c),x} end
   rows  = rows or self.rows
   _,one = self:far(any(rows))
   c,two = self:far(one)
-  function aux(_,x) 
-    a=self:dist(x,one); b=self:dist(x,two); return {(a^2+c^2-b^2)/(2*c),x)} end
-  todo = sort(map(rows, aux),first)
-  left,right,mid  = {},{},#todo//2
-  for i,x in pairs(todo) do push(i<=mid and left or right, x) end
-  return left,right
+  todo  = sort(map(rows, aux),first)
+  left, right, mid  = {}, {}, #todo//2
+  for i,x in pairs(todo) do push(i<=mid and left or right, x[2]) end
+  return left,right end
+
+-- ## Range Ranking
+
+local div(xys,rule,  n1,n2, sd1,sd2)
+  local epsilon, enough, best, cut, now, klass, tmp
+  epsilon = ((n1*sd1 + n2*sd2) / (n1+n2)) * the.cohen
+  enough = (#xys) ^ the.bins
+  best, first, last = -1, xy[1][1], xy[#xy][1]
+  cut = last
+  for _,xy in pairs(xys) do
+    now, klass = xy[1], xy[2]
+    lhs:add(klass,  1)
+    rhs:add(klass, -1)
+    if lhs.n >= enough and rhs.n >= enough then 
+      if now-first >= epsilon and last-now >= epsilon then
+        tmp = Sym[rule](lhs,rhs)
+        if tmp > best then best, cut = tmp, now end end end end 
+  return best,cut  end
+  -- return the best of two
+
+function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
+  for i,best in pairs(bests.cols.nums) do
+    rest= rests.cols.nums[i]
+    xys = {}
+    for _,z in pairs(best.has) do push(xys, {z, true})  end
+    for _,z in pairs(rest.has) do push(xys, {z, false}) end
+    lhs = Num.new(); lhs:add(true,  #best.has)
+    rhs = Num.new(); rhs:add(false, #rest.has)
+    best, cut = div(sort(xys, first), rule or "good",
+              #best.has, #rest.has,
+              sd(best.has), sd(rest.has)) end end
 
 -- ------------------------------
 -- ## Lib
@@ -155,6 +213,9 @@ function isa(mt,t) return setmetatable(t, mt) end
 function first(t) return t[1] end
 function any(t)   return t[1 + #t*math.random()//1] end
 function sort(t,f) table.sort(t,f); return t end
+
+function xpect(one,two)
+  return (one.n*one:var() + two.n*two:var()) / (one.n + two.n) end
 
 -- ### Files
 function csv(file,      split,stream,tmp)
