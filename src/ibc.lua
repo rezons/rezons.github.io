@@ -59,6 +59,11 @@ function Num.new(c,s)
   return isa(Num,{n=0,txt=s,at=c or 1, hi=-1E364,lo=1E64,has={},
                   w=s:find"+" and 1 or s:find"-" and -1 or 0}) end
 
+function Sample:clone(inits)
+  s=Sample.new({self.cols.names})
+  for _,row in pairs(inits or {}) do s:add(row) end
+  return s end
+
 -- ## Initialization Support
 -- Samples can be initialized from csv files
 function Sample:init(file) 
@@ -72,14 +77,16 @@ function Sample:init(file)
 -- - Some columns are goals to be predicted (marked with `!`);
 -- - All the goals are dependent `y` variables;
 -- - Anything that is not a goal is a dependent `x` variable.
-function Cols:init(t,      u,is,goalp,new) 
-  function is(s) return s:find":" and Skip or s:match"^[A-Z]" and Num or Sym end
-  function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
+function ignore(s) return name:find":" end
+function is(s) return ignore(s) and Skip or s:match"^[A-Z]" and Num or Sym end
+function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
+
+function Cols:init(t,      u,new) 
   self.names = t
   for at,name in pairs(t) do
     new = is(name).new(at,name) 
     push(self.all, new)
-    if not name:find":" then
+    if not ignore(name) then
       push(goalp(name) and self.ys or self.ys, new) end end 
   return self end
 
@@ -177,8 +184,6 @@ function Sample:biCluster(rows,        one,two,c,todo,left,right,mid,far,aux)
 -- ## Range Ranking
 local function div(xys,rule,  n1,n2, sd1,sd2)
   local epsilon, enough, best, cut, now, klass,tmp,start,stop
-  epsilon = ((n1*sd1 + n2*sd2) / (n1+n2)) * the.cohen
-  enough = (#xys) ^ the.bins
   best, start, stop = -1, xy[1][1], xy[#xy][1]
   cut = last
   for _,xy in pairs(xys) do
@@ -203,6 +208,31 @@ function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
               #best.has, #rest.has,
               sd(best.has), sd(rest.has)) end end
 
+function halve(names, rows0,-- list of good rows
+               rows1)-- list of bad
+
+  for at,name in pairs(names) do
+    if not ignore(name) and not goalp(name) then
+      xys={}
+      function load(t,here) 
+        for _,x in pairs(t) do if x[at]~="?" then push(xys,{x[at],here}) end end
+      load(rows0,true)
+      load(rows1,false)
+      chop(sort(xys,first), is(name)) end end end 
+
+function chop(xys,what)
+   lhs, rhs = what.new(), what.new()
+   for _,xy in pairs(xys) do rhs:add(xy[2]) end
+   best = -1
+   start,top=xys[1][1], xys[#xys][1]
+   for cut,xy in pairs(xys) do
+     lhs:add(xy[2])
+     rhs:add(xy[2],-1)
+     left=lhs:good(rhs)
+     right=rhs:good(lhs)
+     if left> right and left > best then best,lo,hi=right,cut,right end
+     if right> left and rigtht > best then best,lo,hi=left,cut,right end
+    
 -- ------------------------------
 -- ## Lib
 -- ### Meta
