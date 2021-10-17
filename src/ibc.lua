@@ -8,7 +8,7 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 -- - Find and print the variable range that selects for best.
 -- - Cull the rest.
 -- - Repeat.
-local csv,map,isa,obj,add,out,shout,str
+local the, csv,map,isa,obj,add,out,shout,str
 local push=table.insert
 
 -- ## Settings, CLI
@@ -18,20 +18,18 @@ local function cli(flag, b4)
     return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
   return b4 end
 
-local the = {
+local function about() return {
   bins=  cli("-b", .5),
   cohen= cli("-c", .35),
   far=   cli("-f", .9),
   p=     cli("-p" , 2),
   seed=  cli("-S",  937162211),
   todo=  cli("-t",  "ls"),
-  wild=  cli("-W",  false)
-}
+  wild=  cli("-W",  false) } end
 
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
 -- `Sample`s hold rows of data, summarized into `Cols` (columns).
-function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
 
@@ -98,14 +96,17 @@ function Sample:add(t,     adder)
   else push(self.rows, map(t, adder)) end end
 
 -- ## Query
-function Sym:br(other,     best,rest)
-  best = self.has[true]  + other.has[true]  + 1E-32
-  rest = self.has[false] + other.has[false] + 1E-32
-  return  self.has[true]/best, other.has[false]/rest end
+function Sym:br(other,     goal)
+  local b,r, B, R = 0, 0, 1E-31, 1E32
+  goal = goal == nil and true or goal
+  for _,counts in pairs{self.has, other.has} do
+    for k,v in pairs(counts) do if k==goal then B=B+v else R=R+v end end end
+  for k,v in pairs(self.has) do if k==goal then b=b+v else r=r+v end end
+  return b/B, r/R end  
 
 function Sym:novel(other) b,r=self:br(other); return 1/(b+r) end
-function Sym:bad(other)   b,r=self:br(other); return r<=b and 0 or r^2/(b+r) end
 function Sym:good(other)  b,r=self:br(other); return b<=r and 0 or b^2/(b+r) end
+function Sym:bad(other)   b,r=self:br(other); return r<=b and 0 or r^2/(b+r) end
   
 -- Standard deviation.
 function Sym:spread(   sum1,sum2,mu)
@@ -159,8 +160,7 @@ function Sample:biCluster(rows,        one,two,c,todo,left,right,mid,far,aux)
   return left,right end
 
 -- ## Range Ranking
-
-local div(xys,rule,  n1,n2, sd1,sd2)
+local function div(xys,rule,  n1,n2, sd1,sd2)
   local epsilon, enough, best, cut, now, klass, tmp
   epsilon = ((n1*sd1 + n2*sd2) / (n1+n2)) * the.cohen
   enough = (#xys) ^ the.bins
@@ -181,11 +181,11 @@ function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
   for i,best in pairs(bests.cols.nums) do
     rest= rests.cols.nums[i]
     xys = {}
-    for _,z in pairs(best.has) do push(xys, {z, true})  end
+    for e in pairs(best.has) do push(xys, {z, true})  end
     for _,z in pairs(rest.has) do push(xys, {z, false}) end
     lhs = Num.new(); lhs:add(true,  #best.has)
     rhs = Num.new(); rhs:add(false, #rest.has)
-    best, cut = div(sort(xys, first), rule or "good",
+    biest, cut = div(sort(xys, first), rule or "good",
               #best.has, #rest.has,
               sd(best.has), sd(rest.has)) end end
 
@@ -210,10 +210,17 @@ function map(t,f,      u)
 
 function isa(mt,t) return setmetatable(t, mt) end
 
-function first(t) return t[1] end
-function any(t)   return t[1 + #t*math.random()//1] end
-function sort(t,f) table.sort(t,f); return t end
+function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
 
+-- ### Lists
+-- Return any item from a lost
+function any(t)   return t[1 + #t*math.random()//1] end
+-- Sort a list using a function `f`.
+function sort(t,f) table.sort(t,f); return t end
+-- Return the first item in a list.
+function first(t) return t[1] end
+
+-- ### Expected value
 function xpect(one,two)
   return (one.n*one:var() + two.n*two:var()) / (one.n + two.n) end
 
@@ -234,6 +241,7 @@ function csv(file,      split,stream,tmp)
 -- ### Unit tests
 local Eg, fails = {}, 0
 local function go(x,     ok,msg) 
+  the = about()
   math.randomseed(the.seed) 
   if the.wild then return Eg[x]() end
   ok, msg = pcall(Eg[x])
