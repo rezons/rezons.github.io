@@ -1,14 +1,24 @@
 -- vim: ft=lua ts=2 sw=2 et:
+--[[
+    __                           ___                        
+ __/\ \                         /\_ \                       
+/\_\ \ \____    ___             \//\ \    __  __     __     
+\/\ \ \ '__`\  /'___\             \ \ \  /\ \/\ \  /'__`\   
+ \ \ \ \ \L\ \/\ \__/       __     \_\ \_\ \ \_\ \/\ \L\.\_ 
+  \ \_\ \_,__/\ \____\     /\_\    /\____\\ \____/\ \__/.\_\
+   \/_/\/___/  \/____/     \/_/    \/____/ \/___/  \/__/\/_/
+--]]
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
 -- # IBC: iterative bi-clustering
+-- (c) Tim Menzies 2021, unlicense.org
 -- - Find a pair of two faraway points.
 -- - Divide data samples in two (using distance to these pairs) 
 -- - Apply some _reasons_ over the `x` or `y` variables to favor one half. 
 -- - Find and print the variable range that selects for best.
 -- - Cull the rest.
 -- - Repeat.
-local the, csv,map,isa,obj,add,out,shout,str
+local the, csv,map,isa,obj,add,out,shout,str,keys,xpect,goods,sort,any,first,fmt
 local push=table.insert
 
 -- ## Settings, CLI
@@ -19,6 +29,7 @@ local function cli(flag, b4)
   return b4 end
 
 local function about() return {
+  bw=    cli("-B",  false),
   bins=  cli("-b", .5),
   cohen= cli("-c", .35),
   far=   cli("-f", .9),
@@ -30,18 +41,22 @@ local function about() return {
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
 -- `Sample`s hold rows of data, summarized into `Cols` (columns).
+function obj(name,   k) 
+  k={_is=name,__tostring=function(x) return out(x) end}; k.__index=k
+  return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
 
 -- ## Initialization
-function Skip.new(c,s) return isa(Skip,{n=0,txt=s,at=c}) end
-function Sym.new(c,s) return isa(Sym,{n=0,txt=s,at=c,has={},most=0,mode="?"}) end
-function Cols.new(t) return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
+function Cols.new(t)      return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
 function Sample.new(file) return isa(Sample,{rows={},cols=nil}):init(file) end
+function Skip.new(c,s)    return isa(Skip,{n=0,txt=s,at=c or 1}) end
+function Sym.new(c,s)  
+  return isa(Sym,{n=0,txt=s,at=c or 1,has={},most=0,mode="?"}) end
 
 function Num.new(c,s) 
   s = s or ""
-  return isa(Num,{n=0,s=s,c=c, hi=-1E364,lo=1E64,has={},
+  return isa(Num,{n=0,txt=s,at=c or 1, hi=-1E364,lo=1E64,has={},
                   w=s:find"+" and 1 or s:find"-" and -1 or 0}) end
 
 -- ## Initialization Support
@@ -161,17 +176,17 @@ function Sample:biCluster(rows,        one,two,c,todo,left,right,mid,far,aux)
 
 -- ## Range Ranking
 local function div(xys,rule,  n1,n2, sd1,sd2)
-  local epsilon, enough, best, cut, now, klass, tmp
+  local epsilon, enough, best, cut, now, klass,tmp,start,stop
   epsilon = ((n1*sd1 + n2*sd2) / (n1+n2)) * the.cohen
   enough = (#xys) ^ the.bins
-  best, first, last = -1, xy[1][1], xy[#xy][1]
+  best, start, stop = -1, xy[1][1], xy[#xy][1]
   cut = last
   for _,xy in pairs(xys) do
     now, klass = xy[1], xy[2]
     lhs:add(klass,  1)
     rhs:add(klass, -1)
     if lhs.n >= enough and rhs.n >= enough then 
-      if now-first >= epsilon and last-now >= epsilon then
+      if now-start >= epsilon and last-stop >= epsilon then
         tmp = Sym[rule](lhs,rhs)
         if tmp > best then best, cut = tmp, now end end end end 
   return best,cut  end
@@ -183,7 +198,6 @@ function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
     xys = {}
     for e in pairs(best.has) do push(xys, {z, true})  end
     for _,z in pairs(rest.has) do push(xys, {z, false}) end
-    lhs = Num.new(); lhs:add(true,  #best.has)
     rhs = Num.new(); rhs:add(false, #rest.has)
     biest, cut = div(sort(xys, first), rule or "good",
               #best.has, #rest.has,
@@ -191,38 +205,52 @@ function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
 
 -- ------------------------------
 -- ## Lib
--- ### Printing
-function shout(t) print(#t>0 and str(t) or out(t)) end
-
-function out(t)
-  local function show(k)     k=tostring(k); return k:sub(1,1) ~= "_" end 
-  local function pretty(_,v) return string.format(":%s %s", v[1], v[2]) end
-  local u={}; for k,v in pairs(t) do if show(k) then u[1+#u] = {k,v} end end
-  return (t._name or "")..str(map(sort(u,first), pretty)) end 
-
-function str(t,      u)
-  u={}; for _,v in ipairs(t) do u[1+#u] = tostring(v) end 
-  return '{'..table.concat(u, ", ").."}"  end
-
 -- ### Meta
 function map(t,f,      u) 
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
+function keys(t,   ks)
+  ks={}; for k,_ in pairs(t) do ks[1+#ks]=k end; return sort(ks) end
+ 
 function isa(mt,t) return setmetatable(t, mt) end
 
-function obj(name,   k) k={_name=name,__tostring=out}; k.__index=k; return k end
-
 -- ### Lists
+-- Return the first item in a list.
+function first(t,u) return t[1] < u[1]  end
 -- Return any item from a lost
 function any(t)   return t[1 + #t*math.random()//1] end
 -- Sort a list using a function `f`.
 function sort(t,f) table.sort(t,f); return t end
--- Return the first item in a list.
-function first(t) return t[1] end
 
 -- ### Expected value
 function xpect(one,two)
   return (one.n*one:var() + two.n*two:var()) / (one.n + two.n) end
+
+-- ### Printing
+-- handy short cut
+fmt = string.format
+
+-- colored strings
+function red(s)    return the.bw and s or "\27[1m\27[31m"..s.."\27[0m" end
+function green(s)  return the.bw and s or "\27[1m\27[32m"..s.."\27[0m" end
+function yellow(s) return the.bw and s or "\27[1m\27[33m"..s.."\27[0m" end
+function blue(s)   return the.bw and s or "\27[1m\27[36m"..s.."\27[0m" end
+
+-- Print a generated string
+function shout(x) print(out(x)) end
+-- Generate a string, showing sorted keys, hiding secretes (keys starting with "_")
+
+function out(t,         u,secret,brace,out1,show)
+  function secret(s) return tostring(s):sub(1,1)~= "_" end
+  function brace(t)  return "{"..table.concat(t,", ").."}" end
+  function out1(_,v) return out(v) end
+  function show(_,v) return fmt(":%s %s", blue(v[1]), out(v[2])) end
+  if     type(t)=="function" then return "#`()"
+  elseif type(t)~="table" then return tostring(t) 
+  elseif #t>0 then return brace(map(t, out1),", ") 
+  else   u={}
+         for k,v in pairs(t) do if not secret(k) then u[1+#u] = {k,v} end end
+         return yellow(t._is or "")..brace(map(sort(u,first), show)) end 
 
 -- ### Files
 function csv(file,      split,stream,tmp)
@@ -243,38 +271,38 @@ local Eg, fails = {}, 0
 local function go(x,     ok,msg) 
   the = about()
   math.randomseed(the.seed) 
-  if the.wild then return Eg[x]() end
-  ok, msg = pcall(Eg[x])
+  if the.wild then return Eg[x][2]() end
+  ok, msg = pcall(Eg[x][2])
   if   ok 
-  then print("\27[1m\27[32mPASS: \27[0m",x) 
-  else print("\27[1m\27[31mFAIL: \27[0m",x,msg); fails=fails+1 end end
+  then print(green("PASS: "),x) 
+  else print(red("FAIL: "),x,msg); fails=fails+1 end end
 
 -- ## Examples
-function Eg.ls(   t) 
-  t={}; for k,_ in pairs(Eg) do t[1+#t]=k end
-  table.sort(t)
-  for _,k in pairs(t) do print("    "..k) end end
+Eg.ls={"list all examples", function () 
+  map(keys(Eg), function (_,k) print(fmt("lua ibc.lua -t %-10s : %s",k,Eg[k][1])) end) end}
 
-function Eg.all() 
-  for k,_ in pairs(Eg) do if k ~= "all" then go(k) end end end
+Eg.all={"run all examples", function() 
+  map(Eg,function(k,_) return k ~= "all" and go(k) end) end}
 
-function Eg.num(      n)
+Eg.config={"show options", function () shout(the) end }
+
+Eg.num={"demo Nums", function (    n)
   n=Num.new()
   for _,x in pairs{10,20,30,40} do add(n,x) end
-  shout(n) end
+  print(n) end}
 
-function Eg.sym(      s)
+Eg.sym={"demo syms", function(      s)
   local s=Sym.new()
-  for _,x in pairs{10,10,10,10,20,20,30} do add(s,x) end
-  shout(s.has) end
+  for _,x in pairs{"a","a","a","a","b","b","c"} do add(s,x) end
+  print(s) end}
 
-function Eg.sample(      s)
+Eg.sample={"demo sample", function(     s)
   local s=Sample.new()
   shout(s)
   local s=Sample.new("../data/auto93.csv")
-  shout(s.cols.all[3]) end
+  shout(s.cols.all[3]) end}
 
 -- ## Start-up
-go(the.todo) 
+go(about().todo) 
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
 os.exit(fails) 
