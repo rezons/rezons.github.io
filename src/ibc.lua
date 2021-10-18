@@ -191,7 +191,6 @@ function Sym:chop(other,out)
     t[x]=t[x] or Sym.new(self.at, self.txt); t[x]:add(y,n) end
   map(self.has,  function(_,x) _add(x, self.has[x], true) end)
   map(other.has, function(_,x) _add(x, self.has[x], false) end)
-  out = out or {-1,self.at,"="}
   for x1,one in pairs(t) do 
     local others = Sym.new()
     for x2,other in pairs(t) do
@@ -209,7 +208,6 @@ function Num:chop(other, out)
   function _add(x,y) hi:add(y); push(t, {x,y}) end 
   map(self.has,  function(_,x) _add(x,true) end )
   map(other.has, function(_,x) _add(x,false) end)
-  out = out or {-1,self.at,"="}
   local enough = (#t)^self.enough
   for i,xy in pairs(sort(t,first)) do
     local x,y,los,his
