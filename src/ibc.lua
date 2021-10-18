@@ -12,8 +12,7 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 
 -- # IBC: iterative bi-clustering
 -- (c) Tim Menzies 2021, unlicense.org
--- - Find a pair of two faraway points.
--- - Divide data samples in two (using distance to these pairs) 
+-- - Divide data samples in two (best and rest)
 -- - Apply some _reasons_ over the `x` or `y` variables to favor one half. 
 -- - Find and print the variable range that selects for best.
 -- - Cull the rest.
@@ -30,9 +29,10 @@ local function cli(flag, b4)
 
 local function about() return {
   bw=    cli("-B",  false),
-  bins=  cli("-b", .5),
   cohen= cli("-c", .35),
-  far=   cli("-f", .9),
+  enough=cli("-e", .5),
+  eval=  cli("-F",  8),
+  few=   cli("-f",  64),
   p=     cli("-p" , 2),
   seed=  cli("-S",  937162211),
   todo=  cli("-t",  "ls"),
@@ -93,6 +93,9 @@ function Cols:init(t,      u,new)
   return self end
 
 -- ## Updating
+function adds(i,t) 
+  for _,v in pairs(t or {}) do i:add(v) end; return i end
+
 -- Skip any unknown cells. Otherwise, add one to the counter `n` and do the update.
 function add(i,x,n) 
   n = n or 1
@@ -119,79 +122,127 @@ function Sample:add(t,     adder)
   then self.cols=Cols.new(t) 
   else push(self.rows, map(t, adder)) end end
 
+function Sym:merge(other)
+  new = Sym.new(self.at, self.txt)
+  for k,n in pairs(self.has) do  new:add(k,n) end
+  for k,n in pairs(other.has) do new:add(k,n) end
+  return new end
+
+-- ## Dist
+function Sym:dist(x,y) 
+  return  x==y and 0 or 1 end
+
+function Num:dist(x,y)
+  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
+  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
+  else   x,y = self:norm(x), self:norm(y)  end
+  return math.abs(x-y) end
+
+function Sample:dist(row1,row2)
+  local d,n,p,x,y,inc
+  d, n, p = 0, 1E-32, the.p
+  for _,col in pairs(self.cols.xs) do
+    x,y = row1[col.at], row2[col.at]
+    inc = x=="?" and y=="?" and 1 or col:dist(x,y)
+    d   = d + inc^p 
+    n   = n + 1 end
+  return (d/n)^(1/p) end
+
 -- ## Query
+function Num:norm(x)
+  local lo,hi = self.lo,self.hi
+  return math.abs(hi-lo)< 1E-16 and 0 or (x-lo)/(hi-lo) end
+
 function Sym:br(other,     goal)
   local b,r, B, R = 0, 0, 1E-31, 1E32
   goal = goal == nil and true or goal
-  for _,counts in pairs{self.has, other.has} do
-    for k,v in pairs(counts) do if k==goal then B=B+v else R=R+v end end end
-  for k,v in pairs(self.has) do if k==goal then b=b+v else r=r+v end end
+  for k,v in pairs(other.has) do 
+    if k==goal then B=B+v else R=R+v end end 
+  for k,v in pairs(self.has) do 
+   if k==goal then b=b+v; B=B+v else r=r+v; R=R+V end end
   return b/B, r/R end  
 
 function Sym:novel(other) b,r=self:br(other); return 1/(b+r) end
 function Sym:good(other)  b,r=self:br(other); return b<=r and 0 or b^2/(b+r) end
 function Sym:bad(other)   b,r=self:br(other); return r<=b and 0 or r^2/(b+r) end
-  
--- Standard deviation.
-function Sym:spread(   sum1,sum2,mu)
-  sum1=0; for _,x in pairs(self.has) do sum1 = sum1 + x end
-  mu = sum1/#self.has
-  sum2=0; for _,x in pairs(self.has) do sum2 = sum2 + (x-mu)^2 end 
-  return math.sqrt(sum2 / (#self.has - 1)) end 
 
--- Entropy.
-function Num:spread(t,    e)
-  e = 0
-  for _,v in pairs(self.has) do 
-    if v>0 then e = e - v/self.n * math.log(v/self.n,2) end end
-  return e end
+-- ## Sorting
+-- Zitler's domination predicate.
+-- theory note. pareto frontier. no exact solution. problem of g>2 goals.
+function Sample:better(row1,row2)
+  local e,w,s1,s2,n,a,b,what1,what2
+  cols = self.cols.ys
+  what1, what2, n, e = 0, 0, #cols, math.exp(1)
+  for _,col in pairs(cols) do
+    a     = col:norm(row1[col.at])
+    b     = col:norm(row2[col.at])
+    w     = col.w -- w = (1,-1) if (maximizing,m inimizing)
+    what1 = what1 - e^(col.w * (a - b) / n)
+    what2 = what2 - e^(col.w * (b - a) / n) end
+  return what1 / n < what2 / n end
 
--- ## Ranges
-function halve(s, rows0, rows1, out)
-  function xys0(at)
-    local t, all = {}, Sym.new()
-    for _,x in pairs(rows0) do 
-      if x[at]~="?" then all:add(x[at]); push(t,{x[at],true}) end end
-    for _,x in pairs(rows1) do 
-      if x[at]~="?" then all:add(x[at]); push(t,{x[at],false}) end end
-    return t, all 
-  end -----------------------------
-  for _,col in pairs(s.cols.all) do
-    if not ignore(col.txt) and not goalp(col.txt) then
-      out = out or {-1,col.at,"="}
-      xys, all = xyz0(at)
-      if   nump(col.txt) 
-      then chopNum(sort(xys,first), Eg[fun], all, out) 
-      else chopSym(xys,             Eg[fun], all, out) end end end end 
 
--- {{a,true}, {a, true},  {b, false}, {c, false}}
-function chopSym(xys, fun, all, out)
-  local t,x,y,old,val
-  t = {}
-  for _,xy in pairs(xys) do 
-    x,y = xy[1], xy[2]
-    old = t[x] or Sym.new()
-    old:add(y) end
-  for x,one in pair(t) do
-    val = fun(one,all)
-    if val > out[1] then out = {val,out.at,"=",x} end end
+-- ## Chops
+-- Find best `Sym`bolic range
+function Sym:chop(other,out)
+  local rule = Sym[the.rule]
+  local t={}
+  function _add(x,n,y) 
+    t[x]=t[x] or Sym.new(self.at, self.txt); t[x]:add(y,n) end
+  map(self.has,  function(_,x) _add(x, self.has[x], true) end)
+  map(other.has, function(_,x) _add(x, self.has[x], false) end)
+  out = out or {-1,self.at,"="}
+  for x1,one in pairs(t) do 
+    local others = Sym.new()
+    for x2,other in pairs(t) do
+      if x1 ~= x2 then 
+        others = others:merge(other) end end
+    local tmp = rule(one,others)
+    if tmp > out[1] then out={tmp, out.at,"=",x1} end end
   return out end
 
-function chopNum(xys, fun, rhs, out)
-  local start, stop = xys[1][1], xys[#xys][1]
-  local enough      = (#xy)^the.bins 
-  local left, right = what.new(), what.new()
-  for i,xy in pairs(xys) do
+-- Find best `Num`eric range
+function Num:chop(other, out)
+  local rule = Sym[the.rule]
+  local t = {}
+  local lo,hi=Sym.new(), Sym.new()
+  function _add(x,y) hi:add(y); push(t, {x,y}) end 
+  map(self.has,  function(_,x) _add(x,true) end )
+  map(other.has, function(_,x) _add(x,false) end)
+  out = out or {-1,self.at,"="}
+  local enough = (#t)^self.enough
+  for i,xy in pairs(sort(t,first)) do
+    local x,y,los,his
     x,y = xy[1], xy[2]
     lo:add(x)
     hi:add(y,-1)
-    if i > enough and #xys - i > enough then
-      los = fun(lhs, rhs)
-      his = fun(rhs, lhs)
-      if los>his and los>out[1] then out={los,out.at,"<", x} end
-      if his>los and his>out[1] then out={his,out.at,">",x} end end end 
+    if i >= enough and #xys - i > enough then
+      los=rule(lhs,rhs); if los>out[1] then out={los,out.at,"<=",x} end
+      his=rule(rhs,lhs); if his>out[1] then out={his,out.at,">",x} end end end 
   return out end
-    
+
+function Sample:chop(other)
+  out = {-1}
+  for i,col in pairs(self.cols.x) do out = col:chop(other.cols.x[i],out) end
+  return out end
+
+function Sample:ytwo()
+  local eval={}
+  for i=1,the.eval do push(eval,any(self.rows)) end
+  table.sort(eval, function(x,y) return self:better(x,y) end )
+  best,rest = self:clone(), self:clone()
+  for i=1,the.few do 
+    row1=any(self.rows)
+    where,d = 1,1E320
+    for j,row2 in pairs(eval) do
+      tmp = self:dist(row1,row2)
+      if tmp<d then where,d = j, tmp end end
+    push(where <= the.eval/2 and best or rest, row1) end 
+  return best:chop(rest) end
+   
+  
+      
+  
 -- ------------------------------
 -- ## Lib
 -- ### Meta
