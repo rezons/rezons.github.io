@@ -46,6 +46,7 @@ function obj(name,   k)
   return k end
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
+local Range = obj"Range"
 
 -- ## Initialization
 function Cols.new(t)      return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
@@ -78,8 +79,9 @@ function Sample:init(file)
 -- - All the goals are dependent `y` variables;
 -- - Anything that is not a goal is a dependent `x` variable.
 function ignore(s) return name:find":" end
-function is(s) return ignore(s) and Skip or s:match"^[A-Z]" and Num or Sym end
 function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
+function nump(s) return s:match"^[A-Z]" end
+function is(s) return ignore(s) and Skip or nump(s) and Num or Sym end
 
 function Cols:init(t,      u,new) 
   self.names = t
@@ -144,94 +146,51 @@ function Num:spread(t,    e)
     if v>0 then e = e - v/self.n * math.log(v/self.n,2) end end
   return e end
 
--- ## Distance
-function Sym:dist(x,y) 
-  return  x==y and 0 or 1 end
+-- ## Ranges
+function halve(s, rows0, rows1, out)
+  function xys0(at)
+    local t, all = {}, Sym.new()
+    for _,x in pairs(rows0) do 
+      if x[at]~="?" then all:add(x[at]); push(t,{x[at],true}) end end
+    for _,x in pairs(rows1) do 
+      if x[at]~="?" then all:add(x[at]); push(t,{x[at],false}) end end
+    return t, all 
+  end -----------------------------
+  for _,col in pairs(s.cols.all) do
+    if not ignore(col.txt) and not goalp(col.txt) then
+      out = out or {-1,col.at,"="}
+      xys, all = xyz0(at)
+      if   nump(col.txt) 
+      then chopNum(sort(xys,first), Eg[fun], all, out) 
+      else chopSym(xys,             Eg[fun], all, out) end end end end 
 
-function Num:dist(x,y)
-  if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
-  elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
-  else   x,y = self:norm(x), self:norm(y)  end
-  return math.abs(x-y) end
+-- {{a,true}, {a, true},  {b, false}, {c, false}}
+function chopSym(xys, fun, all, out)
+  local t,x,y,old,val
+  t = {}
+  for _,xy in pairs(xys) do 
+    x,y = xy[1], xy[2]
+    old = t[x] or Sym.new()
+    old:add(y) end
+  for x,one in pair(t) do
+    val = fun(one,all)
+    if val > out[1] then out = {val,out.at,"=",x} end end
+  return out end
 
-function Sample:dist(row1,row2)
-  local d,n,p,x,y,inc
-  d, n, p = 0, 1E-32, the.p
-  for _,col in pairs(self.cols.xs) do
-    x,y = row1[col.at], row2[col.at]
-    inc = x=="?" and y=="?" and 1 or col:dist(x,y)
-    d   = d + inc^p 
-    n   = n + 1 end
-  return (d/n)^(1/p) end
-
-function Sample:dists(row1,    aux)
-  function aux(_,row2) return {self:dist(row1,row2),row2} end
-  return sort(map(self.rows, aux),first) end
-
-function Sample:biCluster(rows,        one,two,c,todo,left,right,mid,far,aux)
-  function far(row,   t) 
-    t=self:dists(row); return t[the.far*#t//1] end 
-  function aux(_,x) 
-    a,b=self:dist(x,one),self:dist(x,two); return {(a^2+c^2-b^2)/(2*c),x} end
-  rows  = rows or self.rows
-  _,one = self:far(any(rows))
-  c,two = self:far(one)
-  todo  = sort(map(rows, aux),first)
-  left, right, mid  = {}, {}, #todo//2
-  for i,x in pairs(todo) do push(i<=mid and left or right, x[2]) end
-  return left,right end
-
--- ## Range Ranking
-local function div(xys,rule,  n1,n2, sd1,sd2)
-  local epsilon, enough, best, cut, now, klass,tmp,start,stop
-  best, start, stop = -1, xy[1][1], xy[#xy][1]
-  cut = last
-  for _,xy in pairs(xys) do
-    now, klass = xy[1], xy[2]
-    lhs:add(klass,  1)
-    rhs:add(klass, -1)
-    if lhs.n >= enough and rhs.n >= enough then 
-      if now-start >= epsilon and last-stop >= epsilon then
-        tmp = Sym[rule](lhs,rhs)
-        if tmp > best then best, cut = tmp, now end end end end 
-  return best,cut  end
-  -- return the best of two
-
-function goods(bests,rests,rule,      rest,xys,lhs,rhs,all)
-  for i,best in pairs(bests.cols.nums) do
-    rest= rests.cols.nums[i]
-    xys = {}
-    for e in pairs(best.has) do push(xys, {z, true})  end
-    for _,z in pairs(rest.has) do push(xys, {z, false}) end
-    rhs = Num.new(); rhs:add(false, #rest.has)
-    biest, cut = div(sort(xys, first), rule or "good",
-              #best.has, #rest.has,
-              sd(best.has), sd(rest.has)) end end
-
-function halve(names, rows0,-- list of good rows
-               rows1)-- list of bad
-
-  for at,name in pairs(names) do
-    if not ignore(name) and not goalp(name) then
-      xys={}
-      function load(t,here) 
-        for _,x in pairs(t) do if x[at]~="?" then push(xys,{x[at],here}) end end
-      load(rows0,true)
-      load(rows1,false)
-      chop(sort(xys,first), is(name)) end end end 
-
-function chop(xys,what)
-   lhs, rhs = what.new(), what.new()
-   for _,xy in pairs(xys) do rhs:add(xy[2]) end
-   best = -1
-   start,top=xys[1][1], xys[#xys][1]
-   for cut,xy in pairs(xys) do
-     lhs:add(xy[2])
-     rhs:add(xy[2],-1)
-     left=lhs:good(rhs)
-     right=rhs:good(lhs)
-     if left> right and left > best then best,lo,hi=right,cut,right end
-     if right> left and rigtht > best then best,lo,hi=left,cut,right end
+function chopNum(xys, fun, rhs, out)
+  local start, stop = xys[1][1], xys[#xys][1]
+  local enough      = (#xy)^the.bins 
+  local left, right = what.new(), what.new()
+  for i,xy in pairs(xys) do
+    x,y = xy[1], xy[2]
+    lo:add(x)
+    hi:add(y,-1)
+    if i > enough and #xys - i > enough then
+      los = fun(lhs, rhs)
+      his = fun(rhs, lhs)
+      if los>his and los>out[1] then out={los,out.at,"<", x} end
+      if his>los and his>out[1] then out={his,out.at,">",x} end end end 
+  return out end
     
 -- ------------------------------
 -- ## Lib
@@ -309,12 +268,13 @@ local function go(x,     ok,msg)
 
 -- ## Examples
 Eg.ls={"list all examples", function () 
-  map(keys(Eg), function (_,k) print(fmt("lua ibc.lua -t %-10s : %s",k,Eg[k][1])) end) end}
+  map(keys(Eg), function (_,k) 
+  print(fmt("lua ibc.lua -t %-10s : %s",k,Eg[k][1])) end) end}
 
 Eg.all={"run all examples", function() 
   map(Eg,function(k,_) return k ~= "all" and go(k) end) end}
 
-Eg.config={"show options", function () shout(the) end }
+Eg.config={"show options", function () shout(the) end}
 
 Eg.num={"demo Nums", function (    n)
   n=Num.new()
