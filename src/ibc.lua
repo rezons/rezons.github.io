@@ -151,38 +151,31 @@ function Sample:dist(row1,row2)
     n   = n + 1 end
   return (d/n)^(1/p) end
 
-function Sample:div(rows,the,         one,two,three,tmp,c,a,b,l,r)
-  one = lst.any(rows)
-  two = self:faraway(one, the, rows)
-  three = self:faraway(two, the, rows)
-  c   = self:dist(two, three, the)
-  tmp = {}
-  for _,row in pairs(rows) do
-    a = self:dist(row, two, the)
-    b = self:dist(row, three, the)
-    tmp[1+#tmp] = {row= row, 
-                   x  = (a^2 + c^2 - b^2) / (2*c)} 
-  end
-  l,r = {},{}
-  for i,rowx in pairs(lst.keysort(tmp,"x")) do
-    table.insert( i<=#rows//2 and l or r, rowx.row) end
-  return l,r,two,three end
+function Sample:div(rows,left,         one,two,three,tmp,c,a,b,l,r)
+  function x(a,b) return (a^2 + c^2 - b^2) / (2*c) end
+  function d(a,b) return self:dist(a,b) end
+  _,left  = _,left or self:far(any(rows), rows)
+  c,right = self:far(left, rows)
+  drows= map(rows,function(_,row) return {x(d(row,left), d(row,right)),row} end)
+  lefts,rights = {},{}
+  for i,drow in pairs(sort(drows,first)) do
+    push(i<=#rows//2 and lefts or rights, drow[2]) end
+  return lefts,rights end
 
-function Sample:divs(the,lvl,     out,enough,run,better)
-  best, rest = {},{}
-  function run(rows, above, lvl)
-    if   #rows < enough or lvl < 1
-    then best = self:clone(rows)
-    else local l,r,left,right = self:div(rows, above)
-         local keeps, kills   = self:better(l,r) and l,r or r,l
-         for _,kill in prais(kills) do rest[1+#rest] = kill end
-        -- keep the  sorted down
-         run(l, left, lvl-1) or run(r, right, lvl-1) end
-  end -----------------------------------------------------------------------
-  best,rest = {}
+function Sample:sway(depth,     out,enough,run,better)
+  function worker(rows, above, depth)
+    if   #rows < enough or depth  < 1
+    then bests = rows
+    else local left,right,lefts,rights = self:div(rows, above)
+         if   self:better(left,right) 
+         then left,right, lefts,rights = right,left,rights,lefts end
+         for _,bad in pairs(lefts) do rests[1+#rests] = bad end
+         worker(rights, right, lvl-1) end 
+  end ----------------
+  bests, rests = {},{}
   enough = 2*(#self.rows)^the.enough
-  run(self.rows, 0)
-  rest = top(#best*3, shuffle(rest))
+  worker(self.rows, nil, depth or the.depth)
+  return self:clone(bests), self:clone(top(#bests*3, shuffle(rests))) end
 
 function Sample:neighbors(row1,rows,    twins)
   function twins(_,row2) return {self:dist(row1,row2),row2} end 
