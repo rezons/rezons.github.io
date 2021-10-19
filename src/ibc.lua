@@ -18,6 +18,8 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 -- - Cull the rest.
 -- - Repeat.
 local the, csv,map,isa,obj,add,out,shout,str,keys,xpect,goods,sort,any,first,fmt
+local mu_sd, mode_ent
+local adds, nump,yellow,blue,red,is,green,ignore,Seed,rand,randi,cat
 local push=table.insert
 
 -- ## Settings, CLI
@@ -41,12 +43,11 @@ local function about() return {
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
 -- `Sample`s hold rows of data, summarized into `Cols` (columns).
-function obj(name,   k) 
-  k={_is=name,__tostring=function(x) return out(x) end}; k.__index=k
-  return k end
+function obj(is,   k) 
+  k={_is=is,__tostring=function(x) return out(x) end}; k.__index=k; return k end
+
 local Num,Skip,Sym = obj"Num", obj"Skip", obj"Sym"
 local Cols,Sample  = obj"Cols", obj"Sample"
-local Range = obj"Range"
 
 -- ## Initialization
 function Cols.new(t)      return isa(Cols,{names={},all={}, xs={}, ys={}}):init(t) end
@@ -78,23 +79,25 @@ function Sample:init(file)
 -- - Some columns are goals to be predicted (marked with `!`);
 -- - All the goals are dependent `y` variables;
 -- - Anything that is not a goal is a dependent `x` variable.
-function ignore(s) return name:find":" end
-function goalp(s) return s:find"+" or s:find"-" or s:find"!" end
-function nump(s) return s:match"^[A-Z]" end
-function is(s) return ignore(s) and Skip or nump(s) and Num or Sym end
+local is={}
+function is.ignore(s) return s:find":" end
+function is.goal(s) return s:find"+" or s:find"-" or s:find"!" end
+function is.num(s) return s:match"^[A-Z]" end
+function is.what(s) 
+  return is.ignore(s) and Skip or is.num(s) and Num or Sym end
 
 function Cols:init(t,      u,new) 
   self.names = t
   for at,name in pairs(t) do
-    new = is(name).new(at,name) 
+    new = is.what(name).new(at,name) 
     push(self.all, new)
-    if not ignore(name) then
-      push(goalp(name) and self.ys or self.ys, new) end end 
+    if not is.ignore(name) then
+      push(is.goal(name) and self.ys or self.ys, new) end end 
   return self end
 
 -- ## Updating
 function adds(i,t) 
-  for _,v in pairs(t or {}) do i:add(v) end; return i end
+  for _,v in pairs(t or {}) do add(i,v) end; return i end
 
 -- Skip any unknown cells. Otherwise, add one to the counter `n` and do the update.
 function add(i,x,n) 
@@ -181,7 +184,6 @@ function Sample:better(row1,row2)
     what2 = what2 - e^(col.w * (b - a) / n) end
   return what1 / n < what2 / n end
 
-
 -- ## Chops
 -- Find best `Sym`bolic range
 function Sym:chop(other,out)
@@ -191,12 +193,12 @@ function Sym:chop(other,out)
     t[x]=t[x] or Sym.new(self.at, self.txt); t[x]:add(y,n) end
   map(self.has,  function(_,x) _add(x, self.has[x], true) end)
   map(other.has, function(_,x) _add(x, self.has[x], false) end)
-  for x1,one in pairs(t) do 
+  for x1,one in pairs(t) do
     local others = Sym.new()
     for x2,other in pairs(t) do
       if x1 ~= x2 then 
         others = others:merge(other) end end
-    local tmp = rule(one,others)
+    local tmp = Sym[the.rule](one,others)
     if tmp > out[1] then out={tmp, out.at,"=",x1} end end
   return out end
 
@@ -224,50 +226,72 @@ function Sample:chop(other)
   for i,col in pairs(self.cols.x) do out = col:chop(other.cols.x[i],out) end
   return out end
 
-function Sample:ytwo()
-  local eval={}
-  for i=1,the.eval do push(eval,any(self.rows)) end
-  table.sort(eval, function(x,y) return self:better(x,y) end )
-  best,rest = self:clone(), self:clone()
-  for i=1,the.few do 
-    row1=any(self.rows)
-    where,d = 1,1E320
-    for j,row2 in pairs(eval) do
-      tmp = self:dist(row1,row2)
-      if tmp<d then where,d = j, tmp end end
-    push(where <= the.eval/2 and best or rest, row1) end 
-  return best:chop(rest) end
-   
-  
+-- function Sample:ytwo()
+--   local eval={}
+--   for i=1,the.eval do push(eval,any(self.rows)) end
+--   table.sort(eval, function(x,y) return self:better(x,y) end )
+--   best,rest = self:clone(), self:clone()
+--   for i=1,the.few do 
+--     row1=any(self.rows)
+--     where,d = 1,1E320
+--     for j,row2 in pairs(eval) do
+--       tmp = self:dist(row1,row2)
+--       if tmp<d then where,d = j, tmp end end
+--     push(where <= the.eval/2 and best or rest, row1) end 
+--   return best:chop(rest) end
+--    
+--   
       
-  
+
 -- ------------------------------
 -- ## Lib
+-- ### The Usual Short-cuts
+cat=table.concat
+fmt = string.format
+
 -- ### Meta
 function map(t,f,      u) 
   u={};for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 function keys(t,   ks)
   ks={}; for k,_ in pairs(t) do ks[1+#ks]=k end; return sort(ks) end
- 
+
 function isa(mt,t) return setmetatable(t, mt) end
 
 -- ### Lists
+-- Handy short-cut
+
 -- Return the first item in a list.
 function first(t,u) return t[1] < u[1]  end
 -- Return any item from a lost
-function any(t)   return t[1 + #t*math.random()//1] end
+function any(t)   return t[randi(#t)] end
 -- Sort a list using a function `f`.
 function sort(t,f) table.sort(t,f); return t end
 
--- ### Expected value
+-- ### Stats
+function mu_sd(t,   tmp,mu,var)
+  tmp=0; for _,x in pairs(t) do tmp=tmp+x        end; mu=tmp/#t
+  tmp=0; for _,x in pairs(t) do tmp=tmp+(x-mu)^2 end; var=tmp/(#t-1)
+  return mu,var^.5 end
+
+function mode_ent(t)
+  local n,e,max,mode = 0,0,-1,"?"
+  for x,n1 in pairs(t) do n=n+n1; if n1>max then mode,max=x,n1 end end
+  for _,n1 in pairs(t) do if n1>0 then e=e-n1/n*math.log(n1/n,2) end end
+  return mode,e end
+  
+-- Joint standard deviation
 function xpect(one,two)
   return (one.n*one:var() + two.n*two:var()) / (one.n + two.n) end
 
--- ### Printing
--- handy short cut
-fmt = string.format
+-- ### Rand
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+function rand(lo,hi,     mult,mod)
+  lo, hi = lo or 0, hi or 1
+  Seed = (16807 * Seed) % 2147483647 
+  return lo + (hi-lo) * Seed / 2147483647 end 
 
+-- ### Printing
 -- colored strings
 function red(s)    return the.bw and s or "\27[1m\27[31m"..s.."\27[0m" end
 function green(s)  return the.bw and s or "\27[1m\27[32m"..s.."\27[0m" end
@@ -279,7 +303,7 @@ function shout(x) print(out(x)) end
 -- Generate a string, showing sorted keys, hiding secretes (keys starting with "_")
 
 function out(t,         u,secret,brace,out1,show)
-  function secret(s) return tostring(s):sub(1,1)~= "_" end
+  function secret(s) return tostring(s):sub(1,1)== "_" end
   function brace(t)  return "{"..table.concat(t,", ").."}" end
   function out1(_,v) return out(v) end
   function show(_,v) return fmt(":%s %s", blue(v[1]), out(v[2])) end
@@ -288,7 +312,7 @@ function out(t,         u,secret,brace,out1,show)
   elseif #t>0 then return brace(map(t, out1),", ") 
   else   u={}
          for k,v in pairs(t) do if not secret(k) then u[1+#u] = {k,v} end end
-         return yellow(t._is or "")..brace(map(sort(u,first), show)) end 
+         return yellow(t._is or "")..brace(map(sort(u,first), show)) end end
 
 -- ### Files
 function csv(file,      split,stream,tmp)
@@ -308,7 +332,7 @@ function csv(file,      split,stream,tmp)
 local Eg, fails = {}, 0
 local function go(x,     ok,msg) 
   the = about()
-  math.randomseed(the.seed) 
+  Seed = the.seed 
   if the.wild then return Eg[x][2]() end
   ok, msg = pcall(Eg[x][2])
   if   ok 
@@ -317,29 +341,45 @@ local function go(x,     ok,msg)
 
 -- ## Examples
 Eg.ls={"list all examples", function () 
+  print("\nKnown examples:\n")
   map(keys(Eg), function (_,k) 
-  print(fmt("lua ibc.lua -t %-10s : %s",k,Eg[k][1])) end) end}
+    print("  lua ibc.lua",yellow(fmt("-t %-10s:",k)),Eg[k][1]) end) end}
 
 Eg.all={"run all examples", function() 
-  map(Eg,function(k,_) return k ~= "all" and go(k) end) end}
+  map(keys(Eg),function(_,k) return k ~= "all" and go(k) end) end}
+
+Eg.fail={"demo failure", function () assert(false,"oops") end}
 
 Eg.config={"show options", function () shout(the) end}
 
-Eg.num={"demo Nums", function (    n)
-  n=Num.new()
-  for _,x in pairs{10,20,30,40} do add(n,x) end
-  print(n) end}
+Eg.map={"demo map", function( t) 
+  t= map({10,20,30},function(n,x) return n*x end); assert(90 == t[3]) end}
 
-Eg.sym={"demo syms", function(      s)
+Eg.keys={"demo keys", function( t) 
+  assert("age"==keys({name="tim",age=21})[1]) end}
+
+Eg.any={"demo any", function() assert(30==(any{10.20,30,40})) end}
+Eg.randi={"demo rand", function(   t) 
+  t={};for i = 1,100 do t[1+#t]=randi(0,9) end; sort(t) end }
+
+Eg.num={"demo nums", function (    _,n,sd)
+  n=adds(Num.new(),{10,20,30,40,50})
+  _,sd=mu_sd(n.has)
+  assert(math.abs(15.811-sd) < 0.01)
+  print(n,mu_sd(n.has)) end}
+
+Eg.sym={"demo syms", function(      s,mode,ent)
   local s=Sym.new()
   for _,x in pairs{"a","a","a","a","b","b","c"} do add(s,x) end
+  mode,ent = mode_ent(s.has)
+  assert(math.abs(1.378- ent)<0.01)
+  assert(mode=="a")
   print(s) end}
 
 Eg.sample={"demo sample", function(     s)
-  local s=Sample.new()
-  shout(s)
   local s=Sample.new("../data/auto93.csv")
-  shout(s.cols.all[3]) end}
+  assert(398==#s.rows)
+  assert(392==s.cols.all[3].n) end}
 
 -- ## Start-up
 go(about().todo) 
