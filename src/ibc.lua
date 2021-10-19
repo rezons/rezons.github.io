@@ -151,6 +151,47 @@ function Sample:dist(row1,row2)
     n   = n + 1 end
   return (d/n)^(1/p) end
 
+function Sample:div(rows,the,         one,two,three,tmp,c,a,b,l,r)
+  one = lst.any(rows)
+  two = self:faraway(one, the, rows)
+  three = self:faraway(two, the, rows)
+  c   = self:dist(two, three, the)
+  tmp = {}
+  for _,row in pairs(rows) do
+    a = self:dist(row, two, the)
+    b = self:dist(row, three, the)
+    tmp[1+#tmp] = {row= row, 
+                   x  = (a^2 + c^2 - b^2) / (2*c)} 
+  end
+  l,r = {},{}
+  for i,rowx in pairs(lst.keysort(tmp,"x")) do
+    table.insert( i<=#rows//2 and l or r, rowx.row) end
+  return l,r,two,three end
+
+function Sample:divs(the,lvl,     out,enough,run,better)
+  best, rest = {},{}
+  function run(rows, above, lvl)
+    if   #rows < enough or lvl < 1
+    then best = self:clone(rows)
+    else local l,r,left,right = self:div(rows, above)
+         local keeps, kills   = self:better(l,r) and l,r or r,l
+         for _,kill in prais(kills) do rest[1+#rest] = kill end
+        -- keep the  sorted down
+         run(l, left, lvl-1) or run(r, right, lvl-1) end
+  end -----------------------------------------------------------------------
+  best,rest = {}
+  enough = 2*(#self.rows)^the.enough
+  run(self.rows, 0)
+  rest = top(#best*3, shuffle(rest))
+
+function Sample:neighbors(row1,rows,    twins)
+  function twins(_,row2) return {self:dist(row1,row2),row2} end 
+  return sort(map(rows, twins), first) end
+
+function Sample:far(row,rows,      all)
+  all = self:neighbors(row, shuffle(rows, the.samples))
+  return all[the.far*#all // 1].row end
+
 -- ## Query
 function Num:norm(x)
   local lo,hi = self.lo,self.hi
@@ -259,14 +300,20 @@ function keys(t,   ks)
 function isa(mt,t) return setmetatable(t, mt) end
 
 -- ### Lists
--- Handy short-cut
-
 -- Return the first item in a list.
 function first(t,u) return t[1] < u[1]  end
 -- Return any item from a lost
 function any(t)   return t[randi(#t)] end
 -- Sort a list using a function `f`.
 function sort(t,f) table.sort(t,f); return t end
+-- supplied, then return the  first `n` items.
+function shuffle(t,n,    j)
+  for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
+  return n and top(t, n) or t end
+-- top n items
+function top(t,n1,     u)
+  n1 = math.min(n1, #t)
+  u={}; for n2,x if pairs(t) do n2<=n1 and u[1+#u]=x or return u end end 
 
 -- ### Stats
 function mu_sd(t,   tmp,mu,var)
@@ -280,10 +327,6 @@ function mode_ent(t)
   for _,n1 in pairs(t) do if n1>0 then e=e-n1/n*math.log(n1/n,2) end end
   return mode,e end
   
--- Joint standard deviation
-function xpect(one,two)
-  return (one.n*one:var() + two.n*two:var()) / (one.n + two.n) end
-
 -- ### Rand
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi,     mult,mod)
@@ -308,8 +351,8 @@ function out(t,         u,secret,brace,out1,show)
   function out1(_,v) return out(v) end
   function show(_,v) return fmt(":%s %s", blue(v[1]), out(v[2])) end
   if     type(t)=="function" then return "#`()"
-  elseif type(t)~="table" then return tostring(t) 
-  elseif #t>0 then return brace(map(t, out1),", ") 
+  elseif type(t)~="table"    then return tostring(t) 
+  elseif #t>0                then return brace(map(t, out1),", ") 
   else   u={}
          for k,v in pairs(t) do if not secret(k) then u[1+#u] = {k,v} end end
          return yellow(t._is or "")..brace(map(sort(u,first), show)) end end
@@ -329,7 +372,7 @@ function csv(file,      split,stream,tmp)
     else io.close(stream) end end end
 
 -- ### Unit tests
-local Eg, fails = {}, 0
+local Eg, fails = {}, -1
 local function go(x,     ok,msg) 
   the = about()
   Seed = the.seed 
@@ -343,10 +386,11 @@ local function go(x,     ok,msg)
 Eg.ls={"list all examples", function () 
   print("\nKnown examples:\n")
   map(keys(Eg), function (_,k) 
-    print("  lua ibc.lua",yellow(fmt("-t %-10s:",k)),Eg[k][1]) end) end}
+    print("  lua ibc.lua",yellow(fmt("-t %-8s --",k)),Eg[k][1]) end) end}
 
 Eg.all={"run all examples", function() 
-  map(keys(Eg),function(_,k) return k ~= "all" and go(k) end) end}
+  map(keys(Eg),function(_,k) 
+                 return k ~= "all" and k ~= "ls" and go(k) end) end}
 
 Eg.fail={"demo failure", function () assert(false,"oops") end}
 
@@ -359,14 +403,14 @@ Eg.keys={"demo keys", function( t)
   assert("age"==keys({name="tim",age=21})[1]) end}
 
 Eg.any={"demo any", function() assert(30==(any{10.20,30,40})) end}
+
 Eg.randi={"demo rand", function(   t) 
-  t={};for i = 1,100 do t[1+#t]=randi(0,9) end; sort(t) end }
+  t={};for i = 1,30 do t[1+#t]=randi(0,4) end; print(cat(sort(t))) end}
 
 Eg.num={"demo nums", function (    _,n,sd)
   n=adds(Num.new(),{10,20,30,40,50})
   _,sd=mu_sd(n.has)
-  assert(math.abs(15.811-sd) < 0.01)
-  print(n,mu_sd(n.has)) end}
+  assert(math.abs(15.811-sd) < 0.01) end}
 
 Eg.sym={"demo syms", function(      s,mode,ent)
   local s=Sym.new()
@@ -378,8 +422,8 @@ Eg.sym={"demo syms", function(      s,mode,ent)
 
 Eg.sample={"demo sample", function(     s)
   local s=Sample.new("../data/auto93.csv")
-  assert(398==#s.rows)
-  assert(392==s.cols.all[3].n) end}
+  assert(398 == #s.rows)
+  assert(392 == s.cols.all[3].n) end}
 
 -- ## Start-up
 go(about().todo) 
