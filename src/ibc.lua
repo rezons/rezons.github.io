@@ -160,21 +160,21 @@ function Sample:div(rows,left,         one,two,three,tmp,c,a,b,l,r)
   lefts,rights = {},{}
   for i,drow in pairs(sort(drows,first)) do
     push(i<=#rows//2 and lefts or rights, drow[2]) end
-  return lefts,rights end
+  return left, right, lefts, rights end
 
-function Sample:sway(depth,     out,enough,run,better)
-  function worker(rows, above, depth)
+function Sample:sway(depth,     bests,rests,worker)
+  function worker(rows, above, depth, enough)
     if   #rows < enough or depth  < 1
-    then bests = rows
+    then return rows
     else local left,right,lefts,rights = self:div(rows, above)
          if   self:better(left,right) 
-         then left,right, lefts,rights = right,left,rights,lefts end
+         then left,right, lefts,rights = right,left,rights,lefts 
+         end
          for _,bad in pairs(lefts) do rests[1+#rests] = bad end
-         worker(rights, right, lvl-1) end 
+         return worker(rights, right, lvl-1,enough) end 
   end ----------------
-  bests, rests = {},{}
-  enough = 2*(#self.rows)^the.enough
-  worker(self.rows, nil, depth or the.depth)
+  rests = {}
+  bests = worker(self.rows, nil, depth or the.depth, 2*(#self.rows)^the.enough)
   return self:clone(bests), self:clone(top(#bests*3, shuffle(rests))) end
 
 function Sample:neighbors(row1,rows,    twins)
