@@ -47,13 +47,14 @@ function obj(is,   k)
 
 -- ----------------------------------------------------------
 -- ## Skip
-local Skip=obj"Skip"
-function Skip.new(c,s)    return isa(Skip,{n=0,txt=s,at=c or 1}) end
 -- Don't bother updating some columns.
+local Skip=obj"Skip"
+function Skip.new(c,s) return isa(Skip,{n=0,txt=s,at=c or 1}) end
 function Skip:add(x,n) return end
 
 -- ----------------------------------------------------------
 -- ## Sym
+-- Count symbols seen so dar
 local Sym=obj"Sym"
 function Sym.new(c,s)  
   return isa(Sym,{n=0,txt=s,at=c or 1,has={},most=0,mode="?"}) end
@@ -75,6 +76,8 @@ function Sym:merge(other,     new)
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
+-- Q:is one collection of symbols better than than the other?
+-- A:Yes, if it has more `goal`.
 local function _br(other,     goal)
   local b,r, B, R = 0, 0, 1E-32, 1E-32
   goal = goal == nil and true or goal
@@ -84,10 +87,12 @@ local function _br(other,     goal)
    if k==goal then b=b+v; B=B+v else r=r+v; R=R+V end end
   return b/B, r/R end  
 
+-- Score symbol counts based on `novel`ty, how `good`/`bad` they are
 function Sym:novel(other) b,r=br(self,other); return 1/(b+r) end
 function Sym:good(other)  b,r=br(self,other); return b<=r and 0 or b^2/(b+r) end
 function Sym:bad(other)   b,r=br(self,other); return r<=b and 0 or r^2/(b+r) end
 
+-- A _chop_ is a list `{score,column,operator,value}`
 function Sym:chop(other,out)
   local rule = Sym[the.rule]
   local t={}
@@ -217,14 +222,14 @@ function Sample:far(row,rows,      all)
   return all[the.far*#all // 1].row end
 
 function Sample:div(rows,left,         one,two,three,tmp,c,a,b,l,r)
-  function x(a,b) return (a^2 + c^2 - b^2) / (2*c) end
-  function d(a,b) return self:dist(a,b) end
+  function placeRow(_,row) return {place(dist(row,left), dist(row,right)),row} end
+  function place(a,b)     return (a^2 + c^2 - b^2) / (2*c) end
+  function dist(a,b)      return self:dist(a,b) end
   _,left  = _,left or self:far(any(rows), rows)
   c,right = self:far(left, rows)
-  drows= map(rows,function(_,row) return {x(d(row,left), d(row,right)),row} end)
   lefts,rights = {},{}
-  for i,drow in pairs(sort(drows,first)) do
-    push(i<=#rows//2 and lefts or rights, drow[2]) end
+  for i,tmp in pairs(sort(map(rows,placeRow),first)) do
+    push(i<=#rows//2 and lefts or rights, tmp[2]) end
   return left, right, lefts, rights end
 
 -- Zitler's domination predicate.
