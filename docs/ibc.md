@@ -20,8 +20,7 @@ src="https://github.com/rezons/rezons.github.io/actions/workflows/tests.yml/badg
 ```lua
 local the, csv,map,isa,obj,add,out,shout,str,keys,xpect,goods,sort,any,first,fmt
 local mu_sd, mode_ent, shuffle, top
-local adds, nump,yellow,blue,red,is,green,ignore,Seed,rand,randi,cat
-local push=table.insert
+local adds, nump,yellow,blue,red,is,green,ignore,Seed,rand,randi,cat,push
 ```
 ## Settings, CLI
 Check if `the` config variables are updated on the command-line interface.
@@ -64,7 +63,7 @@ Don't bother updating some columns.
 function Skip:add(x,n) return end
 ```
 ----------------------------------------------------------
- ## Sym
+## Sym
 
 ```lua
 local Sym=obj"Sym"
@@ -78,21 +77,24 @@ function Sym:add(x,n)
   n = n or 1
   self.has[x] = 1+(self.has[x] or 0) 
   if self.has[x] > self.most then self.most, self.mode=self.has[x], x end end
+```
+Return a new sym that combines `self` and `other`
 
+```lua
 function Sym:merge(other,     new)
   new = Sym.new(self.at, self.txt)
   for k,n in pairs(self.has) do  new:add(k,n) end
   for k,n in pairs(other.has) do new:add(k,n) end
   return new end
 ```
-## Dist
+Distance
 
 ```lua
 function Sym:dist(x,y) 
   return  x==y and 0 or 1 end
 
-function Sym:br(other,     goal)
-  local b,r, B, R = 0, 0, 1E-31, 1E32
+local function _br(other,     goal)
+  local b,r, B, R = 0, 0, 1E-32, 1E-32
   goal = goal == nil and true or goal
   for k,v in pairs(other.has) do 
     if k==goal then B=B+v else R=R+v end end 
@@ -100,9 +102,9 @@ function Sym:br(other,     goal)
    if k==goal then b=b+v; B=B+v else r=r+v; R=R+V end end
   return b/B, r/R end  
 
-function Sym:novel(other) b,r=self:br(other); return 1/(b+r) end
-function Sym:good(other)  b,r=self:br(other); return b<=r and 0 or b^2/(b+r) end
-function Sym:bad(other)   b,r=self:br(other); return r<=b and 0 or r^2/(b+r) end
+function Sym:novel(other) b,r=br(self,other); return 1/(b+r) end
+function Sym:good(other)  b,r=br(self,other); return b<=r and 0 or b^2/(b+r) end
+function Sym:bad(other)   b,r=br(self,other); return r<=b and 0 or r^2/(b+r) end
 
 function Sym:chop(other,out)
   local rule = Sym[the.rule]
@@ -314,6 +316,7 @@ function Sample:ytwo()
 ```lua
 cat  = table.concat
 fmt  = string.format
+push = table.insert
 sort = function(t,f) table.sort(t,f); return t end
 ```
 ### Update utilities
