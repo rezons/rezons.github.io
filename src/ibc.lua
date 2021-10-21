@@ -18,7 +18,7 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 -- - Cull the rest.
 -- - Repeat.
 local the, csv,map,isa,obj,add,out,shout,str,keys,xpect,goods,sort,any,first,fmt
-local sd, mu, entropy, shuffle, top, about, cli, help
+local sd, mu, entropy, shuffle, top, about, cli, help,go
 local adds, nump,yellow,blue,red,is,green,ignore,Seed,rand,randi,cat,push
 
 -- ## Settings, CLI
@@ -375,10 +375,25 @@ function csv(file,      split,stream,tmp)
            return t end
     else io.close(stream) end end end
 
+-- ### Start-up
+function cli(   u)
+  u={}
+  for _,t in pairs(about()) do
+    u[t[1]] = t[3]
+    for n,word in ipairs(arg) do if word==t[2] then
+      u[t[1]] = (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end 
+  return u end 
+
+function help(s)
+  print(s.." [OPTIONS]\n\nOPTIONS:\n"); 
+  for _,t in pairs(about()) do
+    print(fmt("  %-4s%s %s",t[2],fmt("%-10s",t[3]==false and "" or t[3]),t[4])) end 
+  print("\nSTART-UP ACTIONS:\n"); go("ls") end
+
 -- -------------------------------------------------------------
 -- ### Unit tests
 local Eg, fails = {}, -1
-local function go(x,     ok,msg) 
+function go(x,     ok,msg) 
   the = cli()
   Seed = the.seed 
   if the.wild then return Eg[x][2]() end
@@ -431,21 +446,6 @@ Eg.sample={"demo sample", function(     s)
 
 -- -------------------------------------------------------------
 -- ## Start-up
-function cli(   u)
-  u={}
-  for _,t in pairs(about()) do
-    u[t[1]] = t[3]
-    for n,word in ipairs(arg) do if word==t[2] then
-      u[t[1]]= (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end end 
-  return u end 
-
-function help()
-  print("lua ibc.lua [OPTIONS]\n\nOPTIONS:\n"); 
-  for _,t in pairs(about()) do
-    print(fmt("  %-4s%s %s",t[2],fmt("%-10s",t[3]==false and "" or t[3]),t[4])) end 
-  print("\nSTART-UP ACTIONS:\n"); go("ls") end
-
-if cli().help then help() else go(cli().todo) end
-
+if cli().help then help("lua ibc.lua") else go(cli().todo) end
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
 os.exit(fails) 
