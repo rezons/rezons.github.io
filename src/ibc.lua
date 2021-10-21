@@ -18,26 +18,22 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 -- - Cull the rest.
 -- - Repeat.
 local the, csv,map,isa,obj,add,out,shout,str,keys,xpect,goods,sort,any,first,fmt
-local mu_sd, mode_ent, shuffle, top
+local sd, mu, entropy, shuffle, top, about, cli, help
 local adds, nump,yellow,blue,red,is,green,ignore,Seed,rand,randi,cat,push
 
 -- ## Settings, CLI
 -- Check if `the` config variables are updated on the command-line interface.
-local function cli(flag, b4)
-  for n,word in ipairs(arg) do if word==flag then
-    return (b4==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end 
-  return b4 end
-
-local function about() return {
-  bw=    cli("-B",  false),
-  cohen= cli("-c", .35),
-  enough=cli("-e", .5),
-  eval=  cli("-F",  8),
-  few=   cli("-f",  64),
-  p=     cli("-p" , 2),
-  seed=  cli("-S",  937162211),
-  todo=  cli("-t",  "ls"),
-  wild=  cli("-W",  false) } end
+function about(f) return {
+  {"bw",     "-B", false, "show color strings in black and white"},
+  {"cohen",  "-c", .35,   "small effect threshold"},
+  {"enough", "-e", .5,    "min clusters=(#lst)^enough"},
+  {"eval",   "-F", 8,     "semi-supervised sampling size"},
+  {"few",    "-f", 64,    "number of sub-samples"},
+  {"help",   "-h", false, "show help"},
+  {"p",      "-p", 2,     "coefficient of distance calculations"},
+  {"seed",   "-S", 937162211,"random  number seed"},
+  {"todo",   "-t", "ls",  "default start-up action"},
+  {"wild",   "-W", false, "wild mode, run actions showing stackdumps"}} end
 
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
@@ -322,16 +318,18 @@ function top(t,n1,     u)
   u={}; for n2,x in pairs(t) do if n2<=n1 then u[1+#u]=x end end; return u end 
 
 -- ### Stats
-function mu_sd(t,   tmp,mu,var)
-  tmp=0; for _,x in pairs(t) do tmp=tmp+x        end; mu=tmp/#t
-  tmp=0; for _,x in pairs(t) do tmp=tmp+(x-mu)^2 end; var=tmp/(#t-1)
-  return mu,var^.5 end
+function mu(t,   n)
+  n=0; for _,x in pairs(t) do n=n+x end; return n/#t end
+ 
+function sd(t,  mid,n)
+  mid = mu(t)
+  n=0; for _,x in pairs(t) do n = n+(x-mid)^2 end; return (n/(#t-1))^.5 end
 
-function mode_ent(t)
-  local n,e,max,mode = 0,0,-1,"?"
-  for x,n1 in pairs(t) do n=n+n1; if n1>max then mode,max=x,n1 end end
+function entropy(t,    n,e)
+  local n,e = 0,0
+  for x,n1 in pairs(t) do n=n+n1 end 
   for _,n1 in pairs(t) do if n1>0 then e=e-n1/n*math.log(n1/n,2) end end
-  return mode,e end
+  return e end
   
 -- ### Rand
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
@@ -381,7 +379,7 @@ function csv(file,      split,stream,tmp)
 -- ### Unit tests
 local Eg, fails = {}, -1
 local function go(x,     ok,msg) 
-  the = about()
+  the = cli()
   Seed = the.seed 
   if the.wild then return Eg[x][2]() end
   ok, msg = pcall(Eg[x][2])
@@ -391,9 +389,8 @@ local function go(x,     ok,msg)
 
 -- ## Examples
 Eg.ls={"list all examples", function () 
-  print("\nKnown examples:\n")
   map(keys(Eg), function (_,k) 
-    print("  lua ibc.lua",yellow(fmt("-t %-8s --",k)),Eg[k][1]) end) end}
+    print(fmt("  -t   %-10s ",k)..Eg[k][1]) end) end}
 
 Eg.all={"run all examples", function() 
   map(keys(Eg),function(_,k) 
@@ -414,17 +411,17 @@ Eg.any={"demo any", function() assert(30==(any{10.20,30,40})) end}
 Eg.randi={"demo rand", function(   t) 
   t={};for i = 1,30 do t[1+#t]=randi(0,4) end; print(cat(sort(t))) end}
 
-Eg.num={"demo nums", function (    _,n,sd)
+Eg.num={"demo nums", function (    _,n,_sd)
   n=adds(Num.new(),{10,20,30,40,50})
-  _,sd=mu_sd(n.has)
-  assert(math.abs(15.811-sd) < 0.01) end}
+  _sd=sd(n.has)
+  assert(math.abs(15.811-_sd) < 0.01) end}
 
 Eg.sym={"demo syms", function(      s,mode,ent)
   local s=Sym.new()
   for _,x in pairs{"a","a","a","a","b","b","c"} do add(s,x) end
-  mode,ent = mode_ent(s.has)
+  ent = entropy(s.has)
   assert(math.abs(1.378- ent)<0.01)
-  assert(mode=="a")
+  assert(s.mode=="a")
   print(s) end}
 
 Eg.sample={"demo sample", function(     s)
@@ -434,6 +431,22 @@ Eg.sample={"demo sample", function(     s)
 
 -- -------------------------------------------------------------
 -- ## Start-up
-go(about().todo) 
+function cli(   u)
+  u={}
+  for _,t in pairs(about()) do
+    u[t[1]] = t[3]
+    for n,word in ipairs(arg) do if word==t[2] then
+      u[t[1]]= (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1]  end end end 
+  return u end 
+
+function help()
+  print("lua ibc.lua [OPTIONS]\n\nOPTIONS:\n"); 
+  for _,t in pairs(about()) do
+    print(fmt("  %-5s%s %s", 
+              t[2], fmt("%-10s", t[3]==false and "" or t[3]), t[4])) end 
+  print("\nSTART-UP ACTIONS:\n"); go("ls") end
+
+if cli().help then help() else go(cli().todo) end
+
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
 os.exit(fails) 
