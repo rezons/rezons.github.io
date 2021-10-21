@@ -31,7 +31,7 @@ function about(f) return {
   {"few",    "-f", 64,    "number of sub-samples"},
   {"help",   "-h", false, "show help"},
   {"p",      "-p", 2,     "coefficient of distance calculations"},
-  {"seed",   "-S", 937162211,"random  number seed"},
+  {"seed",   "-S", 937162211,"random number seed"},
   {"todo",   "-t", "ls",  "default start-up action"},
   {"wild",   "-W", false, "wild mode, run actions showing stackdumps"}} end
 
@@ -390,7 +390,7 @@ local function go(x,     ok,msg)
 -- ## Examples
 Eg.ls={"list all examples", function () 
   map(keys(Eg), function (_,k) 
-    print(fmt("  -t   %-10s ",k)..Eg[k][1]) end) end}
+    print(fmt("  -t  %-10s ",k)..Eg[k][1]) end) end}
 
 Eg.all={"run all examples", function() 
   map(keys(Eg),function(_,k) 
@@ -442,8 +442,7 @@ function cli(   u)
 function help()
   print("lua ibc.lua [OPTIONS]\n\nOPTIONS:\n"); 
   for _,t in pairs(about()) do
-    print(fmt("  %-5s%s %s", 
-              t[2], fmt("%-10s", t[3]==false and "" or t[3]), t[4])) end 
+    print(fmt("  %-4s%s %s",t[2],fmt("%-10s",t[3]==false and "" or t[3]),t[4])) end 
   print("\nSTART-UP ACTIONS:\n"); go("ls") end
 
 if cli().help then help() else go(cli().todo) end
