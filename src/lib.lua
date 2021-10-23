@@ -1,4 +1,4 @@
-local Eg,lib={},{}
+local eg,lib={},{}
 
 -- ## Classes
 -- Columns of data either `Num`eric, `Sym`bolic, or things we are going to `Skip` over.
@@ -73,25 +73,35 @@ function lib.help(s)
 
 -- -------------------------------------------------------------
 -- ### Unit tests
-local fails = {}, -1
-function lib.go(x,     ok,msg) 
-  the = cli()
+function lib.main(b4, usage, about)
+  if   about().help 
+  then help(usage)
+  else lib.go(about().todo) 
+  end
+  for k,v in pairs(_ENV) do if not b4[k] then 
+    print("?? ",k,type(v)) end end 
+  os.exit(fails) end
+
+function lib.go(x,about,     ok,msg) 
+  the = about()
   Seed = the.seed 
-  if the.wild then return Eg[x][2]() end
-  ok, msg = pcall(Eg[x][2])
+  if the.wild then return eg[x][2]() end
+  ok, msg = pcall(eg[x][2])
   if   ok 
   then print(lib.green("PASS: "),x) 
-  else print(lib.red("FAIL: "),x,msg); fails=fails+1 end end
+  else print(lib.red("FAIL: "),x,msg)
+       eg._fails = eg._fails + 1 end end
 
 -- ## Examples
-Eg.ls={"list all examples", function () 
-  lib.map(lib.keys(Eg), function (_,k) 
-    print(fmt("  -t  %-10s ",k)..Eg[k][1]) end) end}
+eg. _fails= -1
+eg.ls={"list all examples", function () 
+  lib.map(lib.keys(eg), function (_,k) 
+    print(fmt("  -t  %-10s ",k)..eg[k][1]) end) end}
 
-Eg.all={"run all examples", function() 
-  lib.map(lib.keys(Eg),function(_,k) 
+eg.all={"run all examples", function() 
+  lib.map(lib.keys(eg),function(_,k) 
                  return k ~= "all" and k ~= "ls" and lib.go(k) end) end}
 
-Eg.fail={"demo failure", function () assert(false,"oops") end}
+eg.fail={"demo failure", function () assert(false,"oops") end}
 
-return Eg,lib
+return eg,lib
