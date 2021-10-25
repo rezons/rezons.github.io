@@ -60,29 +60,29 @@ function csv(file,      split,stream,tmp)
               return t end
     else io.close(stream) end end  end
 
-local Bias=obj"Bias"
-function Bias.new(lo,hi,bins)
-  self = isa(Bias,{pending={},lo=lo or 0, n=0,v=0, hi=hi or 1, bins=bins or the.bins,has={}})
-  local b4,after
-  for i=1,bins do 
-    lo = self.lo + (self.hi - self.lo)*(i-1)
-    hi = self.lo + (self.hi - self.lo)*i
-    now={b4=b4,lo=lo,hi=hi,v=0,n=0,first=i==1,last=i==bins} end end
-    if i>1 then self.has[i-1].after = now end
-    push(self.has, now)
-    b4 = now end end
-
-function Bias:add(k1,v1)
-  self.v = self.v + v1
-  self.n = self.n + 1
-  for i,has1 in pairs(self.has) do
-    if k1 >= has1.lo and k1<=has1.hi or has1.first and k1<has1.hi or has1.last and k1>has1.lothen
-      has1.v = has1.v+v1
-      has1.n = has1.n+1 
-      if has1.n/self.n > 1.25/self.bins then self:redistribute() end
-      
-      break end end 
-
+-- local Bias=obj"Bias"
+-- function Bias.new(lo,hi,bins)
+--   self = isa(Bias,{pending={},lo=lo or 0, n=0,v=0, hi=hi or 1, bins=bins or the.bins,has={}})
+--   local b4,after
+--   for i=1,bins do 
+--     lo = self.lo + (self.hi - self.lo)*(i-1)
+--     hi = self.lo + (self.hi - self.lo)*i
+--     now={b4=b4,lo=lo,hi=hi,v=0,n=0,first=i==1,last=i==bins} end end
+--     if i>1 then self.has[i-1].after = now end
+--     push(self.has, now)
+--     b4 = now end end
+--
+-- function Bias:add(k1,v1)
+--   self.v = self.v + v1
+--   self.n = self.n + 1
+--   for i,has1 in pairs(self.has) do
+--     if k1 >= has1.lo and k1<=has1.hi or has1.first and k1<has1.hi or has1.last and k1>has1.lothen
+--       has1.v = has1.v+v1
+--       has1.n = has1.n+1 
+--       if has1.n/self.n > 1.25/self.bins then self:redistribute() end
+--       
+--       break end end 
+--
 
 -- ------------------------------------------------------------
 -- ## Classes
@@ -159,10 +159,47 @@ function Sample:betters()
 
 function Sample:ys(t) return map(self.goals, function(_,c) return t[c.at] end) end
 
-local s=Sample.new(the.data)
-shout(s)
-local rows=s:betters()
-for _,row  in pairs(rows) do shout(s:ys(row)) end
+-- local s=Sample.new(the.data)
+-- shout(s)
+-- local rows=s:betters()
+-- for _,row  in pairs(rows) do shout(s:ys(row)) end
 
+local Syms=obj"Syms"
+function Syms.new(t,    self) 
+  self= isa(Syms,{has={},n=0,mode="?",most=0}) 
+  for x,n in pairs(t or {}) do self:add(x,n) end
+  return self end 
+function Syms:add(x,inc)  
+  inc = inc or 1
+  self.n = self.n + inc 
+  self.has[x] = inc + (self.has[x] or 0)
+  if self.has[x] > self.most then self.most,self.mode=self.has[x],x end  end
+function Syms:any()
+  local r=math.random(self.n)
+  for x,n1 in pairs(self.has) do r=r-n1; if r <=0 then return x end end  
+  return self.most end
+
+local Nums=obj"Nums"
+function Nums.new(lo,hi,bins) 
+  return isa(Nums,{lo=lo or 0, hi=hi or 1, bins=bins or 16, syms=Syms.new()}) end
+function Nums:add(x,inc,    y)
+  assert(x>=self.lo,"too small")
+  assert(x<=self.hi,"too big")
+  y = ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1)
+  self.syms:add(y,inc)  end
+function Nums:any(      bin)
+  bin=self.syms:any()
+  return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
+
+local  n=Nums.new(0,10,10)
+tmp={}
+for i=1,100000 do push(tmp, 10*(math.random()^.5)//1) end
+--for _,x in pairs(tmp) do print(x) end
+for _,x in pairs(tmp) do n:add(x) end
+for i=1,100000 do x=n:any()//1 end
+
+-- b=Syms.new{bananas=10,apples=20,oranges=40}
+-- for _ = 1,1000 do print(b:any()) end
+--
 -- ## Start-up
 for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
