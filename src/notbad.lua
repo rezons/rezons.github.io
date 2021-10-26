@@ -122,10 +122,16 @@ function Nums:key(x)
   return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
 
 function Num:guess()
-  out = fu.kopy(self)
+  guess = {}
   t = out.syms.has
-  noop=function(_,_) return noop end
-  back=function(n,s) for i=1,n-1 do t[i] = s end; return noop end 
+  noop = function(_,_) return noop end
+  back = function(n,s) for i=1,n-1 do t[i] = s end; return noop end 
+  keys = keys(t)
+  k0=keys[#keys]; v0=t[k0]; for k=k0+1, self.bins do guess[k] = v0 end
+  k0=keys[1]    ; v0=t[k0]; for k=1,    k0-1      do guess[k] = v0 end
+  for _,k1 in pairs(keys) do
+    if k1 > k0+1 then 
+       interpolate(v0, t[k1], XXXX
   for i=1,self.bins do 
     t[i] = t[i] or 0
     if t[i] > 0 then last=t[i]; back=back(i,last) end
