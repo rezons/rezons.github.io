@@ -11,6 +11,7 @@ local function flag(it,b4)
 --  Short-cuts
 local ee   = math.exp(1)
 local abs  = math.abs
+local log  = math.log
 local cat  = table.concat
 local fmt  = string.format
 local push = table.insert
@@ -60,5 +61,5 @@ local function csv(file,      split,stream,tmp)
 
 return {
   obj=obj,atom=atom, flag=flag,
-  ee=ee,abs=abs,cat=cat,fmt=fmt,push=push,isa=isa,sort=sort,
+  ee=ee,abs=abs,log=log,cat=cat,fmt=fmt,push=push,isa=isa,sort=sort,
   keys=keys,map=map,kopy=kopy,out=out,shout=shout,csv=csv}
