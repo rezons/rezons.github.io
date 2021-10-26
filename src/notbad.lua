@@ -1,6 +1,7 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
-local lib = require"lib"
-local flag,isa,map = lib.flag,lib.isa,lib.map -- anything used twice, or more
+local fu = require"fun"
+local flag, obj, isa= fu.flag,fu.obj,fu.isa
+local push, map     = fu.push,fu.map
 
 --  Settings, CLI
 local the = {
@@ -29,7 +30,7 @@ function Num:add(v)
   self.mu = self.mu + d/self.n end
 
 function Num:norm(v)
-  return lib.abs(self.lo-self.hi)<1E-16 and 0 or (v-self.lo)/(self.hi-self.lo) end
+  return fu.abs(self.lo-self.hi)<1E-16 and 0 or (v-self.lo)/(self.hi-self.lo) end
 
 -- ### Symbols  to track
 local Sym=obj"Sym"
@@ -44,7 +45,7 @@ function Sym:add(v)
 local Sample=obj"Sample"
 function Sample.new(inits,    self) 
   self = isa(Sample,{_rows={}, names={},cols={},goals={}}) 
-  if type(inits)=="string" then for   x in lib.csv(inits)  do self:add(x) end end
+  if type(inits)=="string" then for   x in fu.csv(inits)  do self:add(x) end end
   if type(inits)=="table"  then for _,x in pairs(inits) do self:add(x) end end 
   return self end
 
@@ -78,7 +79,7 @@ function Sample:better(row1,row2,      a,b,what1,what2,n)
   return what1 / n < what2 / n end
 
 function Sample:betters()
-  return lib.sort(self._rows, function(x,y) return self:better(x,y) end) end
+  return fu.sort(self._rows, function(x,y) return self:better(x,y) end) end
 
 function Sample:ys(t) return map(self.goals, function(_,c) return t[c.at] end) end
 
@@ -95,19 +96,50 @@ function Syms:add(x,inc)
   if self.has[x] > self.most then self.most,self.mode=self.has[x],x end  end
 
 function Syms:any(     r)
-  r = lib.rand(self.n)
+  r = self.n * fu.rand()
   for x,n1 in pairs(self.has) do r=r-n1; if r <=0 then return x end end  
   return self.most end
+
+-- 1 
+-- 2 10
+-- 3
+-- 4 30
+-- 5 20
+-- 6
+-- 7 40
+-- 8
 
 local Nums=obj"Nums"
 function Nums.new(lo,hi,bins) 
   return isa(Nums,{lo=lo or 0, hi=hi or 1, bins=bins or 16, syms=Syms.new()}) end
 
-function Nums:add(x,inc,    y)
+function Nums:add(x,inc)
+  self.syms:add(self:key(x),inc)  end
+
+function Nums:key(x)
   assert(x>=self.lo, "too small")
   assert(x<=self.hi, "too big")
-  y = ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1)
-  self.syms:add(y,inc)  end
+  return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
+
+function Num:guess()
+  out = fu.kopy(self)
+  t = out.syms.has
+  noop=function(_,_) return noop end
+  back=function(n,s) for i=1,n-1 do t[i] = s end; return noop end 
+  for i=1,self.bins do 
+    t[i] = t[i] or 0
+    if t[i] > 0 then last=t[i]; back=back(i,last) end
+    j= i end
+  for k = j,bins do t[k] = last end
+  has  = self.syms.has
+  keys = keys(has)
+  inc  = (self.hi - self.lo)/self.bins
+  j    = self.lo + inc/2
+  b4   = nil
+  while j< self.hi do
+     push({b4=b4, 
+    j = j + inc end end
+
 
 function Nums:any(      bin)
   bin=self.syms:any()
@@ -115,10 +147,10 @@ function Nums:any(      bin)
 
 local n=Nums.new(0,10,10)
 local tmp={}
-for i=1,100000 do push(tmp, 10*(math.random()^.5)//1) end
+for i=1,10000 do push(tmp, 10*(math.random()^.5)//1) end
 --for _,x in pairs(tmp) do print(x) end
--- for _,x in pairs(tmp) do n:add(x) end
--- for i=1,100000 do x=n:any()//1 end
+for _,x in pairs(tmp) do n:add(x) end
+for i=1,10000 do print(n:any()//1) end
 --
 -- b=Syms.new{bananas=10,apples=20,oranges=40}
 -- for _ = 1,1000 do print(b:any()) end
