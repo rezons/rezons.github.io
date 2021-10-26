@@ -1,8 +1,8 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local lib = require"lib"
+local flag,isa,map = lib.flag,lib.isa,lib.map
 
 --  Settings, CLI
-local flag=lib.flag
 local the = {
   bins= flag("-b", 12),
   data= flag("-d", "../data/auto93.csv"),
@@ -12,7 +12,6 @@ local the = {
   wild= flag("-W", false) }
 
 -- ### Things to Skip
-local isa=lib.isa
 local Skip=obj"Skip"
 function Skip.new(at,txt) return isa(Skip,{at=at or 0, txt=txt or ""}) end
 function Skip:add(v) return v end
@@ -37,7 +36,7 @@ function Num:norm(v)
 -- ### Symbols  to track
 local Sym=obj"Sym"
 function Sym.new(at,txt) 
-  return isa(Sym,{at=at or 0, txt=txt or "",n=0,has={}}) end
+  return isa(Sym,{at=at or 0,txt=txt or "",n=0,has={}}) end
 
 function Sym:add(v) 
   self.n = self.n+1
@@ -51,7 +50,6 @@ function Sample.new(inits,    self)
   if type(inits)=="table"  then for _,x in pairs(inits) do self:add(x) end end 
   return self end
 
-local map=lib.map
 function Sample:add(row,  header,keep)
   function header(k,v,     what) 
     what = (v:find":" and Skip) or (v:match("^[A-Z]") and Num) or Sym
@@ -81,9 +79,8 @@ function Sample:better(row1,row2,      a,b,what1,what2,n)
     what2 = what2 - ee^(col.w * (b - a) / n) end
   return what1 / n < what2 / n end
 
-local sort=lib.sort
 function Sample:betters()
-  return sort(self._rows, function(x,y) return self:better(x,y) end) end
+  return lib.sort(self._rows, function(x,y) return self:better(x,y) end) end
 
 function Sample:ys(t) return map(self.goals, function(_,c) return t[c.at] end) end
 
@@ -100,7 +97,7 @@ function Syms:add(x,inc)
   if self.has[x] > self.most then self.most,self.mode=self.has[x],x end  end
 
 function Syms:any(     r)
-  r = math.random(self.n)
+  r = lib.rand(self.n)
   for x,n1 in pairs(self.has) do r=r-n1; if r <=0 then return x end end  
   return self.most end
 

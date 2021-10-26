@@ -35,6 +35,16 @@ local function kopy(obj,seen,    s,out)
   for k, v in pairs(obj) do out[kopy(k, s)] = kopy(v, s) end
   return setmetatable(out, getmetatable(obj)) end
 
+-- Maths
+local Seed=937162211
+local function rand(lo,hi,     mult,mod)
+  lo, hi = lo or 0, hi or 1
+  Seed = (16807 * Seed) % 2147483647 
+  return lo + (hi-lo) * Seed / 2147483647 end 
+
+local function randi(lo,hi) 
+  return math.floor(0.5 + rand(lo,hi)) end
+
 --  Printing
 local function shout(t) print(out(t)) end
 
@@ -62,4 +72,5 @@ local function csv(file,      split,stream,tmp)
 return {
   obj=obj,atom=atom, flag=flag,
   ee=ee,abs=abs,log=log,cat=cat,fmt=fmt,push=push,isa=isa,sort=sort,
-  keys=keys,map=map,kopy=kopy,out=out,shout=shout,csv=csv}
+  keys=keys,map=map,kopy=kopy,Seed=Seed,rand=rand,randi=randi,
+  out=out,shout=shout,csv=csv}
