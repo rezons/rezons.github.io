@@ -1,14 +1,12 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local lib = require"lib"
-local flag,isa,map = lib.flag,lib.isa,lib.map
+local flag,isa,map = lib.flag,lib.isa,lib.map -- anything used twice, or more
 
 --  Settings, CLI
 local the = {
   bins= flag("-b", 12),
   data= flag("-d", "../data/auto93.csv"),
-  help= flag("-h", false),
   seed= flag("-S", 937162211),
-  todo= flag("-t", "ls"),
   wild= flag("-W", false) }
 
 -- ### Things to Skip
@@ -126,4 +124,4 @@ for i=1,100000 do push(tmp, 10*(math.random()^.5)//1) end
 -- for _ = 1,1000 do print(b:any()) end
 --
 -- ## Start-up
-for k,v in pairs(_ENV) do if not b4[k] then print("?? ",k,type(v)) end end 
+for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end 
