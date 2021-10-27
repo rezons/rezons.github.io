@@ -95,7 +95,7 @@ function Syms:add(x,inc)
   self.has[x] = inc + (self.has[x] or 0)
   if self.has[x] > self.most then self.most,self.mode=self.has[x],x end  end
 
-function Syms:any(     r)
+function Syms:any(    r)
   r = self.n * fu.rand()
   for x,n1 in pairs(self.has) do r=r-n1; if r <=0 then return x end end  
   return self.most end
@@ -121,31 +121,20 @@ function Nums:key(x)
   assert(x<=self.hi, "too big")
   return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
 
-function Num:guess()
-  guess = {}
-  t = out.syms.has
-  noop = function(_,_) return noop end
-  back = function(n,s) for i=1,n-1 do t[i] = s end; return noop end 
-  keys = keys(t)
-  k0=keys[#keys]; v0=t[k0]; for k=k0+1, self.bins do guess[k] = v0 end
-  k0=keys[1]    ; v0=t[k0]; for k=1,    k0-1      do guess[k] = v0 end
-  for _,k1 in pairs(keys) do
-    if k1 > k0+1 then 
-       interpolate(v0, t[k1], XXXX
-  for i=1,self.bins do 
-    t[i] = t[i] or 0
-    if t[i] > 0 then last=t[i]; back=back(i,last) end
-    j= i end
-  for k = j,bins do t[k] = last end
-  has  = self.syms.has
-  keys = keys(has)
-  inc  = (self.hi - self.lo)/self.bins
-  j    = self.lo + inc/2
-  b4   = nil
-  while j< self.hi do
-     push({b4=b4, 
-    j = j + inc end end
-
+local function guess(t,max)
+  u = {}
+  ks= keys(t)
+  lo,hi   = ks[1], ks[#ks]
+  for i   = 1,  lo-1 do u[i] = t[lo] end
+  for i   = hi+1,max do u[i] = t[hi] end
+  lo      = ks[1]
+  for _,hi in pairs(ks) do
+    u[hi] = t[hi]
+    for i= lo+1,hi-1 do
+      d1,d2 = i-lo, hi-i 
+      u[i] = (t[lo]/d1 + t[hi]/d2)/(1/d1 + 1/d2) end
+    lo = hi end
+  return t end
 
 function Nums:any(      bin)
   bin=self.syms:any()
