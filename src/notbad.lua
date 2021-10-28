@@ -71,15 +71,15 @@ function Sample:clone(t,   s)
   for _,row in pairs(t or {}) do s:add(row) end
   return s end
 
-function Sample:better(row1,row2,      a,b,what1,what2,n)
+function Sample:better(row1,row2,      a,b,s1,s2,n)
   local a,b
-  local what1, what2, n = 0, 0, #self.goals
+  local s1, s2, n = 0, 0, #self.goals
   for _,col in pairs(self.goals) do
     a     = col:norm(row1[col.at])
     b     = col:norm(row2[col.at])
-    what1 = what1 - ee^(col.w * (a - b) / n)
-    what2 = what2 - ee^(col.w * (b - a) / n) end
-  return what1 / n < what2 / n end
+    s1 = s1 - ee^(col.w * (a - b) / n)
+    s2 = s2 - ee^(col.w * (b - a) / n) end
+  return s1 / n < s2 / n end
 
 function Sample:betters()
   return fu.sort(self._rows, function(x,y) return self:better(x,y) end) end
@@ -103,15 +103,6 @@ function Syms:any(    r)
   for x,n1 in pairs(self.has) do r=r-n1; if r <=0 then return x end end  
   return self.most end
 
--- 1 
--- 2 10
--- 3
--- 4 30
--- 5 20
--- 6
--- 7 40
--- 8
-
 local Nums=obj"Nums"
 function Nums.new(lo,hi,bins) 
   return isa(Nums,{lo=lo or 0, hi=hi or 1, bins=bins or 16, syms=Syms.new()}) end
@@ -124,18 +115,18 @@ function Nums:key(x)
   assert(x<=self.hi, "too big")
   return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
 
-local function guess(t,max,  u)
+local function guess(t,max,  u,ks,d1,d2,hi,lo)
   u = {}
   ks= fu.keys(t)
-  lo,hi   = ks[1], ks[#ks]
-  for i   = 1,  lo-1 do u[i] = t[lo] end
-  for i   = hi+1,max do u[i] = t[hi] end
-  lo      = ks[1]
+  lo,hi = ks[1], ks[#ks]
+  for i = 1,  lo-1 do u[i] = t[lo] end
+  for i = hi+1,max do u[i] = t[hi] end
+  lo    = ks[1]
   for _,hi in pairs(ks) do
     u[hi] = t[hi]
     for i= lo+1,hi-1 do
-      d1,d2 = i-lo, hi-i 
-      u[i] = (t[lo]/d1 + t[hi]/d2)/(1/d1 + 1/d2) end
+      d1, d2 = i-lo, hi-i 
+      u[i]   = (t[lo]/d1 + t[hi]/d2)/(1/d1 + 1/d2) end
     lo = hi end
   return u end
 
@@ -144,6 +135,9 @@ function Nums:any(      bin)
   return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
 
 local Eg={}
+Eg.sample={"full in the table",function(    t) 
+  shout(Sample.new(the.data).cols) end }
+
 Eg.guess={"full in the table",function(    t)
   for k,v in pairs(guess({[3]=10,[5]=20,[6]=15,[10]=10,[11]=10,[16]=5},20)) do print(k,v) end end}
 

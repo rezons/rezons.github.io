@@ -1,14 +1,14 @@
---    , ; ,   .-'"""'-.   , ; ,
---    \\|/  .'         '.  \|//
---     \-;-/  ()     ()  \-;-/
---     // ;               ; \\
---    //__; :.         .; ;__\\
---   `-----\'.'-.....-'.'/-----'
---          '.'.-.-,_.'.'
---    jgs     '(  (..-'
---              '-'      
--- ## Misc lua tricks       
--- (c) 2021 Tim Menzies (timm@ieee.org), WTFPL v2.0 (wtfpl.net)
+-- ________________________     Q
+-- |                      |  ___|\_.-,
+-- | FUN= Misc LUA tricks S\ Q~\___ \|
+-- | (c) 2021 Tim Menzies |(   )o 5) Q
+-- | WTFPL v2.0           |\\  \_ ()
+-- | wtfp.net             | \'. _'/'.
+-- |                     .-. '-(  x< \
+-- |         ,o         /\, '.  )  /'\\
+-- |_________\'.__.----/ .'\  '.-'/   \\
+--      snd   '---'q__/.'__ ;    /     \\_
+--                 '---'     '--'       `"'
 local l={}
 
 --  Short-cuts
@@ -19,10 +19,12 @@ l.cat  = table.concat
 l.fmt  = string.format
 l.push = table.insert
 l.sort = function(t,f) table.sort(t,f); return t end
-l.isa  = function(mt,t) return setmetatable(t, mt) end
 
 -- Objects
+-- Make class.
 function l.obj(is,  o) o={_is=is,__tostring=l.out}; o.__index=o; return o end
+-- Make instance.
+function l.isa(mt,t) return setmetatable(t, mt) end
 
 -- Handling command-line args
 function l.atom(s,b4) return (b4==false and true) or tonumber(s) or s end
@@ -58,6 +60,12 @@ function l.kopy(obj,seen,    s,out)
   for k, v in pairs(obj) do out[l.kopy(k, s)] = l.kopy(v, s) end
   return setmetatable(out, getmetatable(obj)) end
 
+function l.any(t) return t[randi(1,#t)] end
+
+function l.shuffle(t,n,    j)
+  for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
+  return n end
+
 -- Maths
 l.Seed=937162211
 function l.randi(lo,hi) return math.floor(0.5 + l.rand(lo,hi)) end
@@ -67,16 +75,20 @@ function l.rand(lo,hi,     mult,mod)
   l.Seed = (16807 * l.Seed) % 2147483647 
   return lo + (hi-lo) * l.Seed / 2147483647 end 
 
-
 --  Printing
 function l.shout(t) print(l.out(t)) end
 
 function l.out(t,    u,f1,f2)
-  function f1(_,x) return l.fmt(":%s %s",x,l.out(t[x])) end
+  function f1(_,x) return l.fmt(":%s %s",l.blue(x),l.out(t[x])) end
   function f2(_,x) return l.out(x) end
   if type(t) ~= "table" then return tostring(t) end
   u=#t==0 and l.map(l.keys(t),f1) or l.map(t,f2)
-  return (t._is or"").."{"..l.cat(u,", ").."}" end
+  return l.yellow(t._is or"").."{"..l.cat(u,", ").."}" end
+
+function l.red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
+function l.green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
+function l.yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
+function l.blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 --  Files
 function l.csv(file,      split,stream,tmp)
@@ -91,5 +103,5 @@ function l.csv(file,      split,stream,tmp)
          then for j,x in pairs(t) do t[j] = l.atom(x) end
               return t end
     else io.close(stream) end end end
-------------------------------------
+-- Fin.
 return l
