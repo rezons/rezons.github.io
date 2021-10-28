@@ -2,13 +2,16 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local fu = require"fun"
 local flag, obj, isa= fu.flag,fu.obj,fu.isa
 local push, map     = fu.push,fu.map
+local out,shout,abs = fu.out, fu.shout, fu.abs
+local the
 
 --  Settings, CLI
-local the = {
-  bins= flag("-b", 12),
-  data= flag("-d", "../data/auto93.csv"),
-  seed= flag("-S", 937162211),
-  wild= flag("-W", false) }
+local function options() return { 
+  {"bins", "-b", 12,                   "number of bins"},
+  {"data", "-d", "../data/auto93.csv", "disk-based data"},
+  {"seed", "-S", 937162211,            "random number seed"},
+  {"todo", "-t", "help",               "start-up action"},
+  {"wild", "-W", false,                "run  in  wild mode"}} end
 
 -- ### Things to Skip
 local Skip=obj"Skip"
@@ -30,7 +33,7 @@ function Num:add(v)
   self.mu = self.mu + d/self.n end
 
 function Num:norm(v)
-  return fu.abs(self.lo-self.hi)<1E-16 and 0 or (v-self.lo)/(self.hi-self.lo) end
+  return abs(self.lo-self.hi)<1E-16 and 0 or (v-self.lo)/(self.hi-self.lo) end
 
 -- ### Symbols  to track
 local Sym=obj"Sym"
@@ -140,15 +143,27 @@ function Nums:any(      bin)
   bin=self.syms:any()
   return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
 
-local n=Nums.new(0,10,10)
-local tmp={}
-for i=1,10000 do push(tmp, 10*(math.random()^.5)//1) end
---for _,x in pairs(tmp) do print(x) end
-for _,x in pairs(tmp) do n:add(x) end
-for i=1,10000 do print(n:any()//1) end
---
--- b=Syms.new{bananas=10,apples=20,oranges=40}
--- for _ = 1,1000 do print(b:any()) end
---
+local Eg={}
+Eg.show={"show options",function()  shout(the) end}
+
+Eg.help={"show help",function() 
+  fu.help("lua notbad.lua",options())
+  print("\nACTIONS:")
+  map(Eg,function(k,v) print(fu.fmt("  -t  %-20s%s",k,v[1])) end) end}
+
+Eg.num={"reproduce a distribtion", function(r,n,tmp,sym1,sym2)
+  n=Nums.new(0,10,10)
+  tmp={}
+  r=10^5
+  for i=1,r do push(tmp, 10*(math.random()^.5)//1) end
+  for _,x in pairs(tmp) do n:add(x) end
+  sym1=Sym.new()
+  for _,x in pairs(tmp) do  sym1:add(x //1) end
+  sym2=Sym.new()
+  for i=1,r do sym2:add(n:any()//1) end
+  for _,k in pairs(fu.keys(sym2.has)) do print(k,sym1.has[k]/ sym2.has[k]) end end}
+
 -- ## Start-up
+the = fu.cli(options())
+if the.todo then Eg[the.todo][2]() end
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end 
