@@ -124,9 +124,9 @@ function Nums:key(x)
   assert(x<=self.hi, "too big")
   return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
 
-local function guess(t,max)
+local function guess(t,max,  u)
   u = {}
-  ks= keys(t)
+  ks= fu.keys(t)
   lo,hi   = ks[1], ks[#ks]
   for i   = 1,  lo-1 do u[i] = t[lo] end
   for i   = hi+1,max do u[i] = t[hi] end
@@ -137,13 +137,16 @@ local function guess(t,max)
       d1,d2 = i-lo, hi-i 
       u[i] = (t[lo]/d1 + t[hi]/d2)/(1/d1 + 1/d2) end
     lo = hi end
-  return t end
+  return u end
 
 function Nums:any(      bin)
   bin=self.syms:any()
   return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
 
 local Eg={}
+Eg.guess={"full in the table",function(    t)
+  for k,v in pairs(guess({[3]=10,[5]=20,[6]=15,[10]=10,[11]=10,[16]=5},20)) do print(k,v) end end}
+
 Eg.show={"show options",function()  shout(the) end}
 
 Eg.help={"show help",function() 
