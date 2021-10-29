@@ -1,11 +1,11 @@
+
+
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local fu = require"fun"
-local flag, obj, isa= fu.flag,fu.obj,fu.isa
-local push, map     = fu.push,fu.map
-local out,shout,abs = fu.out, fu.shout, fu.abs
+local flag,obj,isa,push,map= fu.flag,fu.obj,fu.isa,fu.push,fu.map
+local keys,out,shout,abs = fu.keys,fu.out, fu.shout, fu.abs
+local blue,gray = fu.blue,fu.gray
 local the
-
---  Settings, CLI
 local function options() return { 
   {"bins", "-b", 12,                   "number of bins"},
   {"data", "-d", "../data/auto93.csv", "disk-based data"},
@@ -115,6 +115,10 @@ function Nums:key(x)
   assert(x<=self.hi, "too big")
   return ((x - self.lo)/(self.hi -  self.lo) * self.bins // 1) end
 
+function Nums:any(      bin)
+  bin=self.syms:any()
+  return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
+
 local function guess(t,max,  u,ks,d1,d2,hi,lo)
   u = {}
   ks= fu.keys(t)
@@ -130,23 +134,34 @@ local function guess(t,max,  u,ks,d1,d2,hi,lo)
     lo = hi end
   return u end
 
-function Nums:any(      bin)
-  bin=self.syms:any()
-  return self.lo + (bin + math.random())*(self.hi - self.lo)/self.bins end
-
 local Eg={}
-Eg.sample={"full in the table",function(    t) 
+local function run(k)
+  the = fu.cli(options())
+  k = k or the.todo
+  fu.Seed = the.seed
+  print(fu.green(k))
+  Eg[k][2]() end
+
+Eg.all={"all",function(    t) 
+  for _,k in pairs(keys(Eg)) do if k~="all" then run(k) end end end}
+
+Eg.sample={"read data from disk",function(    t) 
   shout(Sample.new(the.data).cols) end }
 
-Eg.guess={"full in the table",function(    t)
-  for k,v in pairs(guess({[3]=10,[5]=20,[6]=15,[10]=10,[11]=10,[16]=5},20)) do print(k,v) end end}
+Eg.guess={"fil in the table",function(    t)
+  t = {[3]=10,[5]=20,[6]=15,[10]=10,[11]=10,[16]=5}
+  for k,v in pairs(guess(t,20)) do print(k,t[k] or 0, v) end 
+  print("")
+  t = {[3]=10,[4]=10,[5]=10,[15]=20}
+  for k,v in pairs(guess(t,20)) do print(k,t[k] or 0, v) end 
+  end}
 
 Eg.show={"show options",function()  shout(the) end}
 
 Eg.help={"show help",function() 
   fu.help("lua notbad.lua",options())
-  print("\nACTIONS:")
-  map(Eg,function(k,v) print(fu.fmt("  -t  %-20s%s",k,v[1])) end) end}
+  print(gray("\nACTIONS:"))
+  map(keys(Eg),function(_,k) print(fu.fmt("  -t  %-20s %s",blue(k),Eg[k][1]))end) end}
 
 Eg.num={"reproduce a distribtion", function(r,n,tmp,sym1,sym2)
   n=Nums.new(0,10,10)
@@ -161,6 +176,5 @@ Eg.num={"reproduce a distribtion", function(r,n,tmp,sym1,sym2)
   for _,k in pairs(fu.keys(sym2.has)) do print(k,sym1.has[k]/ sym2.has[k]) end end}
 
 -- ## Start-up
-the = fu.cli(options())
-if the.todo then Eg[the.todo][2]() end
+run()
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end 

@@ -39,8 +39,9 @@ function l.cli(fours,   u)
 
 function l.help(usage,fours,     one)
   function one(_,t) 
-    print(l.fmt("  %-4s%-20s%s",t[2],t[3]==false and "" or t[3],t[4])) end 
-  print(usage.." [OPTIONS]\n\nOPTIONS:") 
+    print(l.fmt("  %-3s %-34s%s",
+                t[2],l.blue(t[3]==false and "" or t[3]),t[4])) end 
+  print(l.gray(usage).." [OPTIONS]\n\n"..l.gray("OPTIONS:")) 
   l.map(fours,one) end
 
 --  List tricks
@@ -85,9 +86,12 @@ function l.out(t,    u,f1,f2)
   u=#t==0 and l.map(l.keys(t),f1) or l.map(t,f2)
   return l.yellow(t._is or"").."{"..l.cat(u,", ").."}" end
 
+function l.gray(s)   return "\27[1m\27[30m"..s.."\27[0m" end
 function l.red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
 function l.green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
 function l.yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
+function l.purple(s) return "\27[1m\27[34m"..s.."\27[0m" end
+function l.pink(s)   return "\27[1m\27[35m"..s.."\27[0m" end
 function l.blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 --  Files
