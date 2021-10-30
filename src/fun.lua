@@ -65,6 +65,11 @@ function shuffle(t,n,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
   return n end
 
+function top(n,t,      u)
+  n = math.min(n,#t)
+  u={}; for m,x in pairs(t) do u[m]=x; if m>=n then break end end
+  return u end
+
 -- Maths
 local Seed=937162211
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
@@ -84,13 +89,14 @@ function out(t,    u,f1,f2)
   u=#t==0 and map(keys(t),f1) or map(t,f2)
   return yellow(t._is or"").."{"..cat(u,", ").."}" end
 
-function gray(s)   return "\27[1m\27[30m"..s.."\27[0m" end
-function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
-function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
-function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
-function purple(s) return "\27[1m\27[34m"..s.."\27[0m" end
-function pink(s)   return "\27[1m\27[35m"..s.."\27[0m" end
-function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
+local function _color(n,s) return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
+function gray(s)    return _color(30,s) end
+function red(s)     return _color(31,s) end
+function green(s)   return _color(32,s) end
+function yellow(s)  return _color(33,s) end
+function purple(s)  return _color(34,s) end
+function pink(s)    return _color(35,s) end
+function blue(s)    return _color(36,s) end
 
 --  Files
 function csv(file,      split,stream,tmp)

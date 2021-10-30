@@ -1,7 +1,8 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local the
 require"fun"
-local th=require"things"
+local _=require"things"
+local options,Num,Sym,Sample,Nums,Syms=_.options, _.Num,_.Sym,_,Samples,_.Nums,_.Syms
 
 
 local Eg={}
@@ -16,7 +17,7 @@ Eg.all={"all",function(    t)
   for _,k in pairs(keys(Eg)) do if k~="all" then run(k) end end end}
 
 Eg.sample={"read data from disk",function(    t) 
-  shout(th.Sample.new(the.data).cols) end }
+  shout(Sample.new(the.data).cols) end }
 
 Eg.guess={"fil in the table",function(    t)
   t = {[3]=10,[5]=20,[6]=15,[10]=10,[11]=10,[16]=5}
