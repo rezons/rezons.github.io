@@ -10,7 +10,7 @@
 --      snd   '---'q__/.'__ ;    /     \\_
 --                 '---'     '--'       `"'
 --  Short-cuts
-local e   = math.exp(1)
+ee   = math.exp(1)
 abs  = math.abs
 log  = math.log
 cat  = table.concat
@@ -63,7 +63,7 @@ function any(t) return t[randi(1,#t)] end
 
 function shuffle(t,n,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
-  return n end
+  return t end
 
 function top(n,t,      u)
   n = math.min(n,#t)
