@@ -2,9 +2,10 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local the = {stop=.5, some=8}
 
 -- shorties
-local cat,fmt,push,sort,noop
+local cat,fmt,pop,push,sort,noop
 cat  = table.concat
 fmt  = string.format
+pop  = table.remove
 push = table.insert
 sort = function(t,f) table.sort(t,f); return t end
 noop = function(x,...) return x  end
@@ -32,7 +33,17 @@ function shuffle(t,n,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
   return t end
 
-function  firsts(x,y) return x[1] < y[1] end
+function copy(t) return map(t, function(_,x) return x end) end
+
+function kopy(obj,seen,    s,out)
+  if type(obj) ~= 'table' then return obj end
+  if seen and seen[obj]   then return seen[obj] end
+  s,out = seen or {},{}
+  s[obj] = out
+  for k, v in pairs(obj) do out[kopy(k, s)] = kopy(v, s) end
+  return setmetatable(out, getmetatable(obj)) end
+
+
 --  Printing
 local shout,out
 function shout(t) print(out(t)) end
@@ -149,23 +160,25 @@ function Sample:better(row1,row2)
     s2 = s2 - e^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
 
-function Sample:div(rows,some,stop)
-  local function betters(x,y) return self:better(x,y) end
-  rows = rows or shuffle(self.rows)
-  some = some or the.some
-  stop = stop or (#rows)^the.stop
-  if #rows <= 2*stop or #rows <= 2*some then return rows end
-  local somes, best  = {},{}
-  for i,row in pairs(rows) do
-    if i <= some
-    then push(somes, row) 
-    else if i==some then table.sort(somes, betters) end
-         local closest, rowRank = 1E32, 1E32
-         for someRank,some1 in  pairs(somes) do
-           local dist = self.dist(row,some1)
-           if dist < closest then closest, rowRank = dist, someRank end end
-         if rowRank <= some//2 then push(best, row) end end end
-  return self:div(best,some,stop) end
+function Sample:div()
+  local wantp,go
+  function wantp(row,somes) 
+    local closest,rowRank,tmp = 1E32, 1E32, nil
+    for someRank,some1 in pairs(somes) do
+       tmp = self.dist(row,some1)
+       if tmp < closest then closest, rowRank = tmp, someRank end end
+    if rowRank <= the.some//2 then return row end 
+  end ---------------------------------
+  function go(stop,rows,     somes,inf)
+    if #rows < stop or #rows < the.some then
+      return rows 
+    else 
+      somes = {}
+      for i=1,the.some do push(somes,pop(rows)) end
+      somes = sort(somes, function(x,y) return self:better(x,y) end) 
+      return go(stop, map(rows, function(_,row) return want(row,somes) end)) end
+  end ---------------------------------------------------
+  return go((#self.rows)^the.stop, shuffle(copy(self.rows))) end
 
 -- Main
 local function main(file,     s)
