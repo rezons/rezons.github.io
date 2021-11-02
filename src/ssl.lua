@@ -84,7 +84,7 @@ function ako(v)    return (skipp(v) and Skip) or (nump(v) and Num) or Sym end
 
 Cols= obj"Cols"
 function Cols.new(lst,       self,now) 
-  self = isa(Cols, {all={},xs={},ys={},klass=nil}) 
+  self = isa(Cols, {header=lst,all={},xs={},ys={},klass=nil}) 
   for k,v in pairs(lst) do
     now = ako(v).new(k,v)
     push(self.all, now)
@@ -151,18 +151,21 @@ function Skip:spread() return "?" end
 -- Cols
 -- Sample
 local Sample= obj"Sample"
-function Sample.new() return isa(Sample, {rows={}, cols=nil}) end
+function Sample.new(src,   self) 
+  self = isa(Sample, {rows={}, cols=nil}) 
+  if type(src)=="string" then for   row in csv(src)   do self:add(row) end end
+  if type(src)=="table"  then for _,row in pairs(src) do self:add(row) end end
+  return self end 
 
-function Sample:clone(inits,   now,txts)
+function Sample:clone(inits,   now)
   now = Sample.new()
-  txts= map(self.cols.all, function(_,col) return col.txt end)
-  now:add(txts)
-  print("inits",#inits)
-  for _,row in pairs(inits or {}) do now:add(row) end 
+  now:add(self.header)
+  map(inits or {}, function(_,row) print("rows",out(row)); now:add(row) print(100); end)
   return now end
 
 function  Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
+  print("add",out(lst))
   if   not self.cols 
   then self.cols = Cols.new(lst) 
   else push(self.rows, map(lst,add)) end end
@@ -219,14 +222,15 @@ function Sample:div()
 
 -- Main
 local function main(file,     s,t)
-  s = Sample.new()
-  for row in csv(file) do s:add(row) end
+  s = Sample.new(file)
   shout(s.cols.all[1])
   print(#s.rows)
-  shout(s.cols.ys)
-  t=s:clone(s:div())
-  shout(t.cols.ys)
-  shout(t:mid(t.cols.ys))
+  t=s:clone(s.rows)
+  print(#t.rows)
+  -- shout(s.cols.ys)
+  -- t=s:clone(s:div())
+  -- shout(t.cols.ys)
+  -- shout(t:mid(t.cols.ys))
 end
 
 main("../data/auto93.csv")
