@@ -1,8 +1,10 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
-local the = {stop=.5, some=8}
+local the = {stop=.5, some=4}
 
 -- shorties
-local cat,fmt,pop,push,sort,same
+local abs,log,cat,fmt,pop,push,sort,same
+abs  = math.abs
+log  = math.log 
 cat  = table.concat
 fmt  = string.format
 pop  = table.remove
@@ -59,8 +61,7 @@ function out(t,    u,f1,f2)
   return (t._is or"").."{"..cat(u,", ").."}" end
 
 -- CSV reading
-local csv
-function csv(file,      split,stream,tmp)
+local function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
   return function(       t)
@@ -76,11 +77,11 @@ function csv(file,      split,stream,tmp)
 -- Cols
 local Sym,Num,Skip,Cols,Sample
 local klassp,skipp,goalp,nump,ako
-function klassp(v) return v:find"!" end
-function skipp(v)  return v:find":" end
-function nump(v)   return v:match("^[A-Z]") end
-function goalp(v)  return klassp(v)  or v:find"+" or v:find"-" end
 function ako(v)    return (skipp(v) and Skip) or (nump(v) and Num) or Sym end
+function goalp(v)  return klassp(v)  or v:find"+" or v:find"-" end
+function klassp(v) return v:find"!" end
+function nump(v)   return v:match("^[A-Z]") end
+function skipp(v)  return v:find":" end
 
 Cols= obj"Cols"
 function Cols.new(lst,       self,now) 
@@ -90,19 +91,12 @@ function Cols.new(lst,       self,now)
     push(self.all, now)
     if not skipp(v) then 
       if klassp(v) then self.klass=now end
-      push(klassp(v) and self.ys or self.xs, now) end end
+      push(goalp(v) and self.ys or self.xs, now) end end
   return self end
 
 -- Sym
 Sym = obj"Sym"
 function Sym.new(i,s)  return isa(Sym, {at=i,txt=s,n=0,has={},mode=nil,most=0}) end
-function Sym:dist(x,y) return  x==y and 0 or 1 end
-function Sym:mid()     return self.mode end
-
-function Sym:spread() 
-  return sum(self.has, function(n) 
-    if n>0 then return n/self.n*math.log(n/self.n,2) end end) end
-
 function Sym:add(x)    
   if x=="?" then return x end; 
   self.n = self.n + 1
@@ -110,36 +104,39 @@ function Sym:add(x)
   if self.has[x] > self.most then 
      self.most,self.mode = self.has[x],x end end
 
+function Sym:dist(x,y) return  x==y and 0 or 1 end
+function Sym:mid()     return self.mode end
+function Sym:spread() 
+  return sum(self.has, function(n) 
+    return n<-0 and 0 or n/self.n*log(n/self.n,2) end ) end
+
 -- Num
 Num = obj"Num"
 function Num.new(i,s) 
-  return isa(Num, {at=i, txt=s, n=0, _all={}, ok=false, hi=-1E32, lo=1E32,
-                   w =s:find"-" and -1 or 1}) end
+  return isa(Num,{at=i,txt=s,n=0,_all={}, ok=false,w =s:find"-" and -1 or 1}) end
 
 function Num:add(x) 
   if x=="?" then return x end
   self.n = self.n + 1
   push(self._all, x)
-  self.ok = true
-  self.lo = math.min(x, self.lo) 
-  self.hi = math.max(x, self.hi)  end
-
-function Num:mid(    a) a=self:all(); return a[#a//2] end
-function Num:spread( a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])/2.56 end
+  self.ok = false end
 
 function Num:all(x)
-  if not self.ok then table.sort(self._all); self.ok=true; end
+  if not self.ok then self.ok=true; table.sort(self._all) end
   return self._all end
 
-function Num:norm(x,     lo,hi)
-  lo,hi = self.lo,self.hi
-  return math.abs(hi-lo)< 1E-16 and 0 or (x-lo)/(hi-lo) end
+function Num:mid(    a) a=self:all(); return a[#a//2] end
+function Num:norm(x,     a)
+  a=self:all()
+  return abs(a[#a]-a[1])< 1E-16 and 0 or (x-a[1])/(a[#a]-a[1]) end
+
+function Num:spread( a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])/2.56 end
 
 function Num:dist(x,y)
   if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
   elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
   else   x,y = self:norm(x), self:norm(y)  end
-  return math.abs(x-y) end
+  return abs(x-y) end
 
 -- Skip
 Skip= obj"Skip"
@@ -148,7 +145,6 @@ function Skip:add(x)   return x end
 function Skip:mid()    return "?" end
 function Skip:spread() return "?" end
 
--- Cols
 -- Sample
 local Sample= obj"Sample"
 function Sample.new(src,   self) 
@@ -157,35 +153,11 @@ function Sample.new(src,   self)
   if type(src)=="table"  then for _,row in pairs(src) do self:add(row) end end
   return self end 
 
-function Sample:clone(inits,   now)
-  now = Sample.new()
-  now:add(self.header)
-  map(inits or {}, function(_,row) print("rows",out(row)); now:add(row) print(100); end)
-  return now end
-
 function  Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
-  print("add",out(lst))
   if   not self.cols 
   then self.cols = Cols.new(lst) 
   else push(self.rows, map(lst,add)) end end
-
-function Sample:dist(row1,row2)
-  local d,n,p,x,y,inc
-  d, n, p = 0, 1E-32, 2
-  for _,col in pairs(self.cols.xs) do
-    x,y = row1[col.at], row2[col.at]
-    inc = (x=="?" and y=="?" and 1) or col:dist(x,y)
-    d   = d + inc^p 
-    n   = n + 1 end
-  return (d/n)^(1/p) end
-
-function Sample:mid(  cols) 
-  return map(cols or self.cols.all, 
-     function(k,x) print("!!",k,x); return x:mid() end) end
-
-function Sample:spread(   cols) 
-  return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
 function Sample:better(row1,row2,cols)
   local n,a,b,s1,s2
@@ -198,6 +170,22 @@ function Sample:better(row1,row2,cols)
     s2 = s2 - 2.71828^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
 
+function Sample:clone(inits,   now)
+  now = Sample.new()
+  now:add(self.cols.header)
+  map(inits or {}, function(_,row) now:add(row) end)
+  return now end
+
+function Sample:dist(row1,row2)
+  local d,n,p,x,y,inc
+  d, n, p = 0, 1E-32, 2
+  for _,col in pairs(self.cols.xs) do
+    x,y = row1[col.at], row2[col.at]
+    inc = (x=="?" and y=="?" and 1) or col:dist(x,y)
+    d   = d + inc^p 
+    n   = n + 1 end
+  return (d/n)^(1/p) end
+
 function Sample:div()
   local better,want,go
   function better(x,y) return self:better(x,y) end
@@ -208,9 +196,10 @@ function Sample:div()
        if tmp < closest then closest,rowRank = tmp,someRank end end
     return rowRank <= the.some//2 
   end ------------------
-  function go(stop,rows,     best,somes)
-    print(#rows,stop)
-    if #rows < 2*stop or #rows < 2*the.some then return rows end
+  function go(stop,rows,     best,somes,tmp)
+    tmp = self:clone(rows)
+    print(#rows, out(tmp:mid(tmp.cols.ys)), out(tmp:spread(tmp.cols.ys)))
+    if #rows < stop or #rows < the.some then return rows end
     best,somes = {},{}
     for i = 1,the.some do push(somes,pop(rows)) end
     somes = sort(somes, better)
@@ -220,17 +209,18 @@ function Sample:div()
   end ---------------------------------------------------
   return go((#self.rows)^the.stop, shuffle(copy(self.rows))) end
 
+function Sample:mid(  cols) 
+  return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
+
+function Sample:spread(   cols) 
+  return map(cols or self.cols.all, function(_,x) return x:spread() end) end
+
 -- Main
 local function main(file,     s,t)
   s = Sample.new(file)
-  shout(s.cols.all[1])
-  print(#s.rows)
-  t=s:clone(s.rows)
-  print(#t.rows)
-  -- shout(s.cols.ys)
-  -- t=s:clone(s:div())
-  -- shout(t.cols.ys)
-  -- shout(t:mid(t.cols.ys))
+  shout(s:mid(s.cols.ys))
+  t=s:clone(s:div())
+  print("")
 end
 
 main("../data/auto93.csv")
