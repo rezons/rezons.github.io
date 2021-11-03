@@ -249,7 +249,7 @@ function Sample:spread(   cols)
 -- Main
 local function main(file,     s,t)
   s = Sample.new(file)
-  --shout(s.cols.ys)
+  shout(s)
   --shout(s:mid(s.cols.ys))
   --t=s:clone(s:div())
   --print("")
@@ -257,6 +257,6 @@ end
 
 the = cli(options)
 Seed= the.seed
-if the.help then help("lua ssl.lua",options) else main(the.data) end
+if the.help then help("lua hints.lua",options) else main(the.data) end
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
 --for row in csv("../data/auto93.csv") do shout(row) end
