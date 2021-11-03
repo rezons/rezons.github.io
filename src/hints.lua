@@ -1,23 +1,26 @@
--- ██╗  ██╗██╗███╗   ██╗████████╗███████╗
--- ██║  ██║██║████╗  ██║╚══██╔══╝██╔════╝
--- ███████║██║██╔██╗ ██║   ██║   ███████╗
--- ██╔══██║██║██║╚██╗██║   ██║   ╚════██║
--- ██║  ██║██║██║ ╚████║   ██║   ███████║
--- ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
--- Semi-supervised multi-objective optimizer
--- (c) 2021 Tim Menzies, unlicense.org
+-- Seek hints in the data about  what is better than what.    
+-- Given many unevaluated things, find the mid-point of few evaluated things.    
+-- Prune everything below the mid.    
+-- Repeat.   
+-- Return the surviving best things.
+local about=[[
+Semi-supervised multi-objective optimizer.       
+(c) 2021 Tim Menzies, unlicense.org]]
 
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
-local the
+local the -- generated from `the=cli(options)`
 local options = {
   {"enough","-e", .5,                   "stopping criteria"},
   {"file",  "-f", "../data/auto93.csv", "data file to load"},
-  {"help",  "-h", false,                "show help"},
   {"some",  "-s", 4,                    "samples per generation"},
-  {"seed",  "-S", 937162211,            "random number seed"}
-}
+  {"seed",  "-S", 937162211,            "random number seed"},
+  {"todo",  "-do", "help",              "start-up action"}}
 
--- shorties
+-- ## Functions
+
+-- `b4` is  used at end-of-file to find rogue globals.
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end 
+
+-- ### Useful short cuts
 local abs,log,cat,fmt,pop,push,sort,same
 abs  = math.abs
 cat  = table.concat
@@ -28,38 +31,47 @@ push = table.insert
 same = function(x,...) return x  end
 sort = function(t,f) table.sort(t,f); return t end
 
--- Random
+-- ### Randoms
 local Seed, randi, rand
 Seed=937162211
+-- Random ints
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+-- Random floats (defaults  0..1)
 function rand(lo,hi,     mult,mod)
   lo, hi = lo or 0, hi or 1
   Seed = (16807 * Seed) % 2147483647 
   return lo + (hi-lo) * Seed / 2147483647 end 
 
--- lists
+-- ### Arrays
 local firsts,map,keys,shuffle,copy,sum
+-- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
 
+-- `firsts` is used for sorting {{score1,x1}, {score2,x2},...}
 function firsts(x,y) return x[1] < y[1] end
 
+-- Sorted table keys
 function keys(t,  u) 
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
   return sort(u) end
 
+-- Call `f(key,value)` on all items  in list.
 function map(t,f,  u) 
   u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
 
+-- Randomly sort in-place a list
 function shuffle(t,n,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
   return t end
 
+-- Sum items in a list, optionally filtered via  `f`.
 function sum(t,f,    n)
   n,f = 0,f or same
   for _,x in pairs(t) do n=n+f(x) end; return n end
 
--- Cli
-local cli,help
+-- ### Command-line args
+-- At start-up, `the`  settings will come from `the=cli(options)`.
+local cli,help, Todo
 function cli(options,   u)
   u={}
   for _,t in pairs(options) do
@@ -68,18 +80,29 @@ function cli(options,   u)
       u[t[1]] = (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end
   return u end
 
-function help(usage, options)
-  print(usage .. " [OPTIONS]\n\nOPTIONS:");
-  for _,t in pairs(options) do
-    print(fmt("  %-4s%-20s %s",t[2], t[3]==false and "" or t[3],  t[4])) end end
+-- Pretty-print the options and the start-up  actions.   
+-- Start-up actions held in the `Todo` list.
+Todo={}
+Todo.help={"print help", function ()
+  print("lua hints.lua [OPTIONS] -do ACTION")
+  print(about,"\n\nOPTIONS:");
+  for _,t in pairs(options) do if t[1] ~= "todo" then
+    print(fmt("  %-4s%-20s %s",t[2], t[3]==false and "" or t[3], t[4])) end end
+  print("\nACTIONS:")
+  for _,k in pairs(keys(Todo)) do
+    print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
--- Meta
+-- ### Meta
 local isa,obj
+-- Instance  creation
 function isa(mt,x) return setmetatable(x,mt) end
+-- Object creation.
 function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
---  Printing
+--  ### Printing
 local shout,out
+
+-- Generate  a pretty-print string from a table (recursively).
 function out(t,    u,f1,f2)
   function f1(_,x) return fmt(":%s %s",x,out(t[x])) end
   function f2(_,x) return out(x) end
@@ -87,9 +110,10 @@ function out(t,    u,f1,f2)
   u=#t==0 and map(keys(t),f1) or map(t,f2)
   return (t._is or"").."{"..cat(u," ").."}" end
 
-function shout(t) print(out(t)) end
+-- Print a pretty-print string.
+function shout(x) print(out(x)) end
 
--- CSV reading
+-- ### CSV reading
 local function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
@@ -103,8 +127,12 @@ local function csv(file,      split,stream,tmp)
               return t end
     else io.close(stream) end end end
 
--- Cols
+-- ## Classes
 local Sym,Num,Skip,Cols,Sample
+
+-- ###  Cols
+-- `Cols` is a factory for turning  column names into their
+-- rightful columns. Those names contain certain magic symbols.
 local klassp,skipp,goalp,nump,ako
 function ako(v)    return (skipp(v) and Skip) or (nump(v) and Num) or Sym end
 function goalp(v)  return klassp(v)  or v:find"+" or v:find"-" end
@@ -123,7 +151,8 @@ function Cols.new(lst,       self,now)
       push(goalp(v) and self.ys or self.xs, now) end end
   return self end
 
--- Sym
+-- ### Sym
+-- Columns for sumamrizing Symbols.
 Sym = obj"Sym"
 function Sym.new(i,s)  return isa(Sym, {at=i,txt=s,n=0,has={},mode=nil,most=0}) end
 function Sym:add(x)    
@@ -137,9 +166,10 @@ function Sym:dist(x,y) return  x==y and 0 or 1 end
 function Sym:mid()     return self.mode end
 function Sym:spread() 
   return sum(self.has, 
-             function(n) return n<-0 and 0 or n/self.n*log(n/self.n,2) end) end
+             function(n) return n<-0 and 0 or -n/self.n*log(n/self.n,2) end) end
 
--- Num
+-- ### Num
+-- Columns for sumamrizing numbers.
 Num = obj"Num"
 function Num.new(i,s) 
   return isa(Num,{at=i,txt=s,n=0,_all={}, ok=false,w =s:find"-" and -1 or 1}) end
@@ -171,14 +201,16 @@ function Num:spread(   a,here)
   function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
   return (a[here(.9)] - a[here(.1)])/2.56 end
 
--- Skip
+-- ### Skip
+-- Columns for data we are skipping over
 Skip= obj"Skip"
 function Skip.new(i,s) return isa(Skip,{at=i,txt=s}) end
 function Skip:add(x)   return x end
 function Skip:mid()    return "?" end
 function Skip:spread() return "?" end
 
--- Sample
+-- ### Sample
+-- A `Sample` of data stores `rows`, summarized into `Col`umns.
 local Sample= obj"Sample"
 function Sample.new(src,   self) 
   self = isa(Sample, {rows={}, cols=nil}) 
@@ -188,7 +220,7 @@ function Sample.new(src,   self)
 
 function  Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
-  if   not self.cols
+  if   not self.cols -- then  `lst` is  the  header row
   then self.cols = Cols.new(lst) 
   else push(self.rows, map(lst,add)) end end
 
@@ -256,16 +288,20 @@ function Sample:mid(  cols)
 function Sample:spread(   cols) 
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
--- Main
-local function main(file,     s,t,u)
-  s = Sample.new(file)
+-- ## Todo
+-- Things  to do at start-up.
+Todo.demo1={"main demi", function(     s,t,u)
+  s = Sample.new(the.file)
+  shout(s.cols)
   print(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
   for _=1,10 do
     t = Sample.new(file)
     u = t:clone( t:div() ) 
-    print(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) end end
+    print(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) end end}
 
 the  = cli(options)
 Seed = the.seed
-if the.help then help("lua hints.lua",options) else main(the.file) end
+Todo[the.todo][2]()
+
+-- Check for rogue globals.
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
