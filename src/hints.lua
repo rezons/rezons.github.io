@@ -1,16 +1,32 @@
+-- ██╗  ██╗██╗███╗   ██╗████████╗███████╗
+-- ██║  ██║██║████╗  ██║╚══██╔══╝██╔════╝
+-- ███████║██║██╔██╗ ██║   ██║   ███████╗
+-- ██╔══██║██║██║╚██╗██║   ██║   ╚════██║
+-- ██║  ██║██║██║ ╚████║   ██║   ███████║
+-- ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
+-- Semi-supervised multi-objective optimizer
+-- (c) 2021 Tim Menzies, unlicense.org
+
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
-local the = {stop=.5, some=4}
+local the
+local options = {
+  {"enough","-e", .5,                   "stopping criteria"},
+  {"file",  "-f", "../data/auto93.csv", "data file to load"},
+  {"help",  "-h", false,                "show help"},
+  {"some",  "-s", 4,                    "samples per generation"},
+  {"seed",  "-S", 937162211,            "random number seed"}
+}
 
 -- shorties
 local abs,log,cat,fmt,pop,push,sort,same
 abs  = math.abs
-log  = math.log 
 cat  = table.concat
 fmt  = string.format
+log  = math.log 
 pop  = table.remove
 push = table.insert
-sort = function(t,f) table.sort(t,f); return t end
 same = function(x,...) return x  end
+sort = function(t,f) table.sort(t,f); return t end
 
 -- Random
 local Seed, randi, rand
@@ -22,27 +38,38 @@ function rand(lo,hi,     mult,mod)
   return lo + (hi-lo) * Seed / 2147483647 end 
 
 -- lists
-local map,pick,keys,shuffle,copy,kopy
-function map(t,f,  u) 
-  u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
+local map,keys,shuffle,copy,sum
+function copy(t) return map(t, function(_,x) return x end) end
 
 function keys(t,  u) 
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
   return sort(u) end
 
+function map(t,f,  u) 
+  u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
+
 function shuffle(t,n,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
   return t end
 
-function copy(t) return map(t, function(_,x) return x end) end
+function sum(t,f,    n)
+  n,f = 0,f or same
+  for _,x in pairs(t) do n=n+f(x) end; return n end
 
-function kopy(obj,seen,    s,out)
-  if type(obj) ~= 'table' then return obj end
-  if seen and seen[obj]   then return seen[obj] end
-  s,out = seen or {},{}
-  s[obj] = out
-  for k, v in pairs(obj) do out[kopy(k, s)] = kopy(v, s) end
-  return setmetatable(out, getmetatable(obj)) end
+-- Cli
+local cli,help
+function cli(options,   u)
+  u={}
+  for _,t in pairs(options) do
+    u[t[1]] = t[3]
+    for n,word in ipairs(arg) do if word==t[2] then
+      u[t[1]] = (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end
+  return u end
+
+function help(usage, options)
+  print(usage .. " [OPTIONS]\n\nOPTIONS:");
+  for _,t in pairs(options) do
+    print(fmt("  %-4s%-20s %s",t[2], t[3]==false and "" or t[3],  t[4])) end end
 
 -- Meta
 local isa,obj
@@ -51,14 +78,14 @@ function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
 --  Printing
 local shout,out
-function shout(t) print(out(t)) end
-
 function out(t,    u,f1,f2)
   function f1(_,x) return fmt(":%s %s",x,out(t[x])) end
   function f2(_,x) return out(x) end
   if type(t) ~= "table" then return tostring(t) end
   u=#t==0 and map(keys(t),f1) or map(t,f2)
-  return (t._is or"").."{"..cat(u,", ").."}" end
+  return (t._is or"").."{"..cat(u," ").."}" end
+
+function shout(t) print(out(t)) end
 
 -- CSV reading
 local function csv(file,      split,stream,tmp)
@@ -107,8 +134,8 @@ function Sym:add(x)
 function Sym:dist(x,y) return  x==y and 0 or 1 end
 function Sym:mid()     return self.mode end
 function Sym:spread() 
-  return sum(self.has, function(n) 
-    return n<-0 and 0 or n/self.n*log(n/self.n,2) end ) end
+  return sum(self.has, 
+             function(n) return n<-0 and 0 or n/self.n*log(n/self.n,2) end) end
 
 -- Num
 Num = obj"Num"
@@ -125,18 +152,22 @@ function Num:all(x)
   if not self.ok then self.ok=true; table.sort(self._all) end
   return self._all end
 
-function Num:mid(    a) a=self:all(); return a[#a//2] end
-function Num:norm(x,     a)
-  a=self:all()
-  return abs(a[#a]-a[1])< 1E-16 and 0 or (x-a[1])/(a[#a]-a[1]) end
-
-function Num:spread( a) a=self:all(); return (a[.9*#a//1] - a[.1*#a//1])/2.56 end
-
 function Num:dist(x,y)
   if     x=="?" then y = self:norm(x); x = y>.5 and 0  or 1
   elseif y=="?" then x = self:norm(x); y = x>.5 and 0  or 1
   else   x,y = self:norm(x), self:norm(y)  end
   return abs(x-y) end
+
+function Num:mid(    a) a=self:all(); return a[#a//2] end
+function Num:norm(x,     a)
+  a=self:all()
+  return abs(a[#a]-a[1])< 1E-16 and 0 or (x-a[1])/(a[#a]-a[1]) end
+
+function Num:spread(   a,here) 
+  a = self:all() 
+  if #a < 2 then return 0 end
+  function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
+  return (a[here(.9)] - a[here(.1)])/2.56 end
 
 -- Skip
 Skip= obj"Skip"
@@ -155,7 +186,7 @@ function Sample.new(src,   self)
 
 function  Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
-  if   not self.cols 
+  if   not self.cols
   then self.cols = Cols.new(lst) 
   else push(self.rows, map(lst,add)) end end
 
@@ -207,7 +238,7 @@ function Sample:div()
       if want(row,somes) then push(best,row) end  end
     return go(stop, best) 
   end ---------------------------------------------------
-  return go((#self.rows)^the.stop, shuffle(copy(self.rows))) end
+  return go((#self.rows)^the.enough, shuffle(copy(self.rows))) end
 
 function Sample:mid(  cols) 
   return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
@@ -218,12 +249,14 @@ function Sample:spread(   cols)
 -- Main
 local function main(file,     s,t)
   s = Sample.new(file)
-  shout(s:mid(s.cols.ys))
-  t=s:clone(s:div())
-  print("")
+  --shout(s.cols.ys)
+  --shout(s:mid(s.cols.ys))
+  --t=s:clone(s:div())
+  --print("")
 end
 
-main("../data/auto93.csv")
-
+the = cli(options)
+Seed= the.seed
+if the.help then help("lua ssl.lua",options) else main(the.data) end
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
 --for row in csv("../data/auto93.csv") do shout(row) end
