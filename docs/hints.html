@@ -197,7 +197,7 @@ Seed=<span class="hljs-number">937162211</span></pre></div></div>
               <div class="sswrap ">
                 <a class="ss" href="#section-11">&#x00a7;</a>
               </div>
-              <p>Sorted table key,s</p>
+              <p>Sorted table keys</p>
 
             </div>
             
@@ -314,7 +314,7 @@ Todo.help={<span class="hljs-string">&quot;print help&quot;</span>, <span class=
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> isa,obj</pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> has,obj</pre></div></div>
             
         </li>
         
@@ -329,7 +329,7 @@ Todo.help={<span class="hljs-string">&quot;print help&quot;</span>, <span class=
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">isa</span><span class="hljs-params">(mt,x)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">setmetatable</span>(x,mt) <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">has</span><span class="hljs-params">(mt,x)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">setmetatable</span>(x,mt) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -452,16 +452,17 @@ rightful columns. Those names contain certain magic symbols.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> klassp,skipp,goalp,nump,ako
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> klassp,skipp,goalp,nump,ako,weight
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ako</span><span class="hljs-params">(v)</span></span>    <span class="hljs-keyword">return</span> (skipp(v) <span class="hljs-keyword">and</span> Skip) <span class="hljs-keyword">or</span> (nump(v) <span class="hljs-keyword">and</span> Num) <span class="hljs-keyword">or</span> Sym <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goalp</span><span class="hljs-params">(v)</span></span>  <span class="hljs-keyword">return</span> klassp(v)  <span class="hljs-keyword">or</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;+&quot;</span> <span class="hljs-keyword">or</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;-&quot;</span> <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">klassp</span><span class="hljs-params">(v)</span></span> <span class="hljs-keyword">return</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;!&quot;</span> <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">nump</span><span class="hljs-params">(v)</span></span>   <span class="hljs-keyword">return</span> v:<span class="hljs-built_in">match</span>(<span class="hljs-string">&quot;^[A-Z]&quot;</span>) <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">skipp</span><span class="hljs-params">(v)</span></span>  <span class="hljs-keyword">return</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;:&quot;</span> <span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">weight</span><span class="hljs-params">(v)</span></span> <span class="hljs-keyword">return</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;-&quot;</span> <span class="hljs-keyword">and</span> <span class="hljs-number">-1</span> <span class="hljs-keyword">or</span> v:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;+&quot;</span> <span class="hljs-keyword">and</span> <span class="hljs-number">1</span> <span class="hljs-keyword">or</span> <span class="hljs-number">0</span> <span class="hljs-keyword">end</span>
 
 Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Cols.new</span><span class="hljs-params">(lst,       self,now)</span></span> 
-  <span class="hljs-built_in">self</span> = isa(Cols, {header=lst,all={},xs={},ys={},klass=<span class="hljs-literal">nil</span>}) 
+  <span class="hljs-built_in">self</span> = has(Cols, {header=lst,all={},xs={},ys={},klass=<span class="hljs-literal">nil</span>}) 
   <span class="hljs-keyword">for</span> k,v <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(lst) <span class="hljs-keyword">do</span>
     now = ako(v).new(k,v)
     push(<span class="hljs-built_in">self</span>.all, now)
@@ -485,18 +486,18 @@ Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
             </div>
             
             <div class="content"><div class='highlight'><pre>Sym = obj<span class="hljs-string">&quot;Sym&quot;</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym.new</span><span class="hljs-params">(i,s)</span></span>  <span class="hljs-keyword">return</span> isa(Sym, {at=i,txt=s,n=<span class="hljs-number">0</span>,has={},mode=<span class="hljs-literal">nil</span>,most=<span class="hljs-number">0</span>}) <span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym.new</span><span class="hljs-params">(i,s)</span></span> <span class="hljs-keyword">return</span> has(Sym, {at=i,txt=s,n=<span class="hljs-number">0</span>,seen={},mode=<span class="hljs-literal">nil</span>,most=<span class="hljs-number">0</span>}) <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:add</span><span class="hljs-params">(x)</span></span>    
   <span class="hljs-keyword">if</span> x==<span class="hljs-string">&quot;?&quot;</span> <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> x <span class="hljs-keyword">end</span>; 
   <span class="hljs-built_in">self</span>.n = <span class="hljs-built_in">self</span>.n + <span class="hljs-number">1</span>
-  <span class="hljs-built_in">self</span>.has[x] = <span class="hljs-number">1</span>+(<span class="hljs-built_in">self</span>.has[x] <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>) 
-  <span class="hljs-keyword">if</span> <span class="hljs-built_in">self</span>.has[x] &gt; <span class="hljs-built_in">self</span>.most <span class="hljs-keyword">then</span> 
-     <span class="hljs-built_in">self</span>.most,<span class="hljs-built_in">self</span>.mode = <span class="hljs-built_in">self</span>.has[x],x <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
+  <span class="hljs-built_in">self</span>.seen[x] = <span class="hljs-number">1</span>+(<span class="hljs-built_in">self</span>.seen[x] <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>) 
+  <span class="hljs-keyword">if</span> <span class="hljs-built_in">self</span>.seen[x] &gt; <span class="hljs-built_in">self</span>.most <span class="hljs-keyword">then</span> 
+     <span class="hljs-built_in">self</span>.most,<span class="hljs-built_in">self</span>.mode = <span class="hljs-built_in">self</span>.seen[x],x <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
 
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:dist</span><span class="hljs-params">(x,y)</span></span> <span class="hljs-keyword">return</span>  x==y <span class="hljs-keyword">and</span> <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> <span class="hljs-number">1</span> <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:mid</span><span class="hljs-params">()</span></span>     <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.mode <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:spread</span><span class="hljs-params">()</span></span> 
-  <span class="hljs-keyword">return</span> sum(<span class="hljs-built_in">self</span>.has, 
+  <span class="hljs-keyword">return</span> sum(<span class="hljs-built_in">self</span>.seen, 
              <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(n)</span></span> <span class="hljs-keyword">return</span> n&lt;<span class="hljs-number">-0</span> <span class="hljs-keyword">and</span> <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> -n/<span class="hljs-built_in">self</span>.n*<span class="hljs-built_in">log</span>(n/<span class="hljs-built_in">self</span>.n,<span class="hljs-number">2</span>) <span class="hljs-keyword">end</span>) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
@@ -515,7 +516,7 @@ Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
             
             <div class="content"><div class='highlight'><pre>Num = obj<span class="hljs-string">&quot;Num&quot;</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Num.new</span><span class="hljs-params">(i,s)</span></span> 
-  <span class="hljs-keyword">return</span> isa(Num,{at=i,txt=s,n=<span class="hljs-number">0</span>,_all={}, ok=<span class="hljs-literal">false</span>,w =s:<span class="hljs-built_in">find</span><span class="hljs-string">&quot;-&quot;</span> <span class="hljs-keyword">and</span> <span class="hljs-number">-1</span> <span class="hljs-keyword">or</span> <span class="hljs-number">1</span>}) <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">return</span> has(Num,{at=i,txt=s,n=<span class="hljs-number">0</span>,_all={}, ok=<span class="hljs-literal">false</span>,w=weight(s)}) <span class="hljs-keyword">end</span>
 
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Num:add</span><span class="hljs-params">(x)</span></span> 
   <span class="hljs-keyword">if</span> x==<span class="hljs-string">&quot;?&quot;</span> <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> x <span class="hljs-keyword">end</span>
@@ -559,7 +560,7 @@ Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
             </div>
             
             <div class="content"><div class='highlight'><pre>Skip= obj<span class="hljs-string">&quot;Skip&quot;</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Skip.new</span><span class="hljs-params">(i,s)</span></span> <span class="hljs-keyword">return</span> isa(Skip,{at=i,txt=s}) <span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Skip.new</span><span class="hljs-params">(i,s)</span></span> <span class="hljs-keyword">return</span> has(Skip,{at=i,txt=s}) <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Skip:add</span><span class="hljs-params">(x)</span></span>   <span class="hljs-keyword">return</span> x <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Skip:mid</span><span class="hljs-params">()</span></span>    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;?&quot;</span> <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Skip:spread</span><span class="hljs-params">()</span></span> <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;?&quot;</span> <span class="hljs-keyword">end</span></pre></div></div>
@@ -580,7 +581,7 @@ Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
             
             <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> Sample= obj<span class="hljs-string">&quot;Sample&quot;</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample.new</span><span class="hljs-params">(src,   self)</span></span> 
-  <span class="hljs-built_in">self</span> = isa(Sample, {rows={}, cols=<span class="hljs-literal">nil</span>}) 
+  <span class="hljs-built_in">self</span> = has(Sample, {rows={}, cols=<span class="hljs-literal">nil</span>}) 
   <span class="hljs-keyword">if</span> <span class="hljs-built_in">type</span>(src)==<span class="hljs-string">&quot;string&quot;</span> <span class="hljs-keyword">then</span> <span class="hljs-keyword">for</span>   row <span class="hljs-keyword">in</span> csv(src)   <span class="hljs-keyword">do</span> <span class="hljs-built_in">self</span>:add(row) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
   <span class="hljs-keyword">if</span> <span class="hljs-built_in">type</span>(src)==<span class="hljs-string">&quot;table&quot;</span>  <span class="hljs-keyword">then</span> <span class="hljs-keyword">for</span> _,row <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(src) <span class="hljs-keyword">do</span> <span class="hljs-built_in">self</span>:add(row) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
   <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span> <span class="hljs-keyword">end</span> 
@@ -671,6 +672,7 @@ Cols= obj<span class="hljs-string">&quot;Cols&quot;</span>
             
             <div class="content"><div class='highlight'><pre>Todo.demo1={<span class="hljs-string">&quot;main demi&quot;</span>, <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(     s,t,u)</span></span>
   s = Sample.new(the.file)
+  shout(s.cols)
   <span class="hljs-built_in">print</span>(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
   <span class="hljs-keyword">for</span> _=<span class="hljs-number">1</span>,<span class="hljs-number">10</span> <span class="hljs-keyword">do</span>
     t = Sample.new(file)

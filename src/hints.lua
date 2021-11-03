@@ -81,10 +81,11 @@ function cli(options,   u)
   return u end
 
 -- Pretty-print the options and the start-up  actions.   
--- Start-up actions held in the `Todo` list.
+-- Start-up actions held in the `Todo` list. 
+-- Note that other `Todo` items are listed at end-of-file.
 Todo={}
 Todo.help={"print help", function ()
-  print("lua hints.lua [OPTIONS] -do ACTION")
+  print("lua hints.lua [OPTIONS] -do ACTION\n")
   print(about,"\n\nOPTIONS:");
   for _,t in pairs(options) do if t[1] ~= "todo" then
     print(fmt("  %-4s%-20s %s",t[2], t[3]==false and "" or t[3], t[4])) end end
@@ -93,9 +94,9 @@ Todo.help={"print help", function ()
     print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
 -- ### Meta
-local isa,obj
+local has,obj
 -- Instance  creation
-function isa(mt,x) return setmetatable(x,mt) end
+function has(mt,x) return setmetatable(x,mt) end
 -- Object creation.
 function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
@@ -133,16 +134,17 @@ local Sym,Num,Skip,Cols,Sample
 -- ###  Cols
 -- `Cols` is a factory for turning  column names into their
 -- rightful columns. Those names contain certain magic symbols.
-local klassp,skipp,goalp,nump,ako
+local klassp,skipp,goalp,nump,ako,weight
 function ako(v)    return (skipp(v) and Skip) or (nump(v) and Num) or Sym end
 function goalp(v)  return klassp(v)  or v:find"+" or v:find"-" end
 function klassp(v) return v:find"!" end
 function nump(v)   return v:match("^[A-Z]") end
 function skipp(v)  return v:find":" end
+function weight(v) return v:find"-" and -1 or v:find"+" and 1 or 0 end
 
 Cols= obj"Cols"
 function Cols.new(lst,       self,now) 
-  self = isa(Cols, {header=lst,all={},xs={},ys={},klass=nil}) 
+  self = has(Cols, {header=lst,all={},xs={},ys={},klass=nil}) 
   for k,v in pairs(lst) do
     now = ako(v).new(k,v)
     push(self.all, now)
@@ -154,25 +156,25 @@ function Cols.new(lst,       self,now)
 -- ### Sym
 -- Columns for sumamrizing Symbols.
 Sym = obj"Sym"
-function Sym.new(i,s)  return isa(Sym, {at=i,txt=s,n=0,has={},mode=nil,most=0}) end
+function Sym.new(i,s) return has(Sym, {at=i,txt=s,n=0,seen={},mode=nil,most=0}) end
 function Sym:add(x)    
   if x=="?" then return x end; 
   self.n = self.n + 1
-  self.has[x] = 1+(self.has[x] or 0) 
-  if self.has[x] > self.most then 
-     self.most,self.mode = self.has[x],x end end
+  self.seen[x] = 1+(self.seen[x] or 0) 
+  if self.seen[x] > self.most then 
+     self.most,self.mode = self.seen[x],x end end
 
 function Sym:dist(x,y) return  x==y and 0 or 1 end
 function Sym:mid()     return self.mode end
 function Sym:spread() 
-  return sum(self.has, 
+  return sum(self.seen, 
              function(n) return n<-0 and 0 or -n/self.n*log(n/self.n,2) end) end
 
 -- ### Num
 -- Columns for sumamrizing numbers.
 Num = obj"Num"
 function Num.new(i,s) 
-  return isa(Num,{at=i,txt=s,n=0,_all={}, ok=false,w =s:find"-" and -1 or 1}) end
+  return has(Num,{at=i,txt=s,n=0,_all={}, ok=false,w=weight(s)}) end
 
 function Num:add(x) 
   if x=="?" then return x end
@@ -204,7 +206,7 @@ function Num:spread(   a,here)
 -- ### Skip
 -- Columns for data we are skipping over
 Skip= obj"Skip"
-function Skip.new(i,s) return isa(Skip,{at=i,txt=s}) end
+function Skip.new(i,s) return has(Skip,{at=i,txt=s}) end
 function Skip:add(x)   return x end
 function Skip:mid()    return "?" end
 function Skip:spread() return "?" end
@@ -213,7 +215,7 @@ function Skip:spread() return "?" end
 -- A `Sample` of data stores `rows`, summarized into `Col`umns.
 local Sample= obj"Sample"
 function Sample.new(src,   self) 
-  self = isa(Sample, {rows={}, cols=nil}) 
+  self = has(Sample, {rows={}, cols=nil}) 
   if type(src)=="string" then for   row in csv(src)   do self:add(row) end end
   if type(src)=="table"  then for _,row in pairs(src) do self:add(row) end end
   return self end 
@@ -290,7 +292,7 @@ function Sample:spread(   cols)
 
 -- ## Todo
 -- Things  to do at start-up.
-Todo.demo1={"main demi", function(     s,t,u)
+Todo.demo1={"main demo", function(     s,t,u)
   s = Sample.new(the.file)
   shout(s.cols)
   print(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
