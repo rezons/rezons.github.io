@@ -38,8 +38,10 @@ function rand(lo,hi,     mult,mod)
   return lo + (hi-lo) * Seed / 2147483647 end 
 
 -- lists
-local map,keys,shuffle,copy,sum
+local firsts,map,keys,shuffle,copy,sum
 function copy(t) return map(t, function(_,x) return x end) end
+
+function firsts(x,y) return x[1] < y[1] end
 
 function keys(t,  u) 
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
@@ -207,6 +209,15 @@ function Sample:clone(inits,   now)
   map(inits or {}, function(_,row) now:add(row) end)
   return now end
 
+function Sample:diff(other, cols,  y)
+  cols = cols or self.cols.ys
+  n1,m1,s1= #self.rows,  self:mid(cols),  self:spread(cols)
+  n2,m2,s2= #other.rows, other:mid(cols), other:spread(cols)
+  for i,y1 in pairs(m1) do
+    y2 = m2[i]
+    if   abs(y1-y2) > the.cohen*(s1[i]*n1/(n1+n2) + s2[i]*n2/(n1+n2)) 
+    then return true end end end
+
 function Sample:dist(row1,row2)
   local d,n,p,x,y,inc
   d, n, p = 0, 1E-32, 2
@@ -225,20 +236,19 @@ function Sample:div()
     for someRank,some1 in pairs(somes) do
        tmp = self:dist(row,some1)
        if tmp < closest then closest,rowRank = tmp,someRank end end
-    return rowRank <= the.some//2 
+    return {rowRank,row}
   end ------------------
-  function go(stop,rows,     best,somes,tmp)
-    tmp = self:clone(rows)
-    print(#rows, out(tmp:mid(tmp.cols.ys)), out(tmp:spread(tmp.cols.ys)))
-    if #rows < stop or #rows < the.some then return rows end
-    best,somes = {},{}
+  function go(stop,rows,somes,     best)
+    if #rows < 2*stop or #rows < 2*the.some then return rows end
     for i = 1,the.some do push(somes,pop(rows)) end
     somes = sort(somes, better)
-    for _,row in pairs(rows) do
-      if want(row,somes) then push(best,row) end  end
-    return go(stop, best) 
+    best = {}
+    for i,row in pairs(sort(map(rows,function(_,row) return want(row,somes) end),
+                            firsts)) do
+      if i <= #rows//2 then push(best,row[2]) else break end end
+    return go(stop, best, somes) 
   end ---------------------------------------------------
-  return go((#self.rows)^the.enough, shuffle(copy(self.rows))) end
+  return go((#self.rows)^the.enough, shuffle(copy(self.rows)),{}) end
 
 function Sample:mid(  cols) 
   return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
@@ -247,16 +257,16 @@ function Sample:spread(   cols)
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
 -- Main
-local function main(file,     s,t)
+local function main(file,     s,t,u)
   s = Sample.new(file)
-  shout(s)
-  --shout(s:mid(s.cols.ys))
-  --t=s:clone(s:div())
-  --print("")
-end
+  print(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
+  for _=1,10 do
+    t = Sample.new(file)
+    u = t:clone( t:div() ) 
+    print(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) end end
 
-the = cli(options)
-Seed= the.seed
-if the.help then help("lua hints.lua",options) else main(the.data) end
+the  = cli(options)
+Seed = the.seed
+if the.help then help("lua hints.lua",options) else main(the.file) end
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
 --for row in csv("../data/auto93.csv") do shout(row) end
