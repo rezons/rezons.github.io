@@ -269,4 +269,3 @@ the  = cli(options)
 Seed = the.seed
 if the.help then help("lua hints.lua",options) else main(the.file) end
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
---for row in csv("../data/auto93.csv") do shout(row) end
