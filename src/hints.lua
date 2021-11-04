@@ -205,7 +205,7 @@ function Num:dist(x,y)
 function Num:mid(    a) a=self:all(); return a[#a//2] end
 function Num:norm(x,     a)
   a=self:all()
-  return abs(a[#a]-a[1])< 1E-16 and 0 or (x-a[1])/(a[#a]-a[1]) end
+  return abs(a[#a]-a[1])< 1E-16 and 0 or (x - a[1])/(a[#a] - a[1]) end
 
 -- The standard deviation of a list of sorted numbers  is the
 -- 90th - 10th percentile, divided by 2.56. Why? It is widely
@@ -216,7 +216,7 @@ function Num:norm(x,     a)
 function Num:spread(   a,here) 
   a = self:all() 
   if #a < 2 then return 0 end
-  function here(x) x=x*#a//1; return (x < 1 and 1 or x>#a and #a or x)//1 end
+  function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
   return (a[here(.9)] - a[here(.1)])/2.56 end
 
 -- ### Skip
@@ -230,7 +230,7 @@ function Skip:spread() return "?" end
 -- ### Sample
 -- A `Sample` of data stores `rows`, summarized into `Col`umns.
 -- If `src` is provided, the use it for initialization.
-local Sample= obj"Sample" -----------------------------------------------------
+Sample= obj"Sample" -----------------------------------------------------
 function Sample.new(src,   self) 
   self = has(Sample, {rows={}, cols=nil}) 
   if type(src)=="string" then for   row in csv(src)   do self:add(row) end end

@@ -1,12 +1,14 @@
 -- vim: ft=lua ts=2 sw=2 et:
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end 
+local has,obj
+function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
+function has(mt,x) return setmetatable(x,mt) end
 
-local oo=require"oo"
-local Cocomo=oo.klass"Comoco"
-function Cocomo.new(project) 
-  return oo.isa(Cocomo,{x={},y={}}):ready(project) end
+local Cocomo=obj"Comoco"
+function Cocomo.new(project) return has(Cocomo,{x={},y={}}):ready(project) end
 
 function Cocomo:risks()
-  local _,ne,nw,nw4,sw,sw4,ne46,w26,sw46
+  local _,ne,nw,nw4,sw,sw4,ne46,sw26,sw46
   _ = 0
   ne={
     {_,_,_,1,2,_}, -- bad if lohi
@@ -108,9 +110,9 @@ function Cocomo:risk()
       n  = n  + m[self.x[a1]][self.x[a2]] end end
   return n/108 end
 
-local function from(lo,hi) return lo+(hi-lo)*math.random() end
-
-local function y(meta,x)
+local from,y
+function from(lo,hi) return lo+(hi-lo)*math.random() end
+function y(meta,x)
   -- numbers from section  3.1 of
   -- http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.365.9865&rep=rep1&type=pdf
   if     meta=="1" then return x 
@@ -140,4 +142,27 @@ function Cocomo:ready(project)
   self.y.b = gradient*self.y.a+ xintercept
   return self end
 
-return Cocomo
+
+local c,copyn,cat,push,map,fmt
+function map(t,f,  u) 
+  u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
+
+function keys(t,  u) 
+  u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
+  table.sort(u)
+  return u end
+
+fmt=string.format
+cat=table.concat
+push=table.insert
+
+function copyn(t,   u) u={};for _,k in pairs(keys(t)) do push(u, t[k])  end; return u  end
+for i = 1,tonumber(arg[1] or 100) do
+  c=Cocomo.new()
+  d=copyn(c.x)
+  push(d,100*c:risk()//1)
+  push(d,c:effort()//1)
+  print(cat(map(d,function(_,v) return fmt("%.0f",v) end), ","))
+end
+
+for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
