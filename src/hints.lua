@@ -3,17 +3,16 @@
 -- 2. Prune everything below the mid.
 -- 3. Repeat.
 -- 4. Return the surviving best things.
-local about=[[
-Semi-supervised multi-objective optimizer.       
-(c) 2021 Tim Menzies, unlicense.org]]
-
-local the -- generated from `the=cli(options)`
-local options = {
-  {"enough","-e", .5,                   "stopping criteria"},
-  {"file",  "-f", "../data/auto93.csv", "data file to load"},
-  {"some",  "-s", 4,                    "samples per generation"},
-  {"seed",  "-S", 937162211,            "random number seed"},
-  {"todo",  "-do", "help",              "start-up action"}}
+local the -- Global config. Built via `the = updateFromCommandLine(about.how)`
+local about={
+  what = "Semi-supervised multi-objective optimizer",
+  when = "(c) 2021, Tim Menzies, unlicense.org",
+  how  = {
+    {"enough","-e", .5,                   "stopping criteria"},
+    {"file",  "-f", "../data/auto93.csv", "data file to load"},
+    {"some",  "-s", 4,                    "samples per generation"},
+    {"seed",  "-S", 937162211,            "random number seed"},
+    {"todo",  "-do", "help",              "start-up action"}}}
 
 -- ## Functions
 
@@ -69,36 +68,15 @@ function sum(t,f,    n)
   n,f = 0,f or same
   for _,x in pairs(t) do n=n+f(x) end; return n end
 
--- ### Command-line args
--- At start-up, `the`  settings will come from `the=cli(options)`.
-local cli,help, Todo
-function cli(options,   u)
+-- ### Command-line
+-- At start-up, `the`  settings will come from `the = cli(about.how)`.
+local function updateFromCommandLine(options,   u)
   u={}
   for _,t in pairs(options) do
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
       u[t[1]] = (t[3]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end
   return u end
-
--- Pretty-print the options and the start-up  actions.
--- Start-up actions held in the `Todo` list. 
--- Note that other `Todo` items are listed at end-of-file.
-Todo={} -----------------------------------------------------------------------
-Todo.help={"print help", function ()
-  print("lua hints.lua [OPTIONS] -do ACTION\n")
-  print(about,"\n\nOPTIONS:");
-  for _,t in pairs(options) do if t[1] ~= "todo" then
-    print(fmt("  %-4s%-20s %s",t[2], t[3]==false and "" or t[3], t[4])) end end
-  print("\nACTIONS:")
-  for _,k in pairs(keys(Todo)) do
-    print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
-
--- ### Meta
-local has,obj
--- Instance  creation
-function has(mt,x) return setmetatable(x,mt) end
--- Object creation.
-function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
 --  ### Printing
 local shout,out
@@ -125,6 +103,13 @@ local function csv(file,      split,stream,tmp)
       tmp = io.read()
       if  #t > 0 then return map(t, function(_,x) return tonumber(x) or x end) end
     else io.close(stream) end end end
+
+-- ### Meta
+local has,obj
+-- Instance  creation
+function has(mt,x) return setmetatable(x,mt) end
+-- Object creation.
+function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
 -- ## Classes
   
@@ -321,8 +306,19 @@ function Sample:spread(   cols)
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
 -- ## Stuff `Todo` at Start-up
+local Todo={} ------------------------------------------------------------------
+Todo.help={"print help", 
+  function ()
+    print("lua hints.lua [OPTIONS] -do ACTION\n")
+    print(about.what)
+    print(about.when,"\n\nOPTIONS:");
+    for _,t in pairs(about.how) do if t[1] ~= "todo" then
+      print(fmt("  %-4s%-20s %s",
+                t[2], t[3]==false and "" or t[3], t[4])) end end
+    print("\nACTIONS:")
+    for _,k in pairs(keys(Todo)) do
+      print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
--- Things  to do at start-up.
 Todo.demo1={"main demo", function(     s,t,u)
   s = Sample.new(the.file)
   print(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
@@ -331,7 +327,7 @@ Todo.demo1={"main demo", function(     s,t,u)
     u = t:clone( t:div() ) 
     print(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) end end}
 
-the  = cli(options)
+the  = updateFromCommandLine(about.how)
 Seed = the.seed
 Todo[the.todo][2]()
 
