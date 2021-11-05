@@ -324,8 +324,8 @@ Todo.demo1={"main demo", function(     s,t,u)
     print(n, #s.rows, 
              out(s:mid(s.cols.ys)), 
              out(map(s:spread(s.cols.ys), 
-                    function(_,x) return fmt("%6.2f",x*the.cohen) end))) end
-
+                    function(_,x) return fmt("%6.2f",x*the.cohen) end))) 
+  end ---------------------
   s = Sample.new(the.file)
   stats(0,s)
   for _=1,20 do
