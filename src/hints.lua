@@ -276,25 +276,26 @@ function Sample:dist(row1,row2)
 
 -- And finally, we can do the inference.
 function Sample:div()
-  local better,want,go,somes
-  function better(x,y) return self:better(x,y) end
+  local somes,want,go
+  somes={}
   function want(_,row)
     local closest,rowRank,tmp = 1E32,1E32,nil
     for someRank,some1 in pairs(somes) do
        tmp = self:dist(row,some1)
        if tmp < closest then closest,rowRank = tmp,someRank end end
-    return {rowRank,row}
-  end ------------------
-  function go(stop,rows,     best)
-    if #rows < stop or #rows < the.some then return rows end
-    for i = 1,the.some do push(somes,pop(rows)) end
-    somes = sort(somes, better)
-    best = {}
-    for i,row in pairs(sort(map(rows,want),firsts)) do
-      if i <= #rows//2 then push(best,row[2]) else break end end
-    return go(stop, best) 
-  end ---------------------------------------------------
-  somes={}
+    return {rowRank,row} 
+  end
+  function go(stop, rows,  best)
+    if #rows < stop or #rows < the.some then 
+      return rows end
+    for i = 1,the.some do 
+      push(somes,pop(rows)) end
+    somes = sort(somes, function(x,y) return self:better(x,y) end)
+    best={}
+    for k,v in pairs(sort(map(rows,want), firsts)) do 
+      if k <= #rows/2 then push(best,v[2]) else break end end
+    return go(stop, best)
+  end
   return go((#self.rows)^the.enough, shuffle(copy(self.rows))) end
 
 -- The central tendency of a `sample` comes fro its columns.
