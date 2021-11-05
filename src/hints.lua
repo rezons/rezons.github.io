@@ -332,7 +332,7 @@ Todo.demo1={"main demo", function(     s,t,u)
     t = Sample.new(the.file)
     local evals,rows = t:div()
     u = t:clone( rows )  
-    stats(evals,u) end end}
+    stats(evals,t:clone(rows)) end end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
