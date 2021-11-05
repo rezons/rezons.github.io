@@ -8,6 +8,7 @@ local about={
   what = "Semi-supervised multi-objective optimizer",
   when = "(c) 2021, Tim Menzies, unlicense.org",
   how  = {
+    {"cohen", "-c", .35,                  "min stdev delta to be different"},
     {"enough","-e", .5,                   "stopping criteria"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
     {"some",  "-s", 4,                    "samples per generation"},
@@ -228,7 +229,8 @@ function  Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
   if   not self.cols -- then  `lst` is  the  header row
   then self.cols = Cols.new(lst) 
-  else push(self.rows, map(lst,add)) end end
+  else push(self.rows, map(lst,add)) end 
+  return self end
 
 -- The Zitler domination predicate. `Row1` is better
 -- than `row2` if the average loss less moving from `row1` to `row2`
@@ -246,22 +248,21 @@ function Sample:better(row1,row2,cols)
   return s1 / n < s2 / n end
 
 -- Return a new `Sample` with the same structure as this one.
-function Sample:clone(inits,   now)
-  now = Sample.new()
-  now:add(self.cols.header)
-  map(inits or {}, function(_,row) now:add(row) end)
-  return now end
+function Sample:clone(inits,   tmp)
+  tmp = Sample.new():add( self.cols.header )
+  map(inits or {}, function(_,row) tmp:add(row) end)
+  return tmp end
 
 -- Two samples are different if any of their goals are more than
 -- (say) .35\* the standard devation of that goal.
-function Sample:diff(other, cols,  y)
-  cols = cols or self.cols.ys
-  n1,m1,s1= #self.rows,  self:mid(cols),  self:spread(cols)
-  n2,m2,s2= #other.rows, other:mid(cols), other:spread(cols)
-  for i,y1 in pairs(m1) do
-    y2 = m2[i]
-    if   abs(y1-y2) > the.cohen*(s1[i]*n1/(n1+n2) + s2[i]*n2/(n1+n2)) 
-    then return true end end end
+function Sample:diff(other,xy,     col2,sd)
+  xy = xy or "ys"
+  for i,col1 in pairs(self.cols[xy]) do
+    col2 = other.cols[xy][i]
+    sd = (col1:spread()*col1.n + col2:spread()*col2.n) / (col1.n + col2.n)
+    if abs(col2:mid()  - col1:mid()) >= sd*the.cohen then
+      return true end end
+  return false end
 
 -- Distance.
 function Sample:dist(row1,row2)
@@ -275,28 +276,26 @@ function Sample:dist(row1,row2)
   return (d/n)^(1/p) end
 
 -- And finally, we can do the inference.
-function Sample:div()
-  local somes,want,go
-  somes={}
-  function want(_,row)
+function Sample:div(   somes)
+  somes = {}
+  local function want(_,row)
     local closest,rowRank,tmp = 1E32,1E32,nil
     for someRank,some1 in pairs(somes) do
        tmp = self:dist(row,some1)
        if tmp < closest then closest,rowRank = tmp,someRank end end
     return {rowRank,row} 
-  end
-  function go(stop, rows,  best)
-    if #rows < stop or #rows < the.some then 
-      return rows end
-    for i = 1,the.some do 
-      push(somes,pop(rows)) end
+  end ------------------------------------
+  local function go(rows,evals)
+    if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
+      return evals,rows end
+    for i = 1,the.some do push(somes,pop(rows)) end
     somes = sort(somes, function(x,y) return self:better(x,y) end)
-    best={}
+    local best = {}
     for k,v in pairs(sort(map(rows,want), firsts)) do 
-      if k <= #rows/2 then push(best,v[2]) else break end end
-    return go(stop, best)
+      if k <= #rows/2 then push(best, v[2]) else break end end
+    return go(best, evals+the.some) 
   end
-  return go((#self.rows)^the.enough, shuffle(copy(self.rows))) end
+  return go(shuffle(copy(self.rows)),0) end
 
 -- The central tendency of a `sample` comes fro its columns.
 function Sample:mid(  cols) 
@@ -321,12 +320,19 @@ Todo.help={"print help",
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
 Todo.demo1={"main demo", function(     s,t,u)
+  local function stats(n,s)
+    print(n, #s.rows, 
+             out(s:mid(s.cols.ys)), 
+             out(map(s:spread(s.cols.ys), 
+                    function(_,x) return fmt("%6.2f",x*the.cohen) end))) end
+
   s = Sample.new(the.file)
-  print(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
-  for _=1,40 do
+  stats(0,s)
+  for _=1,20 do
     t = Sample.new(the.file)
-    u = t:clone( t:div() ) 
-    print(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) end end}
+    local evals,rows = t:div()
+    u = t:clone( rows )  
+    stats(evals,u) end end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
