@@ -151,10 +151,11 @@ function Cols.new(lst,       self,now,what)
 -- 4. `spread()` returns the variability around the `mid`.
 Sym = obj"Sym" ----------------------------------------------------------------
 function Sym.new(i,s) return has(Sym, {at=i,txt=s,n=0,seen={},mode=nil,most=0}) end
-function Sym:add(x)    
+function Sym:add(x, inc)    
   if x=="?" then return x end; 
-  self.n = self.n + 1
-  self.seen[x] = 1+(self.seen[x] or 0) 
+  inc = inc or 1
+  self.n = self.n + inc
+  self.seen[x] = inc + (self.seen[x] or 0) 
   if self.seen[x] > self.most then 
      self.most,self.mode = self.seen[x],x end end
 
@@ -254,7 +255,7 @@ function Sample:clone(inits,   tmp)
   return tmp end
 
 -- Two samples are different if any of their goals are more than
--- (say) .35\* the standard devation of that goal.
+-- (say) .35 * the standard deviation of that goal.
 function Sample:diff(other,xy,     col2,sd)
   xy = xy or "ys"
   for i,col1 in pairs(self.cols[xy]) do
@@ -288,12 +289,12 @@ function Sample:div(   somes)
   local function go(rows,evals)
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
       return evals,rows end
-    for i = 1,the.some do push(somes,pop(rows)) end
+    for i = 1,the.some do evals = evals+1; push(somes,pop(rows)) end
     somes = sort(somes, function(x,y) return self:better(x,y) end)
     local best = {}
     for k,v in pairs(sort(map(rows,want), firsts)) do 
       if k <= #rows/2 then push(best, v[2]) else break end end
-    return go(best, evals+the.some) 
+    return go(best, evals) 
   end
   return go(shuffle(copy(self.rows)),0) end
 

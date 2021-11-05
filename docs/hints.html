@@ -42,6 +42,7 @@
   what = <span class="hljs-string">&quot;Semi-supervised multi-objective optimizer&quot;</span>,
   when = <span class="hljs-string">&quot;(c) 2021, Tim Menzies, unlicense.org&quot;</span>,
   how  = {
+    {<span class="hljs-string">&quot;cohen&quot;</span>, <span class="hljs-string">&quot;-c&quot;</span>, <span class="hljs-number">.35</span>,                  <span class="hljs-string">&quot;min stdev delta to be different&quot;</span>},
     {<span class="hljs-string">&quot;enough&quot;</span>,<span class="hljs-string">&quot;-e&quot;</span>, <span class="hljs-number">.5</span>,                   <span class="hljs-string">&quot;stopping criteria&quot;</span>},
     {<span class="hljs-string">&quot;file&quot;</span>,  <span class="hljs-string">&quot;-f&quot;</span>, <span class="hljs-string">&quot;../data/auto93.csv&quot;</span>, <span class="hljs-string">&quot;data file to load&quot;</span>},
     {<span class="hljs-string">&quot;some&quot;</span>,  <span class="hljs-string">&quot;-s&quot;</span>, <span class="hljs-number">4</span>,                    <span class="hljs-string">&quot;samples per generation&quot;</span>},
@@ -652,7 +653,8 @@ Else, update the columns using the  data in <code>lst</code>.</p>
   <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">add</span><span class="hljs-params">(k,v)</span></span> <span class="hljs-built_in">self</span>.cols.all[k]:add(v); <span class="hljs-keyword">return</span> v; <span class="hljs-keyword">end</span>  
   <span class="hljs-keyword">if</span>   <span class="hljs-keyword">not</span> <span class="hljs-built_in">self</span>.cols <span class="hljs-comment">-- then  `lst` is  the  header row</span>
   <span class="hljs-keyword">then</span> <span class="hljs-built_in">self</span>.cols = Cols.new(lst) 
-  <span class="hljs-keyword">else</span> push(<span class="hljs-built_in">self</span>.rows, map(lst,add)) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span></pre></div></div>
+  <span class="hljs-keyword">else</span> push(<span class="hljs-built_in">self</span>.rows, map(lst,add)) <span class="hljs-keyword">end</span> 
+  <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span> <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -694,11 +696,10 @@ raise any delta to some exponential power.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:clone</span><span class="hljs-params">(inits,   now)</span></span>
-  now = Sample.new()
-  now:add(<span class="hljs-built_in">self</span>.cols.header)
-  map(inits <span class="hljs-keyword">or</span> {}, <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(_,row)</span></span> now:add(row) <span class="hljs-keyword">end</span>)
-  <span class="hljs-keyword">return</span> now <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:clone</span><span class="hljs-params">(inits,   tmp)</span></span>
+  tmp = Sample.new():add( <span class="hljs-built_in">self</span>.cols.header )
+  map(inits <span class="hljs-keyword">or</span> {}, <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(_,row)</span></span> tmp:add(row) <span class="hljs-keyword">end</span>)
+  <span class="hljs-keyword">return</span> tmp <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -710,18 +711,18 @@ raise any delta to some exponential power.</p>
                 <a class="ss" href="#section-36">&#x00a7;</a>
               </div>
               <p>Two samples are different if any of their goals are more than
-(say) .35* the standard devation of that goal.</p>
+(say) .35 * the standard deviation of that goal.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:diff</span><span class="hljs-params">(other, cols,  y)</span></span>
-  cols = cols <span class="hljs-keyword">or</span> <span class="hljs-built_in">self</span>.cols.ys
-  n1,m1,s1= #<span class="hljs-built_in">self</span>.rows,  <span class="hljs-built_in">self</span>:mid(cols),  <span class="hljs-built_in">self</span>:spread(cols)
-  n2,m2,s2= #other.rows, other:mid(cols), other:spread(cols)
-  <span class="hljs-keyword">for</span> i,y1 <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(m1) <span class="hljs-keyword">do</span>
-    y2 = m2[i]
-    <span class="hljs-keyword">if</span>   <span class="hljs-built_in">abs</span>(y1-y2) &gt; the.cohen*(s1[i]*n1/(n1+n2) + s2[i]*n2/(n1+n2)) 
-    <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:diff</span><span class="hljs-params">(other,xy,     col2,sd)</span></span>
+  xy = xy <span class="hljs-keyword">or</span> <span class="hljs-string">&quot;ys&quot;</span>
+  <span class="hljs-keyword">for</span> i,col1 <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">self</span>.cols[xy]) <span class="hljs-keyword">do</span>
+    col2 = other.cols[xy][i]
+    sd = (col1:spread()*col1.n + col2:spread()*col2.n) / (col1.n + col2.n)
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">abs</span>(col2:mid()  - col1:mid()) &gt;= sd*the.cohen <span class="hljs-keyword">then</span>
+      <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span> <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -759,27 +760,26 @@ raise any delta to some exponential power.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:div</span><span class="hljs-params">()</span></span>
-  <span class="hljs-keyword">local</span> better,want,go,somes
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">better</span><span class="hljs-params">(x,y)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>:better(x,y) <span class="hljs-keyword">end</span>
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">want</span><span class="hljs-params">(_,row)</span></span>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sample:div</span><span class="hljs-params">(   somes)</span></span>
+  somes = {}
+  <span class="hljs-keyword">local</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">want</span><span class="hljs-params">(_,row)</span></span>
     <span class="hljs-keyword">local</span> closest,rowRank,tmp = <span class="hljs-number">1E32</span>,<span class="hljs-number">1E32</span>,<span class="hljs-literal">nil</span>
     <span class="hljs-keyword">for</span> someRank,some1 <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(somes) <span class="hljs-keyword">do</span>
        tmp = <span class="hljs-built_in">self</span>:dist(row,some1)
        <span class="hljs-keyword">if</span> tmp &lt; closest <span class="hljs-keyword">then</span> closest,rowRank = tmp,someRank <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
-    <span class="hljs-keyword">return</span> {rowRank,row}
-  <span class="hljs-keyword">end</span> <span class="hljs-comment">------------------</span>
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go</span><span class="hljs-params">(stop,rows,     best)</span></span>
-    <span class="hljs-keyword">if</span> #rows &lt; stop <span class="hljs-keyword">or</span> #rows &lt; the.some <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> rows <span class="hljs-keyword">end</span>
-    <span class="hljs-keyword">for</span> i = <span class="hljs-number">1</span>,the.some <span class="hljs-keyword">do</span> push(somes,pop(rows)) <span class="hljs-keyword">end</span>
-    somes = <span class="hljs-built_in">sort</span>(somes, better)
-    best = {}
-    <span class="hljs-keyword">for</span> i,row <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">sort</span>(map(rows,want),firsts)) <span class="hljs-keyword">do</span>
-      <span class="hljs-keyword">if</span> i &lt;= #rows//<span class="hljs-number">2</span> <span class="hljs-keyword">then</span> push(best,row[<span class="hljs-number">2</span>]) <span class="hljs-keyword">else</span> <span class="hljs-keyword">break</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
-    <span class="hljs-keyword">return</span> go(stop, best) 
-  <span class="hljs-keyword">end</span> <span class="hljs-comment">---------------------------------------------------</span>
-  somes={}
-  <span class="hljs-keyword">return</span> go((#<span class="hljs-built_in">self</span>.rows)^the.enough, shuffle(copy(<span class="hljs-built_in">self</span>.rows))) <span class="hljs-keyword">end</span></pre></div></div>
+    <span class="hljs-keyword">return</span> {rowRank,row} 
+  <span class="hljs-keyword">end</span> <span class="hljs-comment">------------------------------------</span>
+  <span class="hljs-keyword">local</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go</span><span class="hljs-params">(rows,evals)</span></span>
+    <span class="hljs-keyword">if</span> #rows &lt; <span class="hljs-number">2</span>*(#<span class="hljs-built_in">self</span>.rows)^the.enough <span class="hljs-keyword">or</span> #rows &lt; <span class="hljs-number">2</span>*the.some <span class="hljs-keyword">then</span> 
+      <span class="hljs-keyword">return</span> evals,rows <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">for</span> i = <span class="hljs-number">1</span>,the.some <span class="hljs-keyword">do</span> evals = evals+<span class="hljs-number">1</span>; push(somes,pop(rows)) <span class="hljs-keyword">end</span>
+    somes = <span class="hljs-built_in">sort</span>(somes, <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(x,y)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>:better(x,y) <span class="hljs-keyword">end</span>)
+    <span class="hljs-keyword">local</span> best = {}
+    <span class="hljs-keyword">for</span> k,v <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">sort</span>(map(rows,want), firsts)) <span class="hljs-keyword">do</span> 
+      <span class="hljs-keyword">if</span> k &lt;= #rows/<span class="hljs-number">2</span> <span class="hljs-keyword">then</span> push(best, v[<span class="hljs-number">2</span>]) <span class="hljs-keyword">else</span> <span class="hljs-keyword">break</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
+    <span class="hljs-keyword">return</span> go(best, evals) 
+  <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">return</span> go(shuffle(copy(<span class="hljs-built_in">self</span>.rows)),<span class="hljs-number">0</span>) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -840,12 +840,19 @@ Todo.help={<span class="hljs-string">&quot;print help&quot;</span>,
       <span class="hljs-built_in">print</span>(fmt(<span class="hljs-string">&quot;  -do %-21s%s&quot;</span>,k, Todo[k][<span class="hljs-number">1</span>])) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>}
 
 Todo.demo1={<span class="hljs-string">&quot;main demo&quot;</span>, <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(     s,t,u)</span></span>
+  <span class="hljs-keyword">local</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">stats</span><span class="hljs-params">(n,s)</span></span>
+    <span class="hljs-built_in">print</span>(n, #s.rows, 
+             out(s:mid(s.cols.ys)), 
+             out(map(s:spread(s.cols.ys), 
+                    <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(_,x)</span></span> <span class="hljs-keyword">return</span> fmt(<span class="hljs-string">&quot;%6.2f&quot;</span>,x*the.cohen) <span class="hljs-keyword">end</span>))) 
+  <span class="hljs-keyword">end</span> <span class="hljs-comment">---------------------</span>
   s = Sample.new(the.file)
-  <span class="hljs-built_in">print</span>(#s.rows, out(s:mid(s.cols.ys)), out(s:spread(s.cols.ys)))
-  <span class="hljs-keyword">for</span> _=<span class="hljs-number">1</span>,<span class="hljs-number">40</span> <span class="hljs-keyword">do</span>
+  stats(<span class="hljs-number">0</span>,s)
+  <span class="hljs-keyword">for</span> _=<span class="hljs-number">1</span>,<span class="hljs-number">20</span> <span class="hljs-keyword">do</span>
     t = Sample.new(the.file)
-    u = t:clone( t:div() ) 
-    <span class="hljs-built_in">print</span>(#u.rows, out(u:mid(u.cols.ys)), out(u:spread(u.cols.ys))) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>}
+    <span class="hljs-keyword">local</span> evals,rows = t:div()
+    u = t:clone( rows )  
+    stats(evals,t:clone(rows)) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
