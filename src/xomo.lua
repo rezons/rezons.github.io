@@ -84,7 +84,7 @@ function Cocomo:risks()
 function Cocomo:ranges() 
   local p,n,s="+","-","*"
   return {
-    loc = {"1",2,2000},
+    ["Loc+"] = {"1",2,2000},
     acap= {n,1,5}, cplx={p,1,6}, prec={s,1,6},
     aexp= {n,1,5}, data={p,2,5}, flex={s,1,6},
     ltex= {n,1,5}, docu={p,1,5}, arch={s,1,6},
@@ -101,7 +101,7 @@ function Cocomo:effort()
     if     t[1] == "+" then em = em * self.y[k] 
     elseif t[1] == "-" then em = em * self.y[k] 
     elseif t[1] == "*" then sf = sf + self.y[k] end end 
-  return self.y.a*self.x.loc^(self.y.b + 0.01*sf) * em end
+  return self.y.a*self.x["Loc+"]^(self.y.b + 0.01*sf) * em end
   
 function Cocomo:risk()
   local n=0
@@ -143,11 +143,11 @@ function Cocomo:ready(project)
   return self end
 
 
-local c,copyn,cat,push,map,fmt
+local copyn,cat,push,map,fmt
 function map(t,f,  u) 
   u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
 
-function keys(t,  u) 
+local function keys(t,  u) 
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
   table.sort(u)
   return u end
@@ -157,9 +157,13 @@ cat=table.concat
 push=table.insert
 
 function copyn(t,   u) u={};for _,k in pairs(keys(t)) do push(u, t[k])  end; return u  end
+local tmp = keys(Cocomo.new().x)
+push(tmp,"Risk-")
+push(tmp,"Effort-")
+print(cat(tmp,", "))
 for i = 1,tonumber(arg[1] or 100) do
-  c=Cocomo.new()
-  d=copyn(c.x)
+  local c=Cocomo.new()
+  local d=copyn(c.x)
   push(d,100*c:risk()//1)
   push(d,c:effort()//1)
   print(cat(map(d,function(_,v) return fmt("%.0f",v) end), ","))

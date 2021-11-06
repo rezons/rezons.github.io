@@ -8,7 +8,7 @@ local about={
   what = "Semi-supervised multi-objective optimizer",
   when = "(c) 2021, Tim Menzies, unlicense.org",
   how  = {
-    {"cohen", "-c", .35,                  "min stdev delta to be different"},
+    {"cohen", "-c", .2,                  "min stdev delta to be different"},
     {"enough","-e", .5,                   "stopping criteria"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
     {"some",  "-s", 4,                    "samples per generation"},
@@ -43,7 +43,17 @@ function rand(lo,hi,     mult,mod)
   return lo + (hi-lo) * Seed / 2147483647 end 
 
 -- ### Arrays
-local firsts,map,keys,shuffle,copy,sum
+local firsts,map,keys,shuffle,copy,sum,bchop
+
+-- binary chop (assumes sorted lists)
+function bchop(t,val,lt,      lo,hi,mid) 
+  lt = lt or function(x,y) return x < y end
+  lo,hi = 1,#t
+  while lo <= hi do
+    mid =(lo+hi) // 2
+    if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
+  return math.min(lo,#t)  end
+
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
 
@@ -248,20 +258,20 @@ function Sample:better(row1,row2,cols)
     s2 = s2 - 10^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
 
+-- Sort on y-values (best ones come first).
+function Sample:betters(rows) 
+  return sort(rows or self.rows,function(x,y) return self:better(x,y) end) end
+
 -- Return a new `Sample` with the same structure as this one.
 function Sample:clone(inits,   tmp)
   tmp = Sample.new():add( self.cols.header )
   map(inits or {}, function(_,row) tmp:add(row) end)
   return tmp end
 
--- Two samples are different if any of their goals are more than
--- (say) .35 * the standard deviation of that goal.
-function Sample:diff(other,xy,     col2,sd)
+function Sample:diff(row1,row2, xy,     col2,sd)
   xy = xy or "ys"
-  for i,col1 in pairs(self.cols[xy]) do
-    col2 = other.cols[xy][i]
-    sd = (col1:spread()*col1.n + col2:spread()*col2.n) / (col1.n + col2.n)
-    if abs(col2:mid()  - col1:mid()) >= sd*the.cohen then
+  for i,col in pairs(self.cols[xy]) do
+    if abs(row1[col.at] - row2[col.at]) >= col:spread()*the.cohen then
       return true end end
   return false end
 
@@ -290,7 +300,7 @@ function Sample:div(   somes)
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
       return evals,rows end
     for i = 1,the.some do evals = evals+1; push(somes,pop(rows)) end
-    somes = sort(somes, function(x,y) return self:better(x,y) end)
+    somes = self:betters(somes)
     local best = {}
     for k,v in pairs(sort(map(rows,want), firsts)) do 
       if k <= #rows/2 then push(best, v[2]) else break end end
@@ -320,13 +330,14 @@ Todo.help={"print help",
     for _,k in pairs(keys(Todo)) do
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
-Todo.demo1={"main demo", function(     s,t,u)
-  local function stats(n,s)
+local function stats(n,s)
+    local function show(n,t) 
+       return map(t,function(_,x) return fmt(" %8.2f ",x*n) end)  end 
     print(n, #s.rows, 
-             out(s:mid(s.cols.ys)), 
-             out(map(s:spread(s.cols.ys), 
-                    function(_,x) return fmt("%6.2f",x*the.cohen) end))) 
-  end ---------------------
+             out(show(1,s:mid(s.cols.ys))), 
+             out(show(the.cohen, s:spread(s.cols.ys)))) end
+
+Todo.auto93={"run auto93", function(     s,t,u)
   s = Sample.new(the.file)
   stats(0,s)
   for _=1,20 do
@@ -334,6 +345,28 @@ Todo.demo1={"main demo", function(     s,t,u)
     local evals,rows = t:div()
     u = t:clone( rows )  
     stats(evals,t:clone(rows)) end end}
+
+Todo.xomo={"run coc1000", function(     s,t,u)
+  the.file="../data/coc1000.csv"
+  s = Sample.new(the.file)
+  stats(0,s)
+  for _=1,20 do
+    t = Sample.new(the.file)
+    local evals,rows = t:div()
+    u = t:clone( rows )  
+    stats(evals,t:clone(rows)) end end}
+
+Todo.xbest={"compare coc1000", function(     s,rows,x)
+  local lt=function(x,y) return s:better(x,y) end
+  the.file="../data/coc1000.csv"
+  s = Sample.new(the.file)
+  rows=s:betters()
+  print(bchop(rows,rows[100], lt))
+  local evals,rows = s:div()
+  for _,row in pairs(rows) do 
+    local n=bchop(rows,row,lt)
+    print(n,n/#s.rows,evals)  end
+end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
