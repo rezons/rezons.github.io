@@ -288,8 +288,7 @@ function Sample:dist(row1,row2)
   return (d/n)^(1/p) end
 
 -- And finally, we can do the inference.
-function Sample:div(   somes)
-  somes={}
+function Sample:div()
   local function want(somes,row)
     local closest,rowRank,tmp = 1E32,1E32,nil
     for someRank,some1 in pairs(somes) do
@@ -297,7 +296,7 @@ function Sample:div(   somes)
        if tmp < closest then closest,rowRank = tmp,someRank end end
     return {rowRank,row} 
   end ------------------------------------
-  local function go(rows,evals)
+  local function go(rows,evals,      somes)
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
       return evals,self:clone(rows):betters(rows) end
     somes={}
@@ -330,14 +329,16 @@ function main(file,    rows,s, train,test,testrows)
   for i,row in pairs(shuffle(s.rows)) do
     if i % 3 == 0  then test:add(row) else train:add(row) end end
   local evals,suggestions = train:div()
-  shout{train=#train.rows, test=#test.rows, evals=evals}
+  local report = {train=#train.rows, test=#test.rows, evals=evals}
   testrows=test:betters()
-  assert(1==bchop(testrows,testrows[1], lt)) 
+  --assert(1==bchop(testrows,testrows[1], lt)) 
+  local tmp={}
   for i=1,#suggestions do
-     local suggestion = suggestions[i]
-     if  i==1 or i==10 or  i==5 or i==#suggestions or i==(#suggestions)//2 then
+     if  i==1 or i==5 or  i==10 or i==#suggestions or i==(#suggestions)//2 then
+       local suggestion = suggestions[i]
        local rank=bchop(testrows,suggestion,lt); 
-       print(i, rank,fmt("%3.2f",rank/#testrows))   end  end
+       push(tmp, fmt(" %6s ",100*rank/#testrows //1))   end end
+  print(out(report),out(tmp))
   end
 
 function stats(n,s)
@@ -372,13 +373,16 @@ Todo.auto93={"run auto93", function(     s,t,u)
     stats(evals,t:clone(rows)) end end}
 
 Todo.rankx3={"run coc1000", function() 
-  main("../data/coc1000.csv")  end}
+  for i=1,20 do main("../data/coc1000.csv")  end end}
 
 Todo.rankx4={"run coc10000", function() 
-  main("../data/coc10000.csv")  end}
+  for i=1,20 do main("../data/coc10000.csv")  end end}
 
 Todo.rankauto={"run auto93", function() 
-  main("../data/auto93.csv")  end}
+  for i=1,20 do main("../data/auto93.csv")  end end}
+
+Todo.rankchina={"run china", function() 
+  for i=1,20 do main("../data/china.csv")  end end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
