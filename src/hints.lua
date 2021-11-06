@@ -248,14 +248,15 @@ function  Sample:add(lst,   add)
 -- is less than the other way around. To see the loss to full effect,
 -- raise any delta to some exponential power.
 function Sample:better(row1,row2,cols)
-  local n,a,b,s1,s2
+  local n,a,b,s1,s2,e
   cols = cols or self.cols.ys
+  e=2.71828
   s1, s2, n = 0, 0, #cols
   for _,col in pairs(cols) do
     a  = col:norm(row1[col.at]) --normalize to avoid explosion in exponentiation
     b  = col:norm(row2[col.at])
-    s1 = s1 - 10^(col.w * (a - b) / n)
-    s2 = s2 - 10^(col.w * (b - a) / n) end
+    s1 = s1 - e^(col.w * (a - b) / n)
+    s2 = s2 - e^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
 
 -- Sort on y-values (best ones come first).
@@ -288,8 +289,8 @@ function Sample:dist(row1,row2)
 
 -- And finally, we can do the inference.
 function Sample:div(   somes)
-  somes = {}
-  local function want(_,row)
+  somes={}
+  local function want(somes,row)
     local closest,rowRank,tmp = 1E32,1E32,nil
     for someRank,some1 in pairs(somes) do
        tmp = self:dist(row,some1)
@@ -298,11 +299,13 @@ function Sample:div(   somes)
   end ------------------------------------
   local function go(rows,evals)
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
-      return evals,rows end
+      return evals,self:clone(rows):betters(rows) end
+    somes={}
     for i = 1,the.some do evals = evals+1; push(somes,pop(rows)) end
-    somes = self:betters(somes)
-    local best = {}
-    for k,v in pairs(sort(map(rows,want), firsts)) do 
+    local best,somes = {}, self:betters(somes)
+    for k,v in pairs(sort(map(rows,
+                              function(_,row) return want(somes,row) end), 
+                         firsts)) do 
       if k <= #rows/2 then push(best, v[2]) else break end end
     return go(best, evals) 
   end
@@ -315,6 +318,34 @@ function Sample:mid(  cols)
 -- The spread of a `sample` comes fro its columns.
 function Sample:spread(   cols) 
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
+
+-- ## Main
+local main,stats
+
+function main(file,    rows,s, train,test,testrows)
+  local lt=function(x,y) return s:better(x,y) end
+  the.file=file or "../data/coc1000.csv"
+  s = Sample.new(the.file)
+  train,test= s:clone(), s:clone()
+  for i,row in pairs(shuffle(s.rows)) do
+    if i % 3 == 0  then test:add(row) else train:add(row) end end
+  local evals,suggestions = train:div()
+  shout{train=#train.rows, test=#test.rows, evals=evals}
+  testrows=test:betters()
+  assert(1==bchop(testrows,testrows[1], lt)) 
+  for i=1,#suggestions do
+     local suggestion = suggestions[i]
+     if  i==1 or i==10 or  i==5 or i==#suggestions or i==(#suggestions)//2 then
+       local rank=bchop(testrows,suggestion,lt); 
+       print(i, rank,fmt("%3.2f",rank/#testrows))   end  end
+  end
+
+function stats(n,s)
+    local function show(n,t) 
+       return map(t,function(_,x) return fmt(" %8.3f ",x*n) end)  end 
+    print(n, #s.rows, 
+             out(show(1,s:mid(s.cols.ys))), 
+             out(show(the.cohen, s:spread(s.cols.ys)))) end
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
@@ -330,14 +361,8 @@ Todo.help={"print help",
     for _,k in pairs(keys(Todo)) do
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
-local function stats(n,s)
-    local function show(n,t) 
-       return map(t,function(_,x) return fmt(" %8.2f ",x*n) end)  end 
-    print(n, #s.rows, 
-             out(show(1,s:mid(s.cols.ys))), 
-             out(show(the.cohen, s:spread(s.cols.ys)))) end
-
 Todo.auto93={"run auto93", function(     s,t,u)
+  the.file="../data/auto93.csv"
   s = Sample.new(the.file)
   stats(0,s)
   for _=1,20 do
@@ -346,27 +371,14 @@ Todo.auto93={"run auto93", function(     s,t,u)
     u = t:clone( rows )  
     stats(evals,t:clone(rows)) end end}
 
-Todo.xomo={"run coc1000", function(     s,t,u)
-  the.file="../data/coc1000.csv"
-  s = Sample.new(the.file)
-  stats(0,s)
-  for _=1,20 do
-    t = Sample.new(the.file)
-    local evals,rows = t:div()
-    u = t:clone( rows )  
-    stats(evals,t:clone(rows)) end end}
+Todo.rankx3={"run coc1000", function() 
+  main("../data/coc1000.csv")  end}
 
-Todo.xbest={"compare coc1000", function(     s,rows,x)
-  local lt=function(x,y) return s:better(x,y) end
-  the.file="../data/coc1000.csv"
-  s = Sample.new(the.file)
-  rows=s:betters()
-  print(bchop(rows,rows[100], lt))
-  local evals,rows = s:div()
-  for _,row in pairs(rows) do 
-    local n=bchop(rows,row,lt)
-    print(n,n/#s.rows,evals)  end
-end}
+Todo.rankx4={"run coc10000", function() 
+  main("../data/coc10000.csv")  end}
+
+Todo.rankauto={"run auto93", function() 
+  main("../data/auto93.csv")  end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
