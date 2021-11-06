@@ -322,19 +322,20 @@ function Sample:spread(   cols)
 local main,stats
 
 function main(file,    rows,s, train,test,testrows)
+  io.stderr:write(".\n")
   local lt=function(x,y) return s:better(x,y) end
   the.file=file or "../data/coc1000.csv"
   s = Sample.new(the.file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
-    if i % 3 == 0  then test:add(row) else train:add(row) end end
+    if i % 2 == 0  then test:add(row) else train:add(row) end end
   local evals,suggestions = train:div()
   local report = {train=#train.rows, test=#test.rows, evals=evals}
   testrows=test:betters()
   --assert(1==bchop(testrows,testrows[1], lt)) 
   local tmp={}
   for i=1,#suggestions do
-     if  i==1 or i==5 or  i==10 or i==#suggestions or i==(#suggestions)//2 then
+     if  i==1 or i==2 or  i==4 or i==8 or i==16 or i==#suggestions or i==(#suggestions)//2 then
        local suggestion = suggestions[i]
        local rank=bchop(testrows,suggestion,lt); 
        push(tmp, fmt(" %6s ",100*rank/#testrows //1))   end end
