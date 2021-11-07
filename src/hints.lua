@@ -16,7 +16,6 @@ local about={
     {"seed",  "-S", 937162211,            "random number seed"},
     {"todo",  "-do", "help",              "start-up action"},
     {"xways", "-x",  2,                   "train/test size"},
-
     }}
 
 -- ## Functions
@@ -188,6 +187,8 @@ function Sym:merge(other,   tmp)
   for x,inc in pairs(other.seen) do tmp:add(x,inc) end
   return tmp end
 
+-- return a merged `Sym` if  that combination is simpler than
+-- its parts (i.e. if the expected value of the spread reduces).
 function Sym:merged(other,  a,b,c)
   a,b,c = self, other, self:marge(other)
   if c:spread() <= (a:spread()*a.n + b:spread()*b.n)/c.n then return c end end
@@ -259,7 +260,7 @@ function Num:ranges(other,out,    xys,sd,b,r,B,R,lo,hi)
   for _,x in pairs(other._contents) do push(xys, {x,false}) end
   sd = (self:spread() * self.n + other:spread() * other.n) / (self.n+other.n)
   lo = -math.huge
-  for _,xy in pairs(ranges(xys, (#xy)^the.enough, sd*the.cohen)) do
+  for _,xy in pairs(discretize(xys, (#xy)^the.enough, sd*the.cohen)) do
     b = xy[2].seen(true)  or 0
     r = xy[2].seen(false) or 0
     hi= xy[1].hi
@@ -274,7 +275,7 @@ end
 -- 2. the lo,hi delta in current range is not tiny; and    
 -- 3. there are enough x values in this range; and   
 -- 4. there is natural split here
-function ranges(xys, width, tiny)
+function discretize(xys, width, tiny)
   local now,out,x,y,prune
   function prune(b4) -- prune ranges that do not change class distributions
     local j,tmp,n,a,b,cy
