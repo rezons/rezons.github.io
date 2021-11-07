@@ -13,7 +13,10 @@ local about={
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
-    {"todo",  "-do", "help",              "start-up action"}}}
+    {"todo",  "-do", "help",              "start-up action"},
+    {"xways", "-x",  2,                  "train/test size"},
+
+    }}
 
 -- ## Functions
 
@@ -300,11 +303,13 @@ function Sample:div()
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
       return evals,self:clone(rows):betters(rows) end
     somes={}
-    for i = 1,the.some do evals = evals+1; push(somes,pop(rows)) end
+    for i = 1,the.some do 
+      evals = evals+1
+      push(somes,pop(rows)) end
     local best,somes = {}, self:betters(somes)
-    for k,v in pairs(sort(map(rows,
-                              function(_,row) return want(somes,row) end), 
-                         firsts)) do 
+    rows = sort(map(rows, function(_,row) return want(somes,row) end), 
+                firsts )
+    for k,v in pairs(rows) do 
       if k <= #rows/2 then push(best, v[2]) else break end end
     return go(best, evals) 
   end
@@ -328,9 +333,9 @@ function main(file,    rows,s, train,test,testrows)
   s = Sample.new(the.file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
-    if i % 2 == 0  then test:add(row) else train:add(row) end end
+    if i % the.xways == 0  then test:add(row) else train:add(row) end end
   local evals,suggestions = train:div()
-  local report = {train=#train.rows, test=#test.rows, evals=evals}
+  local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
   --assert(1==bchop(testrows,testrows[1], lt)) 
   local tmp={}
@@ -384,6 +389,9 @@ Todo.rankauto={"run auto93", function()
 
 Todo.rankchina={"run china", function() 
   for i=1,20 do main("../data/china.csv")  end end}
+
+Todo.nasa93={"run nasa93", function() 
+  for i=1,20 do main("../data/nasa93dem.csv")  end end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
