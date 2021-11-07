@@ -231,12 +231,6 @@ function Num:dist(x,y)
   else   x,y = self:norm(x), self:norm(y)  end
   return abs(x-y) end
 
-function Num:merge(other, tmp)
-  tmp = Num.new()
-  for _,x in pairs(self._contents)  do tmp:add(x) end
-  for _,x in pairs(other._contents) do tmp:add(x) end
-  return tmp end
-
 function Num:mid(    a) a=self:all(); return a[#a//2] end
 function Num:norm(x,     lo,hi)
   lo,hi = self.lo,self.hi
@@ -261,51 +255,54 @@ function Num:ranges(other,out,    xys,sd,b,r,B,R,lo,hi)
   sd = (self:spread() * self.n + other:spread() * other.n) / (self.n+other.n)
   lo = -math.huge
   for _,xy in pairs(discretize(xys, (#xy)^the.enough, sd*the.cohen)) do
-    b = xy[2].seen(true)  or 0
-    r = xy[2].seen(false) or 0
-    hi= xy[1].hi
-    push(out, {col=self, lo=lo, hi=hi, val=Score.score(b,r,B,R)}) 
-    lo = hi
+    b = xy.syms.seen(true)  or 0
+    r = xy.syms.seen(false) or 0
+    push(out, {col=self, lo=lo, hi=xy.hi, val=Score.score(b,r,B,R)}) 
+    lo = xy.hi
   end 
   out[#out].hi = math.huge
 end
 
--- Make a new range when     
+-- Generate a new range when     
 -- 1. there is enough left for at least one more range; and     
 -- 2. the lo,hi delta in current range is not tiny; and    
 -- 3. there are enough x values in this range; and   
 -- 4. there is natural split here
+-- Prune the generated ranges when:
+-- 5. the combined class distribution of adjacent ranges 
+--    is just as simple as either parts.
 function discretize(xys, width, tiny)
   local now,out,x,y,prune
   function prune(b4) -- prune ranges that do not change class distributions
-    local j,tmp,n,a,b,cy
+    local j,tmp,n,a,b,merged
     j, n, tmp = 1, #b4, {}
     while j<=n do
       a = b4[j]
       if j < n-1 then
         b  = b4[j+1]
-        cy = a[2]:merged(b[2])
-        if cy then
-          a = {a[1]:merge(b[1]), cy} 
+        merged = a.syms:merged(b.syms)
+        if merged then -- (5)
+          a = {lo=a.lo, hi= b.hi, syms=merged}
           j = j + 1 end end
       push(tmp,a)
       j = j + 1
     end
-    return #tmp==#b4 and tmp or merge(tmp)
+    return #tmp==#b4 and b4 or merge(tmp) --if any prunings, recurse to find more
   end -----------------
   while width <4 and width<#xys/2 do width=1.2*width end --grow small widths
-  now = {Num.new(), Sym.new()}
+  x=xy[1][1]
+  now = {lo=x, hi=x, syms=Sym.new()} 
   out = {now}
   for j,xy in sort(xys,firsts) do
     x,y = xy[1],xy[2]
     if j < #xys - enough then -- (1)
       if x ~= xys[j+1][1] then -- (2)
-        if now[1].n > width then -- (3)
-          if now[1].hi - now[1].lo > tiny then -- (4)
-            now = {Num.new(), Sym.new()}
+        if now.syms.n > width then -- (3)
+          if now.hi - now.lo > tiny then -- (4)
+            now = {lo=x, hi=x, syms=Sym.new()}
             push(out, now) end end end end
-    now[1].add(x)
-    now[2].add(y) end
+    now.hi = x 
+    now.syms.add(y) end
   return prune(out) end
 
 -- ### Skip
@@ -417,7 +414,6 @@ function Sample:spread(   cols)
 local main,stats
 
 function main(file,    rows,s, train,test,testrows)
-  io.stderr:write(".\n")
   local lt=function(x,y) return s:better(x,y) end
   the.file=file or "../data/coc1000.csv"
   s = Sample.new(the.file)
