@@ -8,13 +8,14 @@ local about={
   what = "Semi-supervised multi-objective optimizer",
   when = "(c) 2021, Tim Menzies, unlicense.org",
   how  = {
-    {"cohen", "-c", .2,                  "min stdev delta to be different"},
+    {"cohen", "-c", .2,                   "min stdev delta to be different"},
     {"enough","-e", .5,                   "stopping criteria"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
+    {"rank",  "-r", "plan",               "how to  score a range"},
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
     {"todo",  "-do", "help",              "start-up action"},
-    {"xways", "-x",  2,                  "train/test size"},
+    {"xways", "-x",  2,                   "train/test size"},
 
     }}
 
@@ -69,8 +70,7 @@ function keys(t,  u)
   return sort(u) end
 
 -- Call `f(key,value)` on all items  in list.
-function map(t,f,  u) 
-  u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
+function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
 
 -- Randomly sort in-place a list
 function shuffle(t,n,    j)
@@ -127,7 +127,16 @@ function obj(s, o) o={_is=s, __tostring=out}; o.__index=o; return o end
 
 -- ## Classes
   
-local Sym,Num,Skip,Cols,Sample
+local Sym,Num,Skip,Cols,Sample,Score
+
+Score={}
+function Score.score(b,r,B,R) return Score[the.rank](b,r,B,R) end
+function Score.plan(b,r,B,R) 
+  n=1E-32; b,r = b/(n+B),r/(n+R); return b<r and 0 or b^2/(b+r) end
+function Score.monitor(b,r,B,R) 
+  n=1E-32; b,r = b/(n+B),r/(n+R); return r<b and 0 or r^2/(b+r) end
+function Score.novel(b,r,B,R) 
+  n=1E-32; b,r = b/(n+B),r/(n+R); return 1/(b+r) end
 
 -- ###  Cols
 -- `Cols` is a factory for turning  column names into their
@@ -173,20 +182,39 @@ function Sym:add(x, inc)
      self.most,self.mode = self.seen[x],x end end
 
 function Sym:dist(x,y) return  x==y and 0 or 1 end
+function Sym:merge(other,   tmp)
+  tmp = Sym.new()
+  for x,inc in pairs(self.seen)  do tmp:add(x,inc) end
+  for x,inc in pairs(other.seen) do tmp:add(x,inc) end
+  return tmp end
+
+function Sym:merged(other,  a,b,c)
+  a,b,c = self, other, self:marge(other)
+  if c:spread() <= (a:spread()*a.n + b:spread()*b.n)/c.n then return c end end
+
 function Sym:mid()     return self.mode end
 function Sym:spread()  -- entropy
   return sum(self.seen, 
              function(n) return n<-0 and 0 or -n/self.n*log(n/self.n,2) end) end
 
+function Sym:ranges(other,out,   r,B,R)
+  B, R = self.n, other.n
+  for x,b in pairs(self.seen) do
+    r =  other.seen[x] or 0
+    push(out, {col=self, lo=x, hi=x, val=Score.score(b,r,B,R)}) end end 
+
 -- ### Num
 -- Columns for sumamrizing numbers.
 Num = obj"Num" ----------------------------------------------------------------
 function Num.new(i,s) 
-  return has(Num,{at=i,txt=s, n=0,_contents={}, ok=false,w=weight(s)}) end
+  return has(Num,{
+    at=i,txt=s, n=0,_contents={}, lo=1E32,hi=-1E32, ok=false,w=weight(s)}) end
 
 function Num:add(x) 
   if x=="?" then return x end
   self.n = self.n + 1
+  if x>self.hi then self.hi=x end
+  if x<self.lo then self.lo=x end
   push(self._contents, x)
   self.ok = false end -- note: the updated contents are no longer sorted
 
@@ -202,10 +230,16 @@ function Num:dist(x,y)
   else   x,y = self:norm(x), self:norm(y)  end
   return abs(x-y) end
 
+function Num:merge(other, tmp)
+  tmp = Num.new()
+  for _,x in pairs(self._contents)  do tmp:add(x) end
+  for _,x in pairs(other._contents) do tmp:add(x) end
+  return tmp end
+
 function Num:mid(    a) a=self:all(); return a[#a//2] end
-function Num:norm(x,     a)
-  a=self:all()
-  return abs(a[#a]-a[1])< 1E-16 and 0 or (x - a[1])/(a[#a] - a[1]) end
+function Num:norm(x,     lo,hi)
+  lo,hi = self.lo,self.hi
+  return abs(lo - hi)< 1E-16 and 0 or (x - lo)/(hi-lo) end
 
 -- The standard deviation of a list of sorted numbers  is the
 -- 90th - 10th percentile, divided by 2.56. Why? It is widely
@@ -218,6 +252,60 @@ function Num:spread(   a,here)
   if #a < 2 then return 0 end
   function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
   return (a[here(.9)] - a[here(.1)])/2.56 end
+
+function Num:ranges(other,out,    xys,sd,b,r,B,R,lo,hi)
+  xys,B,R = {}, self.n, other.n
+  for _,x in pairs(self._contents)  do push(xys, {x,true})  end
+  for _,x in pairs(other._contents) do push(xys, {x,false}) end
+  sd = (self:spread() * self.n + other:spread() * other.n) / (self.n+other.n)
+  lo = -math.huge
+  for _,xy in pairs(ranges(xys, (#xy)^the.enough, sd*the.cohen)) do
+    b = xy[2].seen(true)  or 0
+    r = xy[2].seen(false) or 0
+    hi= xy[1].hi
+    push(out, {col=self, lo=lo, hi=hi, val=Score.score(b,r,B,R)}) 
+    lo = hi
+  end 
+  out[#out].hi = math.huge
+end
+
+-- Make a new range when     
+-- 1. there is enough left for at least one more range; and     
+-- 2. the lo,hi delta in current range is not tiny; and    
+-- 3. there are enough x values in this range; and   
+-- 4. there is natural split here
+function ranges(xys, width, tiny)
+  local now,out,x,y,prune
+  function prune(b4) -- prune ranges that do not change class distributions
+    local j,tmp,n,a,b,cy
+    j, n, tmp = 1, #b4, {}
+    while j<=n do
+      a = b4[j]
+      if j < n-1 then
+        b  = b4[j+1]
+        cy = a[2]:merged(b[2])
+        if cy then
+          a = {a[1]:merge(b[1]), cy} 
+          j = j + 1 end end
+      push(tmp,a)
+      j = j + 1
+    end
+    return #tmp==#b4 and tmp or merge(tmp)
+  end -----------------
+  while width <4 and width<#xys/2 do width=1.2*width end --grow small widths
+  now = {Num.new(), Sym.new()}
+  out = {now}
+  for j,xy in sort(xys,firsts) do
+    x,y = xy[1],xy[2]
+    if j < #xys - enough then -- (1)
+      if x ~= xys[j+1][1] then -- (2)
+        if now[1].n > width then -- (3)
+          if now[1].hi - now[1].lo > tiny then -- (4)
+            now = {Num.new(), Sym.new()}
+            push(out, now) end end end end
+    now[1].add(x)
+    now[2].add(y) end
+  return prune(out) end
 
 -- ### Skip
 -- Columns for data we are skipping over
@@ -322,6 +410,7 @@ function Sample:mid(  cols)
 -- The spread of a `sample` comes fro its columns.
 function Sample:spread(   cols) 
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
+
 
 -- ## Main
 local main,stats
