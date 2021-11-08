@@ -1,11 +1,14 @@
--- Seek hints in the data about  what is better than what.    
--- 1. Given many unevaluated things, find the mid-point of few evaluated things.
+-- Using just a few guesses, learn what examples  in the data are better than most other examples.
+-- 1. Given many unevaluated examples, find the mid-point of few evaluated examples.
 -- 2. Prune everything below the mid.
 -- 3. Repeat.
--- 4. Return the surviving best things.
+-- 4. Return the surviving best examples.
+--
+-- At start up, use the `todo` value to select, then run, one of the  `Todo` actions
+-- (listed at end of file).
 local the -- Global config. Built via `the = updateFromCommandLine(about.how)`
 local about={
-  what = "Semi-supervised multi-objective optimizer",
+  what = "GUESS v1: semi-supervised multi-objective optimizer",
   when = "(c) 2021, Tim Menzies, unlicense.org",
   how  = {
     {"cohen", "-c", .2,                   "min stdev delta to be different"},
@@ -15,7 +18,7 @@ local about={
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
     {"todo",  "-do", "help",              "start-up action"},
-    {"xways", "-x",  2,                   "train/test size"},
+    {"xways", "-x",  2,                   "test on one, train on x-1 "}
     }}
 
 -- ## Functions
@@ -24,7 +27,7 @@ local about={
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end 
 
 -- ### Useful short cuts
-local abs,log,cat,fmt,pop,push,sort,same
+local abs,log,cat,fmt,pop,push,sort,same --------------------------------------
 abs  = math.abs
 cat  = table.concat
 fmt  = string.format
@@ -35,7 +38,7 @@ same = function(x,...) return x  end
 sort = function(t,f) table.sort(t,f); return t end
 
 -- ### Randoms
-local Seed, randi, rand
+local Seed, randi, rand -------------------------------------------------------
 Seed=937162211
 -- Random ints
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
@@ -46,7 +49,7 @@ function rand(lo,hi,     mult,mod)
   return lo + (hi-lo) * Seed / 2147483647 end 
 
 -- ### Arrays
-local firsts,map,keys,shuffle,copy,sum,bchop
+local firsts,map,keys,shuffle,copy,sum,bchop ----------------------------------
 
 -- binary chop (assumes sorted lists)
 function bchop(t,val,lt,      lo,hi,mid) 
@@ -83,7 +86,7 @@ function sum(t,f,    n)
 
 -- ### Command-line
 -- At start-up, `the`  settings will come from `the = cli(about.how)`.
-local function updateFromCommandLine(options,   u)
+local function updateFromCommandLine(options,   u) ----------------------------
   u={}
   for _,t in pairs(options) do
     u[t[1]] = t[3]
@@ -181,16 +184,16 @@ function Sym:add(x, inc)
      self.most,self.mode = self.seen[x],x end end
 
 function Sym:dist(x,y) return  x==y and 0 or 1 end
-function Sym:merge(other,   tmp)
+function Sym:fuse(other,   tmp)
   tmp = Sym.new()
   for x,inc in pairs(self.seen)  do tmp:add(x,inc) end
   for x,inc in pairs(other.seen) do tmp:add(x,inc) end
   return tmp end
 
--- return a merged `Sym` if  that combination is simpler than
+-- return a fused `Sym` if  that combination is simpler than
 -- its parts (i.e. if the expected value of the spread reduces).
-function Sym:merged(other,  a,b,c)
-  a,b,c = self, other, self:marge(other)
+function Sym:fused(other,  a,b,c)
+  a,b,c = self, other, self:fuse(other)
   if c:spread() <= (a:spread()*a.n + b:spread()*b.n)/c.n then return c end end
 
 function Sym:mid()     return self.mode end
@@ -268,27 +271,28 @@ end
 -- 2. the lo,hi delta in current range is not tiny; and    
 -- 3. there are enough x values in this range; and   
 -- 4. there is natural split here
--- Prune the generated ranges when:
--- 5. the combined class distribution of adjacent ranges 
---    is just as simple as either parts.
+-- Fuse adjacent ranges when:
+-- 5. the combined class distribution of two adjacent ranges 
+--    is just as simple as the parts.
+local discretize --------------------------------------------------------------
 function discretize(xys, width, tiny)
   local now,out,x,y,prune
-  function prune(b4) -- prune ranges that do not change class distributions
-    local j,tmp,n,a,b,merged
-    j, n, tmp = 1, #b4, {}
-    while j<=n do
+  function fuse(b4) --fuse adjacent ranges that don't change class distribution
+    local j,tmp,n,a,b,fused
+    j, n, tmp = 0, #b4, {}
+    while j<n do
+      j = j + 1
       a = b4[j]
       if j < n-1 then
-        b  = b4[j+1]
-        merged = a.syms:merged(b.syms)
-        if merged then -- (5)
-          a = {lo=a.lo, hi= b.hi, syms=merged}
-          j = j + 1 end end
+        b = b4[j+1]
+        fused = a.syms:fuse(b.syms)
+        if fused then -- (5)
+          j = j + 1 -- next time around, skip over b (and go on after that)
+          a = {lo=a.lo, hi= b.hi, syms=fused} end end
       push(tmp,a)
-      j = j + 1
     end
-    return #tmp==#b4 and b4 or merge(tmp) --if any prunings, recurse to find more
-  end -----------------
+    return #tmp==#b4 and b4 or fuse(tmp) --if any fused, recurse to find more
+  end 
   while width <4 and width<#xys/2 do width=1.2*width end --grow small widths
   x=xy[1][1]
   now = {lo=x, hi=x, syms=Sym.new()} 
@@ -303,7 +307,7 @@ function discretize(xys, width, tiny)
             push(out, now) end end end end
     now.hi = x 
     now.syms.add(y) end
-  return prune(out) end
+  return fuse(out) end
 
 -- ### Skip
 -- Columns for data we are skipping over
@@ -444,7 +448,7 @@ function stats(n,s)
 local Todo={} ------------------------------------------------------------------
 Todo.help={"print help", 
   function ()
-    print("lua hints.lua [OPTIONS] -do ACTION\n")
+    print("lua guess.lua [OPTIONS] -do ACTION\n")
     print(about.what)
     print(about.when,"\n\nOPTIONS:");
     for _,t in pairs(about.how) do if t[1] ~= "todo" then

@@ -2,7 +2,7 @@
 
 <html>
 <head>
-  <title>hints.lua</title>
+  <title>guess.lua</title>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
   <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0; maximum-scale=1.0; user-scalable=0;">
   <link rel="stylesheet" media="all" href="docco.css" />
@@ -15,7 +15,7 @@
         
           <li id="title">
               <div class="annotation">
-                  <h1>hints.lua</h1>
+                  <h1>guess.lua</h1>
               </div>
           </li>
         
@@ -27,12 +27,12 @@
               <div class="sswrap ">
                 <a class="ss" href="#section-1">&#x00a7;</a>
               </div>
-              <p>Seek hints in the data about  what is better than what.    </p>
+              <p>Using just a few guesses, learn what examples  in the data are better than most other examples.</p>
 <ol>
-<li>Given many unevaluated things, find the mid-point of few evaluated things.</li>
+<li>Given many unevaluated examples, find the mid-point of few evaluated examples.</li>
 <li>Prune everything below the mid.</li>
 <li>Repeat.</li>
-<li>Return the surviving best things.</li>
+<li>Return the surviving best examples.</li>
 </ol>
 <p>At start up, use the <code>todo</code> value to select, then run, one of the  <code>Todo</code> actions
 (listed at end of file).</p>
@@ -41,7 +41,7 @@
             
             <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> the <span class="hljs-comment">-- Global config. Built via `the = updateFromCommandLine(about.how)`</span>
 <span class="hljs-keyword">local</span> about={
-  what = <span class="hljs-string">&quot;Semi-supervised multi-objective optimizer&quot;</span>,
+  what = <span class="hljs-string">&quot;GUESS v1: semi-supervised multi-objective optimizer&quot;</span>,
   when = <span class="hljs-string">&quot;(c) 2021, Tim Menzies, unlicense.org&quot;</span>,
   how  = {
     {<span class="hljs-string">&quot;cohen&quot;</span>, <span class="hljs-string">&quot;-c&quot;</span>, <span class="hljs-number">.2</span>,                   <span class="hljs-string">&quot;min stdev delta to be different&quot;</span>},
@@ -51,7 +51,7 @@
     {<span class="hljs-string">&quot;some&quot;</span>,  <span class="hljs-string">&quot;-s&quot;</span>, <span class="hljs-number">4</span>,                    <span class="hljs-string">&quot;samples per generation&quot;</span>},
     {<span class="hljs-string">&quot;seed&quot;</span>,  <span class="hljs-string">&quot;-S&quot;</span>, <span class="hljs-number">937162211</span>,            <span class="hljs-string">&quot;random number seed&quot;</span>},
     {<span class="hljs-string">&quot;todo&quot;</span>,  <span class="hljs-string">&quot;-do&quot;</span>, <span class="hljs-string">&quot;help&quot;</span>,              <span class="hljs-string">&quot;start-up action&quot;</span>},
-    {<span class="hljs-string">&quot;xways&quot;</span>, <span class="hljs-string">&quot;-x&quot;</span>,  <span class="hljs-number">2</span>,                   <span class="hljs-string">&quot;test on one, train on x-1 &quot;</span>},
+    {<span class="hljs-string">&quot;xways&quot;</span>, <span class="hljs-string">&quot;-x&quot;</span>,  <span class="hljs-number">2</span>,                   <span class="hljs-string">&quot;test on one, train on x-1 &quot;</span>}
     }}</pre></div></div>
             
         </li>
@@ -1028,7 +1028,7 @@ raise any delta to some exponential power.</p>
             <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> Todo={} <span class="hljs-comment">------------------------------------------------------------------</span>
 Todo.help={<span class="hljs-string">&quot;print help&quot;</span>, 
   <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-params">()</span></span>
-    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;lua hints.lua [OPTIONS] -do ACTION\n&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;lua guess.lua [OPTIONS] -do ACTION\n&quot;</span>)
     <span class="hljs-built_in">print</span>(about.what)
     <span class="hljs-built_in">print</span>(about.when,<span class="hljs-string">&quot;\n\nOPTIONS:&quot;</span>);
     <span class="hljs-keyword">for</span> _,t <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(about.how) <span class="hljs-keyword">do</span> <span class="hljs-keyword">if</span> t[<span class="hljs-number">1</span>] ~= <span class="hljs-string">&quot;todo&quot;</span> <span class="hljs-keyword">then</span>
