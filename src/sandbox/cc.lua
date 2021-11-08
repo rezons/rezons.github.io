@@ -1,7 +1,7 @@
-function cc1() print(1) end
-function cc2() print(2) end
-function cc3() print(3) end
-function cc4() print(4) end
-function cc5() print(5) end
+function fun1() print(1) end
+function fun2() print(2) end
+function fun3() print(3) end
+function fun4() print(4) end
+function fun5() print(5) end
 
-return  {cc=cc1, cc2=cc2, cc3=cc3, cc4=cc4, cc5=cc5}
+return  {fun3=fun3, fun1=fun1, fun2=fun2, funs5=fun5, fun4=fun4}
