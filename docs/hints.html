@@ -34,6 +34,8 @@
 <li>Repeat.</li>
 <li>Return the surviving best things.</li>
 </ol>
+<p>At start up, use the <code>todo</code> value to select, then run, one of the  <code>Todo</code> actions
+(listed at end of file).</p>
 
             </div>
             
@@ -49,7 +51,7 @@
     {<span class="hljs-string">&quot;some&quot;</span>,  <span class="hljs-string">&quot;-s&quot;</span>, <span class="hljs-number">4</span>,                    <span class="hljs-string">&quot;samples per generation&quot;</span>},
     {<span class="hljs-string">&quot;seed&quot;</span>,  <span class="hljs-string">&quot;-S&quot;</span>, <span class="hljs-number">937162211</span>,            <span class="hljs-string">&quot;random number seed&quot;</span>},
     {<span class="hljs-string">&quot;todo&quot;</span>,  <span class="hljs-string">&quot;-do&quot;</span>, <span class="hljs-string">&quot;help&quot;</span>,              <span class="hljs-string">&quot;start-up action&quot;</span>},
-    {<span class="hljs-string">&quot;xways&quot;</span>, <span class="hljs-string">&quot;-x&quot;</span>,  <span class="hljs-number">2</span>,                   <span class="hljs-string">&quot;train/test size&quot;</span>},
+    {<span class="hljs-string">&quot;xways&quot;</span>, <span class="hljs-string">&quot;-x&quot;</span>,  <span class="hljs-number">2</span>,                   <span class="hljs-string">&quot;test on one, train on x-1 &quot;</span>},
     }}</pre></div></div>
             
         </li>
@@ -93,7 +95,7 @@
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> <span class="hljs-built_in">abs</span>,<span class="hljs-built_in">log</span>,cat,fmt,pop,push,<span class="hljs-built_in">sort</span>,same
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> <span class="hljs-built_in">abs</span>,<span class="hljs-built_in">log</span>,cat,fmt,pop,push,<span class="hljs-built_in">sort</span>,same <span class="hljs-comment">--------------------------------------</span>
 <span class="hljs-built_in">abs</span>  = <span class="hljs-built_in">math</span>.<span class="hljs-built_in">abs</span>
 cat  = <span class="hljs-built_in">table</span>.<span class="hljs-built_in">concat</span>
 fmt  = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">format</span>
@@ -116,7 +118,7 @@ same = <span class="hljs-function"><span class="hljs-keyword">function</span><sp
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> Seed, randi, rand
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> Seed, randi, rand <span class="hljs-comment">-------------------------------------------------------</span>
 Seed=<span class="hljs-number">937162211</span></pre></div></div>
             
         </li>
@@ -165,7 +167,7 @@ Seed=<span class="hljs-number">937162211</span></pre></div></div>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> firsts,map,keys,shuffle,copy,sum,bchop</pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> firsts,map,keys,shuffle,copy,sum,bchop <span class="hljs-comment">----------------------------------</span></pre></div></div>
             
         </li>
         
@@ -298,7 +300,7 @@ Seed=<span class="hljs-number">937162211</span></pre></div></div>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateFromCommandLine</span><span class="hljs-params">(options,   u)</span></span>
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateFromCommandLine</span><span class="hljs-params">(options,   u)</span></span> <span class="hljs-comment">----------------------------</span>
   u={}
   <span class="hljs-keyword">for</span> _,t <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(options) <span class="hljs-keyword">do</span>
     u[t[<span class="hljs-number">1</span>]] = t[<span class="hljs-number">3</span>]
@@ -532,7 +534,7 @@ Columns have a similar set of methods:   </p>
      <span class="hljs-built_in">self</span>.most,<span class="hljs-built_in">self</span>.mode = <span class="hljs-built_in">self</span>.seen[x],x <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
 
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:dist</span><span class="hljs-params">(x,y)</span></span> <span class="hljs-keyword">return</span>  x==y <span class="hljs-keyword">and</span> <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> <span class="hljs-number">1</span> <span class="hljs-keyword">end</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:merge</span><span class="hljs-params">(other,   tmp)</span></span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:fuse</span><span class="hljs-params">(other,   tmp)</span></span>
   tmp = Sym.new()
   <span class="hljs-keyword">for</span> x,inc <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">self</span>.seen)  <span class="hljs-keyword">do</span> tmp:add(x,inc) <span class="hljs-keyword">end</span>
   <span class="hljs-keyword">for</span> x,inc <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(other.seen) <span class="hljs-keyword">do</span> tmp:add(x,inc) <span class="hljs-keyword">end</span>
@@ -547,13 +549,13 @@ Columns have a similar set of methods:   </p>
               <div class="sswrap ">
                 <a class="ss" href="#section-28">&#x00a7;</a>
               </div>
-              <p>return a merged <code>Sym</code> if  that combination is simpler than
+              <p>return a fused <code>Sym</code> if  that combination is simpler than
 its parts (i.e. if the expected value of the spread reduces).</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:merged</span><span class="hljs-params">(other,  a,b,c)</span></span>
-  a,b,c = <span class="hljs-built_in">self</span>, other, <span class="hljs-built_in">self</span>:marge(other)
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:fused</span><span class="hljs-params">(other,  a,b,c)</span></span>
+  a,b,c = <span class="hljs-built_in">self</span>, other, <span class="hljs-built_in">self</span>:fuse(other)
   <span class="hljs-keyword">if</span> c:spread() &lt;= (a:spread()*a.n + b:spread()*b.n)/c.n <span class="hljs-keyword">then</span> <span class="hljs-keyword">return</span> c <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
 
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Sym:mid</span><span class="hljs-params">()</span></span>     <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.mode <span class="hljs-keyword">end</span>
@@ -630,12 +632,6 @@ its parts (i.e. if the expected value of the spread reduces).</p>
   <span class="hljs-keyword">else</span>   x,y = <span class="hljs-built_in">self</span>:norm(x), <span class="hljs-built_in">self</span>:norm(y)  <span class="hljs-keyword">end</span>
   <span class="hljs-keyword">return</span> <span class="hljs-built_in">abs</span>(x-y) <span class="hljs-keyword">end</span>
 
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Num:merge</span><span class="hljs-params">(other, tmp)</span></span>
-  tmp = Num.new()
-  <span class="hljs-keyword">for</span> _,x <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(<span class="hljs-built_in">self</span>._contents)  <span class="hljs-keyword">do</span> tmp:add(x) <span class="hljs-keyword">end</span>
-  <span class="hljs-keyword">for</span> _,x <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(other._contents) <span class="hljs-keyword">do</span> tmp:add(x) <span class="hljs-keyword">end</span>
-  <span class="hljs-keyword">return</span> tmp <span class="hljs-keyword">end</span>
-
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Num:mid</span><span class="hljs-params">(    a)</span></span> a=<span class="hljs-built_in">self</span>:all(); <span class="hljs-keyword">return</span> a[#a//<span class="hljs-number">2</span>] <span class="hljs-keyword">end</span>
 <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">Num:norm</span><span class="hljs-params">(x,     lo,hi)</span></span>
   lo,hi = <span class="hljs-built_in">self</span>.lo,<span class="hljs-built_in">self</span>.hi
@@ -672,11 +668,10 @@ another way, one standard deviation is 2*1.28 of &plusmn; 90%.</p>
   sd = (<span class="hljs-built_in">self</span>:spread() * <span class="hljs-built_in">self</span>.n + other:spread() * other.n) / (<span class="hljs-built_in">self</span>.n+other.n)
   lo = -<span class="hljs-built_in">math</span>.<span class="hljs-built_in">huge</span>
   <span class="hljs-keyword">for</span> _,xy <span class="hljs-keyword">in</span> <span class="hljs-built_in">pairs</span>(discretize(xys, (#xy)^the.enough, sd*the.cohen)) <span class="hljs-keyword">do</span>
-    b = xy[<span class="hljs-number">2</span>].seen(<span class="hljs-literal">true</span>)  <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>
-    r = xy[<span class="hljs-number">2</span>].seen(<span class="hljs-literal">false</span>) <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>
-    hi= xy[<span class="hljs-number">1</span>].hi
-    push(out, {col=<span class="hljs-built_in">self</span>, lo=lo, hi=hi, val=Score.score(b,r,B,R)}) 
-    lo = hi
+    b = xy.syms.seen(<span class="hljs-literal">true</span>)  <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>
+    r = xy.syms.seen(<span class="hljs-literal">false</span>) <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>
+    push(out, {col=<span class="hljs-built_in">self</span>, lo=lo, hi=xy.hi, val=Score.score(b,r,B,R)}) 
+    lo = xy.hi
   <span class="hljs-keyword">end</span> 
   out[#out].hi = <span class="hljs-built_in">math</span>.<span class="hljs-built_in">huge</span>
 <span class="hljs-keyword">end</span></pre></div></div>
@@ -690,48 +685,53 @@ another way, one standard deviation is 2*1.28 of &plusmn; 90%.</p>
               <div class="sswrap ">
                 <a class="ss" href="#section-33">&#x00a7;</a>
               </div>
-              <p>Make a new range when     </p>
+              <p>Generate a new range when     </p>
 <ol>
 <li>there is enough left for at least one more range; and     </li>
 <li>the lo,hi delta in current range is not tiny; and    </li>
 <li>there are enough x values in this range; and   </li>
-<li>there is natural split here</li>
+<li>there is natural split here
+Fuse adjacent ranges when:</li>
+<li>the combined class distribution of two adjacent ranges 
+is just as simple as the parts.</li>
 </ol>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">discretize</span><span class="hljs-params">(xys, width, tiny)</span></span>
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> discretize <span class="hljs-comment">--------------------------------------------------------------</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">discretize</span><span class="hljs-params">(xys, width, tiny)</span></span>
   <span class="hljs-keyword">local</span> now,out,x,y,prune
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">prune</span><span class="hljs-params">(b4)</span></span> <span class="hljs-comment">-- prune ranges that do not change class distributions</span>
-    <span class="hljs-keyword">local</span> j,tmp,n,a,b,cy
-    j, n, tmp = <span class="hljs-number">1</span>, #b4, {}
-    <span class="hljs-keyword">while</span> j&lt;=n <span class="hljs-keyword">do</span>
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">fuse</span><span class="hljs-params">(b4)</span></span> <span class="hljs-comment">--fuse adjacent ranges that don&#x27;t change class distribution</span>
+    <span class="hljs-keyword">local</span> j,tmp,n,a,b,fused
+    j, n, tmp = <span class="hljs-number">0</span>, #b4, {}
+    <span class="hljs-keyword">while</span> j&lt;n <span class="hljs-keyword">do</span>
+      j = j + <span class="hljs-number">1</span>
       a = b4[j]
       <span class="hljs-keyword">if</span> j &lt; n<span class="hljs-number">-1</span> <span class="hljs-keyword">then</span>
-        b  = b4[j+<span class="hljs-number">1</span>]
-        cy = a[<span class="hljs-number">2</span>]:merged(b[<span class="hljs-number">2</span>])
-        <span class="hljs-keyword">if</span> cy <span class="hljs-keyword">then</span>
-          a = {a[<span class="hljs-number">1</span>]:merge(b[<span class="hljs-number">1</span>]), cy} 
-          j = j + <span class="hljs-number">1</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
+        b = b4[j+<span class="hljs-number">1</span>]
+        fused = a.syms:fuse(b.syms)
+        <span class="hljs-keyword">if</span> fused <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (5)</span>
+          j = j + <span class="hljs-number">1</span> <span class="hljs-comment">-- next time around, skip over b (and go on after that)</span>
+          a = {lo=a.lo, hi= b.hi, syms=fused} <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
       push(tmp,a)
-      j = j + <span class="hljs-number">1</span>
     <span class="hljs-keyword">end</span>
-    <span class="hljs-keyword">return</span> #tmp==#b4 <span class="hljs-keyword">and</span> tmp <span class="hljs-keyword">or</span> merge(tmp) <span class="hljs-comment">--if any prunings, try to find more</span>
-  <span class="hljs-keyword">end</span> <span class="hljs-comment">-----------------</span>
+    <span class="hljs-keyword">return</span> #tmp==#b4 <span class="hljs-keyword">and</span> b4 <span class="hljs-keyword">or</span> fuse(tmp) <span class="hljs-comment">--if any fused, recurse to find more</span>
+  <span class="hljs-keyword">end</span> 
   <span class="hljs-keyword">while</span> width &lt;<span class="hljs-number">4</span> <span class="hljs-keyword">and</span> width&lt;#xys/<span class="hljs-number">2</span> <span class="hljs-keyword">do</span> width=<span class="hljs-number">1.2</span>*width <span class="hljs-keyword">end</span> <span class="hljs-comment">--grow small widths</span>
-  now = {Num.new(), Sym.new()}
+  x=xy[<span class="hljs-number">1</span>][<span class="hljs-number">1</span>]
+  now = {lo=x, hi=x, syms=Sym.new()} 
   out = {now}
   <span class="hljs-keyword">for</span> j,xy <span class="hljs-keyword">in</span> <span class="hljs-built_in">sort</span>(xys,firsts) <span class="hljs-keyword">do</span>
     x,y = xy[<span class="hljs-number">1</span>],xy[<span class="hljs-number">2</span>]
     <span class="hljs-keyword">if</span> j &lt; #xys - enough <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (1)</span>
       <span class="hljs-keyword">if</span> x ~= xys[j+<span class="hljs-number">1</span>][<span class="hljs-number">1</span>] <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (2)</span>
-        <span class="hljs-keyword">if</span> now[<span class="hljs-number">1</span>].n &gt; width <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (3)</span>
-          <span class="hljs-keyword">if</span> now[<span class="hljs-number">1</span>].hi - now[<span class="hljs-number">1</span>].lo &gt; tiny <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (4)</span>
-            now = {Num.new(), Sym.new()}
+        <span class="hljs-keyword">if</span> now.syms.n &gt; width <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (3)</span>
+          <span class="hljs-keyword">if</span> now.hi - now.lo &gt; tiny <span class="hljs-keyword">then</span> <span class="hljs-comment">-- (4)</span>
+            now = {lo=x, hi=x, syms=Sym.new()}
             push(out, now) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span>
-    now[<span class="hljs-number">1</span>].add(x)
-    now[<span class="hljs-number">2</span>].add(y) <span class="hljs-keyword">end</span>
-  <span class="hljs-keyword">return</span> prune(out) <span class="hljs-keyword">end</span></pre></div></div>
+    now.hi = x 
+    now.syms.add(y) <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">return</span> fuse(out) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
