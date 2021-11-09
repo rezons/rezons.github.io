@@ -431,15 +431,14 @@ function Sample:neighbors(row1,rows,       dist)
   function dist(_,row2) return {self:dist(row1,row2),row2} end
   return sort(map(rows or self.rows, dist), firsts) end
 
-function Sample:far(row,rows,      a)
-  a = self:neighbors(row,top(the.samples, rows))
-  return a[the.far*#a // 1] end
- 
 function Sample:bicluster(rows)
   local cosRow,cos,dist,left,right,c,lefts,rights
   function cosrow(_,row) return {cos(dist(row,left), dist(row,right)),row} end
   function dist(a,b)     return self:dist(a,b) end
   function cos(a,b)      return (a^2 + c^2 - b^2) / (2*c) end
+  function far(row,      a)
+    a = self:neighbors(row, top(the.samples, rows)); return a[the.far*#a // 1]  
+  end -------
   _,left       = self:far(any(rows), rows)
   c,right      = self:far(left,      rows)
   lefts,rights = {},{}
