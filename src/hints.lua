@@ -14,8 +14,11 @@ local about={
   how  = {
     {"cohen", "-c", .2,                   "min stdev delta to be different"},
     {"enough","-e", .5,                   "stopping criteria"},
+    {"few",   "-F", 32,                   "when clustering, how many examples define the topology"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
+    {"help",  "-h", false,                "show help"},
     {"rank",  "-r", "plan",               "how to  score a range"},
+    {"far",   "-R", .85                   "max dist for samples"},
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
     {"todo",  "-do", "help",              "start-up action"},
