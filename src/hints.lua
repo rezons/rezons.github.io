@@ -50,7 +50,10 @@ function rand(lo,hi,     mult,mod)
   return lo + (hi-lo) * Seed / 2147483647 end 
 
 -- ### Arrays
-local firsts,map,keys,shuffle,copy,sum,bchop ----------------------------------
+local firsts,map,keys,shuffle,copy,sum,bchop,top,any ----------------------------------
+
+-- return  any item
+function any(t) return t[randi(1,#t)] end
 
 -- binary chop (assumes sorted lists)
 function bchop(t,val,lt,      lo,hi,mid) 
@@ -424,6 +427,37 @@ function Sample:mid(  cols)
 function Sample:spread(   cols) 
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
+function Sample:neighbors(row1,rows,       dist)
+  function dist(_,row2) return {self:dist(row1,row2),row2} end
+  return sort(map(rows or self.rows, dist), firsts) end
+
+function Sample:far(row,rows,      a)
+  a = self:neighbors(row,top(the.samples, rows))
+  return a[the.far*#a // 1] end
+ 
+function Sample:cluster(rows)
+  local placeRow,cosine,dist,left,right,c,lefts,rights
+  function cosrow(_,row) return {cos(dist(row,left), dist(row,right)),row} end
+  function cos(a,b)      return (a^2 + c^2 - b^2) / (2*c) end
+  function dist(a,b)     return self:dist(a,b) end
+  _,left       = _,left or self:far(any(rows), rows)
+  c,right      = self:far(left, rows)
+  lefts,rights = {},{}
+  for i,tmp in pairs(sort(map(rows,cosrow),firsts)) do
+    push(i<=#rows//2 and lefts or rights, tmp[2]) end
+  return left, right, lefts, rights end
+
+function Sample:clusters(rows,leaves,enough,     lefts,rights)
+  rows   = shuffle(rows or self.rows)
+  leaves = leaves or {}
+  enough = enough or (#rows)^the.bins
+  if   #rows < 2*enough 
+  then push(leaves,rows)
+  else _,_,lefts,rights = self:cluster(rows)
+       self:clusters(lefts,  leaves, enough) 
+       self:clusters(rights, leaves, enough) end 
+  return leaves end 
+
 -- ## Rules
 local function rules(structure,lst,     best,rest,ranges)
   best = structure:clone()
@@ -448,7 +482,7 @@ function main(file,    rows,s, train,test,testrows,rest)
   for i,row in pairs(shuffle(s.rows)) do
     if i % the.xways == 0  then test:add(row) else train:add(row) end end
   local evals,suggestions,_ = train:div()
-  rules(s,suggestions)
+  --rules(s,suggestions)
   local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
   local tmp={}
@@ -482,6 +516,9 @@ Todo.help={"print help",
     print(red("\nACTIONS:"))
     for _,k in pairs(keys(Todo)) do
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
+
+Todo.rules={"run rules",function()
+  end}
 
 Todo.auto93={"run auto93", function(     s,t,u)
   the.file="../data/auto93.csv"
