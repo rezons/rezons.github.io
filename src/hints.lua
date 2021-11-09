@@ -17,8 +17,9 @@ local about={
     {"few",   "-F", 32,                   "when clustering, how many examples define the topology"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
     {"help",  "-h", false,                "show help"},
+    {"more",  "-m", 3,                    "when learner, size(rest)=more*size(best)"},
     {"rank",  "-r", "plan",               "how to  score a range"},
-    {"far",   "-R", .85                   "max dist for samples"},
+    {"far",   "-R", .85,                   "max dist for samples"},
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
     {"todo",  "-do", "help",              "start-up action"},
@@ -422,6 +423,11 @@ function Sample:div()
   end
   return go(shuffle(copy(self.rows)),0,{}) end
 
+-- return something `far` from `row`.
+function Sample:far(row,      a)
+  a= self:neighbors(row, top(the.few, shuffle(rows))); 
+  return a[the.far*#a//1]  end 
+
 -- The central tendency of a `sample` comes fro its columns.
 function Sample:mid(  cols) 
   return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
@@ -434,31 +440,39 @@ function Sample:neighbors(row1,rows,       dist)
   function dist(_,row2) return {self:dist(row1,row2),row2} end
   return sort(map(rows or self.rows, dist), firsts) end
 
-function Sample:bicluster(rows)
-  local cosRow,cos,dist,left,right,c,lefts,rights
-  function cosrow(_,row) return {cos(dist(row,left), dist(row,right)),row} end
-  function dist(a,b)     return self:dist(a,b) end
-  function cos(a,b)      return (a^2 + c^2 - b^2) / (2*c) end
-  function far(row,      a)
-    a = self:neighbors(row, top(the.samples, rows)); return a[the.far*#a // 1]  
-  end -------
-  _,left       = self:far(any(rows), rows)
-  c,right      = self:far(left,      rows)
-  lefts,rights = {},{}
-  for i,tmp in pairs(sort(map(rows,cosrow),firsts)) do
-    push(i<=#rows//2 and lefts or rights, tmp[2]) end
-  return left, right, lefts, rights end
+function Sample:bicluster(rows, l)
+  local project,r,c,ls,rs
+  l   = l or self:far(any(rows), rows)[2]
+  c,r = self:far(l,rows)
+  function project(_,row) 
+    a,b = self:dist(row,l),self:dist(row,r)
+    return {(a^2+c^2-b^2)/(2*c),row} end
+  ls,rs = {},{}
+  for i,tmp in pairs(sort(map(rows,project),firsts)) do 
+    push(i<=#rows//2 and ls or rs, tmp[2]) end
+  return l, r, ls, rs end
 
-function Sample:cluster(rows,leaves,enough,     lefts,rights)
-  rows   = shuffle(rows or self.rows)
-  leaves = leaves or {}
-  enough = enough or (#rows)^the.bins
-  if   #rows < 2*enough 
-  then push(leaves,rows)
-  else _,_,lefts,rights = self:bicluster(rows)
-       self:cluster(lefts,  leaves, enough) 
-       self:cluster(rights, leaves, enough) end 
-  return leaves end 
+function Sample:cluster(           go,leaves)
+  function go(rows,    ls,rs)
+    if   #rows < 2*(#self.rows)^the.enough 
+    then push(leaves,rows)
+    else _,_,ls,rs = self:bicluster(rows)
+         go(ls)
+         go(rs) end end
+  leaves={}
+  go(self.rows)
+  return leaves end
+
+function Sample:optimize(    go,best,rest)
+  function go(rows,above,notbest,       l,r,ls,rs)
+    for _,row in pairs(notbest or {}) do push(rest,row) end
+    if   #rows < 2*(#self.rows)^the.enough
+    then return rows
+    else l,r,ls,rs = self:bicluster(rows, above)
+         return self:better(l,r) and go(ls,l,rs) or go(rs,r,ls) end end 
+  rest = {}
+  best = go(self.rows)
+  return best, top(the.more*#best, shuffle(rest)) end
 
 -- ## Rules
 local function rules(structure,lst,     best,rest,ranges)
