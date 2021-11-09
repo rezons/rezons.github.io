@@ -1,4 +1,5 @@
--- Using just a few guesses, learn what examples  in the data are better than most other examples.
+#!/usr/bin/env lua
+-- Using just a few hints, learn what examples  in the data are better than most other examples.
 -- 1. Given many unevaluated examples, find the mid-point of few evaluated examples.
 -- 2. Prune everything below the mid.
 -- 3. Repeat.
@@ -8,7 +9,7 @@
 -- (listed at end of file).
 local the -- Global config. Built via `the = updateFromCommandLine(about.how)`
 local about={
-  what = "GUESS v1: semi-supervised multi-objective optimizer",
+  what = "HINTS v1: semi-supervised multi-objective optimizer",
   when = "(c) 2021, Tim Menzies, unlicense.org",
   how  = {
     {"cohen", "-c", .2,                   "min stdev delta to be different"},
@@ -75,7 +76,7 @@ function keys(t,  u)
 function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end 
 
 -- Randomly sort in-place a list
-function shuffle(t,n,    j)
+function shuffle(t,    j)
   for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
   return t end
 
@@ -83,6 +84,11 @@ function shuffle(t,n,    j)
 function sum(t,f,    n)
   n,f = 0,f or same
   for _,x in pairs(t) do n=n+f(x) end; return n end
+
+-- top `n` items
+function top(n,t,   u)
+  u={}; for i,x in pairs(t) do u[#u+1]=x; if i>=n then break end end
+  return u end
 
 -- ### Command-line
 -- At start-up, `the`  settings will come from `the = cli(about.how)`.
@@ -95,18 +101,23 @@ local function updateFromCommandLine(options,   u) ----------------------------
   return u end
 
 --  ### Printing
-local shout,out
+local shout,out,red,green,yellow,blue
 
 -- Generate  a pretty-print string from a table (recursively).
 function out(t,    u,f1,f2)
-  function f1(_,x) return fmt(":%s %s",x,out(t[x])) end
+  function f1(_,x) return fmt(":%s %s",yellow(x),out(t[x])) end
   function f2(_,x) return out(x) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t==0 and map(keys(t),f1) or map(t,f2)
-  return (t._is or"").."{"..cat(u," ").."}" end
+  return blue(t._is or"")..blue("{")..cat(u," ")..blue("}") end
 
 -- Print a pretty-print string.
 function shout(x) print(out(x)) end
+
+function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
+function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
+function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
+function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 -- ### CSV reading
 local function csv(file,      split,stream,tmp)
@@ -251,13 +262,14 @@ function Num:spread(   a,here)
   function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
   return (a[here(.9)] - a[here(.1)])/2.56 end
 
+local bins
 function Num:ranges(other,out,    xys,sd,b,r,B,R,lo,hi)
   xys,B,R = {}, self.n, other.n
   for _,x in pairs(self._contents)  do push(xys, {x,true})  end
   for _,x in pairs(other._contents) do push(xys, {x,false}) end
   sd = (self:spread() * self.n + other:spread() * other.n) / (self.n+other.n)
   lo = -math.huge
-  for _,xy in pairs(discretize(xys, (#xy)^the.enough, sd*the.cohen)) do
+  for _,xy in pairs(bins(xys, (#xys)^the.enough, sd*the.cohen)) do
     b = xy.syms.seen(true)  or 0
     r = xy.syms.seen(false) or 0
     push(out, {col=self, lo=lo, hi=xy.hi, val=Score.score(b,r,B,R)}) 
@@ -274,8 +286,7 @@ end
 -- Fuse adjacent ranges when:
 -- 5. the combined class distribution of two adjacent ranges 
 --    is just as simple as the parts.
-local discretize --------------------------------------------------------------
-function discretize(xys, width, tiny)
+function bins(xys, width, tiny)
   local now,out,x,y,prune
   function fuse(b4) --fuse adjacent ranges that don't change class distribution
     local j,tmp,n,a,b,fused
@@ -389,9 +400,9 @@ function Sample:div()
        if tmp < closest then closest,rowRank = tmp,someRank end end
     return {rowRank,row} 
   end ------------------------------------
-  local function go(rows,evals,      somes)
+  local function go(rows,evals,rest,      somes)
     if #rows < 2*(#self.rows)^the.enough or #rows < 2*the.some then 
-      return evals,self:clone(rows):betters(rows) end
+      return evals,self:clone(rows):betters(rows),rest end
     somes={}
     for i = 1,the.some do 
       evals = evals+1
@@ -400,10 +411,10 @@ function Sample:div()
     rows = sort(map(rows, function(_,row) return want(somes,row) end), 
                 firsts )
     for k,v in pairs(rows) do 
-      if k <= #rows/2 then push(best, v[2]) else break end end
-    return go(best, evals) 
+      if k <= #rows/2 then push(best, v[2]) else push(rest,v[2]) end end
+    return go(best, evals,rest) 
   end
-  return go(shuffle(copy(self.rows)),0) end
+  return go(shuffle(copy(self.rows)),0,{}) end
 
 -- The central tendency of a `sample` comes fro its columns.
 function Sample:mid(  cols) 
@@ -413,28 +424,42 @@ function Sample:mid(  cols)
 function Sample:spread(   cols) 
   return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
+-- ## Rules
+local function rules(structure,lst,     best,rest,ranges)
+  best = structure:clone()
+  rest = structure:clone()
+  for i,one in pairs(lst) do (i<=10 and best or rest):add(one) end
+  ranges = {}
+  for i,col0 in pairs(best.cols.xs) do
+    col1 = rest.cols.xs[i]
+    col0:ranges(col1,ranges) end
+  for _,row in pairs(sort(ranges,
+                          function(x,y) return x.score < y.score end)) do
+    shout(row) end end
 
 -- ## Main
 local main,stats
 
-function main(file,    rows,s, train,test,testrows)
+function main(file,    rows,s, train,test,testrows,rest)
   local lt=function(x,y) return s:better(x,y) end
   the.file=file or "../data/coc1000.csv"
   s = Sample.new(the.file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
     if i % the.xways == 0  then test:add(row) else train:add(row) end end
-  local evals,suggestions = train:div()
+  local evals,suggestions,_ = train:div()
+  rules(s,suggestions)
   local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
-  --assert(1==bchop(testrows,testrows[1], lt)) 
   local tmp={}
   for i=1,#suggestions do
-     if  i==1 or i==2 or  i==4 or i==8 or i==16 or i==#suggestions or i==(#suggestions)//2 then
+     if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
        local suggestion = suggestions[i]
        local rank=bchop(testrows,suggestion,lt); 
-       push(tmp, fmt(" %6s ",100*rank/#testrows //1))   end end
-  print(out(report),out(tmp))
+       push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
+  print(out(tmp),out(report))
+  return map({1,5,10,20,40,#suggestions//2,#suggestions},
+             function(_,x) return fmt(" %6s ",x) end)
   end
 
 function stats(n,s)
@@ -448,13 +473,13 @@ function stats(n,s)
 local Todo={} ------------------------------------------------------------------
 Todo.help={"print help", 
   function ()
-    print("lua guess.lua [OPTIONS] -do ACTION\n")
+    print(red("lua hints.lua").." [OPTIONS] -do ACTION\n")
     print(about.what)
-    print(about.when,"\n\nOPTIONS:");
+    print(about.when,red("\n\nOPTIONS:"));
     for _,t in pairs(about.how) do if t[1] ~= "todo" then
       print(fmt("  %-4s%-20s %s",
                 t[2], t[3]==false and "" or t[3], t[4])) end end
-    print("\nACTIONS:")
+    print(red("\nACTIONS:"))
     for _,k in pairs(keys(Todo)) do
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
@@ -462,26 +487,27 @@ Todo.auto93={"run auto93", function(     s,t,u)
   the.file="../data/auto93.csv"
   s = Sample.new(the.file)
   stats(0,s)
+  shout(s.cols)
   for _=1,20 do
     t = Sample.new(the.file)
     local evals,rows = t:div()
     u = t:clone( rows )  
     stats(evals,t:clone(rows)) end end}
 
-Todo.rankx3={"run coc1000", function() 
-  for i=1,20 do main("../data/coc1000.csv")  end end}
+Todo.rankx3={"run coc1000", function(x) 
+  for i=1,20 do x=main("../data/coc1000.csv")  end ; shout(x); end}
 
-Todo.rankx4={"run coc10000", function() 
-  for i=1,20 do main("../data/coc10000.csv")  end end}
+Todo.rankx4={"run coc10000", function(x) 
+  for i=1,20 do x=main("../data/coc10000.csv")  end; shout(x);  end}
 
-Todo.rankauto={"run auto93", function() 
-  for i=1,20 do main("../data/auto93.csv")  end end}
+Todo.rankauto={"run auto93", function(x) 
+  for i=1,20 do x=main("../data/auto93.csv")  end; shout(x);  end}
 
-Todo.rankchina={"run china", function() 
-  for i=1,20 do main("../data/china.csv")  end end}
+Todo.rankchina={"run china", function(x) 
+  for i=1,20 do x=main("../data/china.csv")  end; shout(x);  end}
 
-Todo.nasa93={"run nasa93", function() 
-  for i=1,20 do main("../data/nasa93dem.csv")  end end}
+Todo.nasa93={"run nasa93", function(x) 
+  for i=1,20 do x=main("../data/nasa93dem.csv")  end; shout(x);  end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
