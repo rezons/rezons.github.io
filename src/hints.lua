@@ -435,27 +435,27 @@ function Sample:far(row,rows,      a)
   a = self:neighbors(row,top(the.samples, rows))
   return a[the.far*#a // 1] end
  
-function Sample:cluster(rows)
-  local placeRow,cosine,dist,left,right,c,lefts,rights
+function Sample:bicluster(rows)
+  local cosRow,cos,dist,left,right,c,lefts,rights
   function cosrow(_,row) return {cos(dist(row,left), dist(row,right)),row} end
-  function cos(a,b)      return (a^2 + c^2 - b^2) / (2*c) end
   function dist(a,b)     return self:dist(a,b) end
-  _,left       = _,left or self:far(any(rows), rows)
-  c,right      = self:far(left, rows)
+  function cos(a,b)      return (a^2 + c^2 - b^2) / (2*c) end
+  _,left       = self:far(any(rows), rows)
+  c,right      = self:far(left,      rows)
   lefts,rights = {},{}
   for i,tmp in pairs(sort(map(rows,cosrow),firsts)) do
     push(i<=#rows//2 and lefts or rights, tmp[2]) end
   return left, right, lefts, rights end
 
-function Sample:clusters(rows,leaves,enough,     lefts,rights)
+function Sample:cluster(rows,leaves,enough,     lefts,rights)
   rows   = shuffle(rows or self.rows)
   leaves = leaves or {}
   enough = enough or (#rows)^the.bins
   if   #rows < 2*enough 
   then push(leaves,rows)
-  else _,_,lefts,rights = self:cluster(rows)
-       self:clusters(lefts,  leaves, enough) 
-       self:clusters(rights, leaves, enough) end 
+  else _,_,lefts,rights = self:bicluster(rows)
+       self:cluster(lefts,  leaves, enough) 
+       self:cluster(rights, leaves, enough) end 
   return leaves end 
 
 -- ## Rules
