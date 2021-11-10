@@ -374,13 +374,14 @@ function Sample:better(row1,row2,cols)
 function Sample:betters(rows) 
   return sort(rows or self.rows,function(x,y) return self:better(x,y) end) end
 
-function Sample:bicluster(rows, l)
-  local project,r,c,ls,rs
-  l   = l or self:far(any(rows), rows)[2]
-  c,r = self:far(l,rows)
-  function project(_,row) 
+function Sample:bicluster(rows)
+  local project,_,l,r,c,ls,rs
+  function project(_,row,    a,b) 
     a,b = self:dist(row,l),self:dist(row,r)
-    return {(a^2+c^2-b^2)/(2*c),row} end
+    return {(a^2+c^2-b^2)/(2*c),row} 
+  end ----
+  _,l = self:far(any(rows), rows) 
+  c,r = self:far(l,rows)
   ls,rs = {},{}
   for i,tmp in pairs(sort(map(rows,project),firsts)) do 
     push(i<=#rows//2 and ls or rs, tmp[2]) end
@@ -392,7 +393,7 @@ function Sample:clone(inits,   tmp)
   map(inits or {}, function(_,row) tmp:add(row) end)
   return tmp end
 
-function Sample:clusters(           go,leaves)
+function Sample:clusters(           go,leaves,_)
   function go(rows,    ls,rs)
     if   #rows < 2*(#self.rows)^the.enough
     then push(leaves,rows)
@@ -449,9 +450,13 @@ function Sample:div()
 -- return something `far` from `row`.
 function Sample:far(row,rows,      tmp,x)
   tmp = self:neighbors(row, top(the.few, shuffle(rows))) 
-  return tmp[the.far*#tmp//1]  end
+  tmp = tmp[the.far*#tmp//1]
+  return tmp[1],tmp[2] end
 
--- The central tendency of a `sample` comes fro its columns.
+-- The central tendency of a `Sample`'s dependent variables.
+function Sample:goals() return self:mid(self.cols.ys) end
+
+-- The central tendency of a `Sample` comes fro its columns.
 function Sample:mid(  cols) 
   return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
 
@@ -462,12 +467,12 @@ function Sample:neighbors(row1,rows,       dist)
 
 -- Recursively throw away worse half of data.
 function Sample:optimize(    go,best,rest)
-  function go(rows,above,notbest,       l,r,ls,rs)
+  function go(rows,notbest,       l,r,ls,rs)
     for _,row in pairs(notbest or {}) do push(rest,row) end
     if   #rows < 2*(#self.rows)^the.enough
     then return rows
-    else l,r,ls,rs = self:bicluster(rows, above)
-         return self:better(l,r) and go(ls,l,rs) or go(rs,r,ls) end end 
+    else l,r,ls,rs = self:bicluster(rows) 
+         return self:better(l,r) and go(ls,rs) or go(rs,ls) end end 
   rest = {}
   best = go(self.rows)
   return best, top(the.more*#best, shuffle(rest)) end
@@ -523,11 +528,19 @@ function stats(n,s)
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
+Todo.optimize={"optimize", function(      s,best,rest)
+  the.file="../data/coc10000.csv"
+  s = Sample.new(the.file)
+  best, rest = s:optimize() 
+  shout(s:clone(best):goals())
+  shout(s:clone(rest):goals())
+  end }
+
 Todo.cluster={"clustering", function (s)
   the.file="../data/auto93.csv"
   s = Sample.new(the.file)
   for _,rows in pairs(s:clusters()) do
-    shout(s:clone(rows):mid(s.cols.ys)) end end}
+    shout(s:clone(rows):goals()) end end}
   
 Todo.help={"print help", 
   function ()
