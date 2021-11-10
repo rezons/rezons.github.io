@@ -392,9 +392,9 @@ function Sample:clone(inits,   tmp)
   map(inits or {}, function(_,row) tmp:add(row) end)
   return tmp end
 
-function Sample:cluster(           go,leaves)
+function Sample:clusters(           go,leaves)
   function go(rows,    ls,rs)
-    if   #rows < 2*(#self.rows)^the.enough 
+    if   #rows < 2*(#self.rows)^the.enough
     then push(leaves,rows)
     else _,_,ls,rs = self:bicluster(rows)
          go(ls)
@@ -447,9 +447,9 @@ function Sample:div()
   return go(shuffle(copy(self.rows)),0,{}) end
 
 -- return something `far` from `row`.
-function Sample:far(row,      a)
-  a= self:neighbors(row, top(the.few, shuffle(rows))); 
-  return a[the.far*#a//1]  end 
+function Sample:far(row,rows,      tmp,x)
+  tmp = self:neighbors(row, top(the.few, shuffle(rows))) 
+  return tmp[the.far*#tmp//1]  end
 
 -- The central tendency of a `sample` comes fro its columns.
 function Sample:mid(  cols) 
@@ -523,6 +523,12 @@ function stats(n,s)
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
+Todo.cluster={"clustering", function (s)
+  the.file="../data/auto93.csv"
+  s = Sample.new(the.file)
+  for _,rows in pairs(s:clusters()) do
+    shout(s:clone(rows):mid(s.cols.ys)) end end}
+  
 Todo.help={"print help", 
   function ()
     print(fmt("lua hints.lua [%s] -do [%s]\n",red("OPTIONS"),red("ACTION")))
