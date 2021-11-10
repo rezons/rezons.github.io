@@ -14,7 +14,7 @@ local about={
   how  = {
     {"cohen", "-c", .2,                   "min stdev delta to be different"},
     {"enough","-e", .5,                   "stopping criteria"},
-    {"few",   "-F", 32,                   "when clustering, how many examples define the topology"},
+    {"few",   "-F", 64,                   "when clustering, how many examples define the topology"},
     {"file",  "-f", "../data/auto93.csv", "data file to load"},
     {"help",  "-h", false,                "show help"},
     {"more",  "-m", 3,                    "when learner, size(rest)=more*size(best)"},
@@ -375,17 +375,18 @@ function Sample:betters(rows)
   return sort(rows or self.rows,function(x,y) return self:better(x,y) end) end
 
 function Sample:bicluster(rows)
-  local project,_,l,r,c,ls,rs
+  local project,_,one,two,c,ones,twos,some
   function project(_,row,    a,b) 
-    a,b = self:dist(row,l),self:dist(row,r)
+    a,b = self:dist(row,one),self:dist(row,two)
     return {(a^2+c^2-b^2)/(2*c),row} 
   end ----
-  _,l = self:far(any(rows), rows) 
-  c,r = self:far(l,rows)
-  ls,rs = {},{}
+  some = top(the.few, shuffle(rows))
+  _,one = self:far(any(rows), some) 
+  c,two = self:far(one,         some)
+  ones,twos = {},{}
   for i,tmp in pairs(sort(map(rows,project),firsts)) do 
-    push(i<=#rows//2 and ls or rs, tmp[2]) end
-  return l, r, ls, rs end
+    push(i<=#rows//2 and ones or twos, tmp[2]) end
+  return one, two, ones, twos end
 
 -- Return a new `Sample` with the same structure as this one.
 function Sample:clone(inits,   tmp)
@@ -394,12 +395,12 @@ function Sample:clone(inits,   tmp)
   return tmp end
 
 function Sample:clusters(           go,leaves,_)
-  function go(rows,    ls,rs)
+  function go(rows,    ones,twos)
     if   #rows < 2*(#self.rows)^the.enough
     then push(leaves,rows)
-    else _,_,ls,rs = self:bicluster(rows)
-         go(ls)
-         go(rs) end end
+    else _,_,ones,twos = self:bicluster(rows)
+         go(ones)
+         go(twos) end end
   leaves={}
   go(self.rows)
   return leaves end
@@ -448,10 +449,10 @@ function Sample:div()
   return go(shuffle(copy(self.rows)),0,{}) end
 
 -- return something `far` from `row`.
-function Sample:far(row,rows,      tmp,x)
-  tmp = self:neighbors(row, top(the.few, shuffle(rows))) 
-  tmp = tmp[the.far*#tmp//1]
-  return tmp[1],tmp[2] end
+function Sample:far(row,rows,     all,one)
+  all = self:neighbors(row, rows) 
+  one = all[the.far * #all // 1]
+  return one[1], one[2] end
 
 -- The central tendency of a `Sample`'s dependent variables.
 function Sample:goals() return self:mid(self.cols.ys) end
@@ -466,16 +467,17 @@ function Sample:neighbors(row1,rows,       dist)
   return sort(map(rows or self.rows, dist), firsts) end
 
 -- Recursively throw away worse half of data.
-function Sample:optimize(    go,best,rest)
-  function go(rows,notbest,       l,r,ls,rs)
-    for _,row in pairs(notbest or {}) do push(rest,row) end
+function Sample:optimize(    go,bests,rests)
+  function go(rows, worsts,       one,two,ones,twos)
+    for _,rest in pairs(worsts) do push(rests,rest) end
     if   #rows < 2*(#self.rows)^the.enough
     then return rows
-    else l,r,ls,rs = self:bicluster(rows) 
-         return self:better(l,r) and go(ls,rs) or go(rs,ls) end end 
-  rest = {}
-  best = go(self.rows)
-  return best, top(the.more*#best, shuffle(rest)) end
+    else one,two,ones,twos = self:bicluster(rows) 
+         evals = evals + 2
+         return self:better(one,two) and go(ones,twos) or go(twos,ones) end end 
+  evals, rests = 0,{}
+  bests = go(self.rows,{}) --at start, 2nd arg empty (nothing is worsts, yet)
+  return evals, bests, top(the.more*#bests, shuffle(rests)) end-- all of best, some of rest
 
 -- The spread of a `sample` comes fro its columns.
 function Sample:spread(   cols) 
@@ -495,7 +497,7 @@ local function rules(structure,lst,     best,rest,ranges)
     shout(row) end end
 
 -- ## Main
-local main,stats
+local main,main1,stats
 
 function main(file,    rows,s, train,test,testrows,rest)
   local lt=function(x,y) return s:better(x,y) end
@@ -505,6 +507,28 @@ function main(file,    rows,s, train,test,testrows,rest)
   for i,row in pairs(shuffle(s.rows)) do
     if i % the.xways == 0  then test:add(row) else train:add(row) end end
   local evals,suggestions,_ = train:div()
+  --rules(s,suggestions)
+  local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
+  testrows=test:betters()
+  local tmp={}
+  for i=1,#suggestions do
+     if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
+       local suggestion = suggestions[i]
+       local rank=bchop(testrows,suggestion,lt); 
+       push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
+  print(out(tmp),out(report))
+  return map({1,5,10,20,40,#suggestions//2,#suggestions},
+             function(_,x) return fmt(" %6s ",x) end)
+  end
+
+function main1(file,    rows,s, train,test,testrows,rest)
+  local lt=function(x,y) return s:better(x,y) end
+  the.file=file or "../data/coc1000.csv"
+  s = Sample.new(the.file)
+  train,test= s:clone(), s:clone()
+  for i,row in pairs(shuffle(s.rows)) do
+    if i % the.xways == 0  then test:add(row) else train:add(row) end end
+  local evals,suggestions,_ = train:optimize()
   --rules(s,suggestions)
   local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
@@ -529,7 +553,7 @@ function stats(n,s)
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
 Todo.optimize={"optimize", function(      s,best,rest)
-  the.file="../data/coc10000.csv"
+  the.file="../data/auto93.csv"
   s = Sample.new(the.file)
   best, rest = s:optimize() 
   shout(s:clone(best):goals())
@@ -571,14 +595,23 @@ Todo.auto93={"run auto93", function(     s,t,u)
 Todo.rankx3={"run coc1000", function(x) 
   for i=1,20 do x=main("../data/coc1000.csv")  end ; shout(x); end}
 
+Todo.rankx31={"run coc1000", function(x) 
+  for i=1,20 do x=main1("../data/coc1000.csv")  end ; shout(x); end}
+
 Todo.rankx4={"run coc10000", function(x) 
   for i=1,20 do x=main("../data/coc10000.csv")  end; shout(x);  end}
 
 Todo.rankauto={"run auto93", function(x) 
   for i=1,20 do x=main("../data/auto93.csv")  end; shout(x);  end}
 
+Todo.rankauto1={"run auto93", function(x) 
+  for i=1,20 do x=main1("../data/auto93.csv")  end; shout(x);  end}
+
 Todo.rankchina={"run china", function(x) 
   for i=1,20 do x=main("../data/china.csv")  end; shout(x);  end}
+
+Todo.rankchina1={"run china", function(x) 
+  for i=1,20 do x=main1("../data/china.csv")  end; shout(x);  end}
 
 Todo.nasa93={"run nasa93", function(x) 
   for i=1,20 do x=main("../data/nasa93dem.csv")  end; shout(x);  end}
