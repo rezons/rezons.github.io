@@ -347,7 +347,7 @@ function Sample.new(src,   self)
 
 -- If `self.cols` is missing, then `lst` is the row of column names.
 -- Else, update the columns using the  data in `lst`.
-function  Sample:add(lst,   add)
+function Sample:add(lst,   add)
   function add(k,v) self.cols.all[k]:add(v); return v; end  
   if   not self.cols -- then  `lst` is  the  header row
   then self.cols = Cols.new(lst) 
@@ -374,11 +374,34 @@ function Sample:better(row1,row2,cols)
 function Sample:betters(rows) 
   return sort(rows or self.rows,function(x,y) return self:better(x,y) end) end
 
+function Sample:bicluster(rows, l)
+  local project,r,c,ls,rs
+  l   = l or self:far(any(rows), rows)[2]
+  c,r = self:far(l,rows)
+  function project(_,row) 
+    a,b = self:dist(row,l),self:dist(row,r)
+    return {(a^2+c^2-b^2)/(2*c),row} end
+  ls,rs = {},{}
+  for i,tmp in pairs(sort(map(rows,project),firsts)) do 
+    push(i<=#rows//2 and ls or rs, tmp[2]) end
+  return l, r, ls, rs end
+
 -- Return a new `Sample` with the same structure as this one.
 function Sample:clone(inits,   tmp)
   tmp = Sample.new():add( self.cols.header )
   map(inits or {}, function(_,row) tmp:add(row) end)
   return tmp end
+
+function Sample:cluster(           go,leaves)
+  function go(rows,    ls,rs)
+    if   #rows < 2*(#self.rows)^the.enough 
+    then push(leaves,rows)
+    else _,_,ls,rs = self:bicluster(rows)
+         go(ls)
+         go(rs) end end
+  leaves={}
+  go(self.rows)
+  return leaves end
 
 function Sample:diff(row1,row2, xy,     col2,sd)
   xy = xy or "ys"
@@ -432,37 +455,12 @@ function Sample:far(row,      a)
 function Sample:mid(  cols) 
   return map(cols or self.cols.all, function(k,x)  return x:mid() end) end
 
--- The spread of a `sample` comes fro its columns.
-function Sample:spread(   cols) 
-  return map(cols or self.cols.all, function(_,x) return x:spread() end) end
-
+-- Distance to everything around `row1`.
 function Sample:neighbors(row1,rows,       dist)
   function dist(_,row2) return {self:dist(row1,row2),row2} end
   return sort(map(rows or self.rows, dist), firsts) end
 
-function Sample:bicluster(rows, l)
-  local project,r,c,ls,rs
-  l   = l or self:far(any(rows), rows)[2]
-  c,r = self:far(l,rows)
-  function project(_,row) 
-    a,b = self:dist(row,l),self:dist(row,r)
-    return {(a^2+c^2-b^2)/(2*c),row} end
-  ls,rs = {},{}
-  for i,tmp in pairs(sort(map(rows,project),firsts)) do 
-    push(i<=#rows//2 and ls or rs, tmp[2]) end
-  return l, r, ls, rs end
-
-function Sample:cluster(           go,leaves)
-  function go(rows,    ls,rs)
-    if   #rows < 2*(#self.rows)^the.enough 
-    then push(leaves,rows)
-    else _,_,ls,rs = self:bicluster(rows)
-         go(ls)
-         go(rs) end end
-  leaves={}
-  go(self.rows)
-  return leaves end
-
+-- Recursively throw away worse half of data.
 function Sample:optimize(    go,best,rest)
   function go(rows,above,notbest,       l,r,ls,rs)
     for _,row in pairs(notbest or {}) do push(rest,row) end
@@ -473,6 +471,10 @@ function Sample:optimize(    go,best,rest)
   rest = {}
   best = go(self.rows)
   return best, top(the.more*#best, shuffle(rest)) end
+
+-- The spread of a `sample` comes fro its columns.
+function Sample:spread(   cols) 
+  return map(cols or self.cols.all, function(_,x) return x:spread() end) end
 
 -- ## Rules
 local function rules(structure,lst,     best,rest,ranges)
@@ -523,9 +525,9 @@ function stats(n,s)
 local Todo={} ------------------------------------------------------------------
 Todo.help={"print help", 
   function ()
-    print(red("lua hints.lua").." [OPTIONS] -do ACTION\n")
-    print(about.what)
-    print(about.when,red("\n\nOPTIONS:"));
+    print(fmt("lua hints.lua [%s] -do [%s]\n",red("OPTIONS"),red("ACTION")))
+    print(yellow(about.what))
+    print(yellow(about.when),red("\n\nOPTIONS:"));
     for _,t in pairs(about.how) do if t[1] ~= "todo" then
       print(fmt("  %-4s%-20s %s",
                 t[2], t[3]==false and "" or t[3], t[4])) end end
