@@ -72,7 +72,7 @@ function bchop(t,val,lt,      lo,hi,mid)
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
 
--- `firsts` is used for sorting {{score1,x1}, {score2,x2},...}
+-- `firsts` is used for sorting {{score,x}, {score,y},...}
 function firsts(x,y) return x[1] < y[1] end
 
 -- Sorted table keys
@@ -376,14 +376,14 @@ function Sample:betters(rows)
   return sort(rows or self.rows,function(x,y) return self:better(x,y) end) end
 
 function Sample:bicluster(rows)
-  local project,_,one,two,c,ones,twos,some
+  local project,one,two,c,ones,twos,some
   function project(_,row,    a,b) 
     a,b = self:dist(row,one),self:dist(row,two)
     return {(a^2+c^2-b^2)/(2*c),row} 
   end ----
   some = top(the.few, shuffle(rows))
-  _,one = self:far(any(rows), some) 
-  c,two = self:far(one,         some)
+  one = self:far(any(rows), some) 
+  two,c = self:far(one,         some)
   ones,twos = {},{}
   for i,tmp in pairs(sort(map(rows,project),firsts)) do 
     push(i<=#rows//2 and ones or twos, tmp[2]) end
@@ -453,7 +453,7 @@ function Sample:div()
 function Sample:far(row,rows,     all,one)
   all = self:neighbors(row, rows) 
   one = all[the.far * #all // 1]
-  return one[1], one[2] end
+  return one[2], one[1] end
 
 -- The central tendency of a `Sample`'s dependent variables.
 function Sample:goals() return self:mid(self.cols.ys) end
