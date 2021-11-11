@@ -19,11 +19,12 @@ local about={
     {"help",  "-h", false,                "show help"},
     {"more",  "-m", 3,                    "when learner, size(rest)=more*size(best)"},
     {"rank",  "-r", "plan",               "how to  score a range"},
-    {"far",   "-R", .85,                   "max dist for samples"},
+    {"far",   "-R", .85,                  "max dist for samples"},
     {"some",  "-s", 4,                    "samples per generation"},
     {"seed",  "-S", 937162211,            "random number seed"},
+    {"tactic","-t", "random",             "search tactic: random or sway"},
     {"todo",  "-do", "help",              "start-up action"},
-    {"xways", "-x",  2,                   "test on one, train on x-1 "}
+    {"xways", "-x",  2,                   "train on one, test on x-1 "}
     }}
 
 -- ## Functions
@@ -497,58 +498,36 @@ local function rules(structure,lst,     best,rest,ranges)
     shout(row) end end
 
 -- ## Main
-local main,main1,stats
+local Main={}
+Main.worker={}
 
-function main(file,    rows,s, train,test,testrows,rest)
+function Main.worker.sway(s) return s:optimize() end
+function Main.worker.random(s) return s:div() end
+function Main.runs(file,n,     x) 
+  for i=1,(n or 20) do x=Main.run(file,the.tactic) end 
+  shout(x) end
+
+function Main.run(file,fun)
+  local rows,evals,s,train,test,testrows,rest
   local lt=function(x,y) return s:better(x,y) end
-  the.file=file or "../data/coc1000.csv"
   s = Sample.new(the.file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
-    if i % the.xways == 0  then test:add(row) else train:add(row) end end
-  local evals,suggestions,_ = train:div()
+    if i % the.xways == 0  then train:add(row) else test:add(row) end end
+  local evals,suggestions,_ = Main.worker[fun](train)
   --rules(s,suggestions)
   local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
   local tmp={}
   for i=1,#suggestions do
-     if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
-       local suggestion = suggestions[i]
-       local rank=bchop(testrows,suggestion,lt); 
-       push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
+    if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
+      local suggestion = suggestions[i]
+      local rank=bchop(testrows,suggestion,lt); 
+      push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
   print(out(tmp),out(report))
   return map({1,5,10,20,40,#suggestions//2,#suggestions},
-             function(_,x) return fmt(" %6s ",x) end)
+            function(_,x) return fmt(" %6s ",x) end)
   end
-
-function main1(file,    rows,s, train,test,testrows,rest)
-  local lt=function(x,y) return s:better(x,y) end
-  the.file=file or "../data/coc1000.csv"
-  s = Sample.new(the.file)
-  train,test= s:clone(), s:clone()
-  for i,row in pairs(shuffle(s.rows)) do
-    if i % the.xways == 0  then test:add(row) else train:add(row) end end
-  local evals,suggestions,_ = train:optimize()
-  --rules(s,suggestions)
-  local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
-  testrows=test:betters()
-  local tmp={}
-  for i=1,#suggestions do
-     if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
-       local suggestion = suggestions[i]
-       local rank=bchop(testrows,suggestion,lt); 
-       push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
-  print(out(tmp),out(report))
-  return map({1,5,10,20,40,#suggestions//2,#suggestions},
-             function(_,x) return fmt(" %6s ",x) end)
-  end
-
-function stats(n,s)
-    local function show(n,t) 
-       return map(t,function(_,x) return fmt(" %8.3f ",x*n) end)  end 
-    print(n, #s.rows, 
-             out(show(1,s:mid(s.cols.ys))), 
-             out(show(the.cohen, s:spread(s.cols.ys)))) end
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
@@ -578,10 +557,19 @@ Todo.help={"print help",
     for _,k in pairs(keys(Todo)) do
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
+Todo.search ={"runs",  function(x) Main.runs() end}
+
 Todo.rules={"run rules",function()
   end}
 
 Todo.auto93={"run auto93", function(     s,t,u)
+  function stats(n,s,      show)
+    function show(n,t) 
+      return map(t,function(_,x) return fmt(" %8.3f ",x*n) end)  end 
+    print(n, #s.rows, 
+             out(show(1,s:mid(s.cols.ys))), 
+             out(show(the.cohen, s:spread(s.cols.ys)))) 
+  end -----
   the.file="../data/auto93.csv"
   s = Sample.new(the.file)
   stats(0,s)
@@ -592,29 +580,6 @@ Todo.auto93={"run auto93", function(     s,t,u)
     u = t:clone( rows )  
     stats(evals,t:clone(rows)) end end}
 
-Todo.rankx3={"run coc1000", function(x) 
-  for i=1,20 do x=main("../data/coc1000.csv")  end ; shout(x); end}
-
-Todo.rankx31={"run coc1000", function(x) 
-  for i=1,20 do x=main1("../data/coc1000.csv")  end ; shout(x); end}
-
-Todo.rankx4={"run coc10000", function(x) 
-  for i=1,20 do x=main("../data/coc10000.csv")  end; shout(x);  end}
-
-Todo.rankauto={"run auto93", function(x) 
-  for i=1,20 do x=main("../data/auto93.csv")  end; shout(x);  end}
-
-Todo.rankauto1={"run auto93", function(x) 
-  for i=1,20 do x=main1("../data/auto93.csv")  end; shout(x);  end}
-
-Todo.rankchina={"run china", function(x) 
-  for i=1,20 do x=main("../data/china.csv")  end; shout(x);  end}
-
-Todo.rankchina1={"run china", function(x) 
-  for i=1,20 do x=main1("../data/china.csv")  end; shout(x);  end}
-
-Todo.nasa93={"run nasa93", function(x) 
-  for i=1,20 do x=main("../data/nasa93dem.csv")  end; shout(x);  end}
 
 the  = updateFromCommandLine(about.how)
 Seed = the.seed
