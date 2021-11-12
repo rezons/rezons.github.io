@@ -193,7 +193,8 @@ function Cols.new(lst,       self,now,what)
 -- 3. `mid()` returns the central tendency;
 -- 4. `spread()` returns the variability around the `mid`.
 Sym = obj"Sym" ----------------------------------------------------------------
-function Sym.new(i,s) return has(Sym, {at=i,txt=s,n=0,seen={},mode=nil,most=0}) end
+function Sym.new(i,s) 
+  return has(Sym, {at=i or 0,txt=s or "",n=0,seen={},mode=nil,most=0}) end
 function Sym:add(x, inc)    
   if x=="?" then return x end; 
   inc = inc or 1
@@ -230,8 +231,9 @@ function Sym:ranges(other,out,   r,B,R)
 -- Columns for sumamrizing numbers.
 Num = obj"Num" ----------------------------------------------------------------
 function Num.new(i,s) 
+  s=s or ""
   return has(Num,{
-    at=i,txt=s, n=0,_contents={}, lo=1E32,hi=-1E32, ok=false,w=weight(s)}) end
+    at=i or 0,txt=s, n=0,_contents={}, lo=1E32,hi=-1E32, ok=false,w=weight(s)}) end
 
 function Num:add(x) 
   if x=="?" then return x end
@@ -331,7 +333,7 @@ function bins(xys, width, tiny)
 -- ### Skip
 -- Columns for data we are skipping over
 Skip= obj"Skip" ---------------------------------------------------------------
-function Skip.new(i,s) return has(Skip,{at=i,txt=s}) end
+function Skip.new(i,s) return has(Skip,{at=i or 0,txt=s or ""}) end
 function Skip:add(x)   return x end
 function Skip:mid()    return "?" end
 function Skip:spread() return "?" end
@@ -505,9 +507,9 @@ function Main.worker.sway(s) return s:optimize() end
 function Main.worker.random(s) return s:div() end
 function Main.runs(file,fun,n,     x) 
   for i=1,(n or 20) do x=Main.run(file,fun,the.tactic) end 
-  shout(x) end
+  end
 
-function Main.run(file,fun)
+function Main.runx(file,fun)
   local rows,evals,s,train,test,testrows,rest
   local lt=function(x,y) return s:better(x,y) end
   s = Sample.new(file)
@@ -528,6 +530,38 @@ function Main.run(file,fun)
   return map({1,5,10,20,40,#suggestions//2,#suggestions},
             function(_,x) return fmt(" %6s ",x) end)
   end
+
+function Main.run(file,fun,i,j,i1,j1,k,a)
+  local rows,evals,s,train,test,testrows,rest
+  local lt=function(x,y) return s:better(x,y) end
+  s = Sample.new(file)
+  train,test= s:clone(), s:clone()
+  for i,row in pairs(shuffle(s.rows)) do
+  shout(s.rows[1])
+    if i % the.xways == 0  then train:add(row) else test:add(row) end end
+  local evals,suggestions,_ = Main.worker[fun](train)
+  local report = {seed=Seed,train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
+  testrows=test:betters()
+  local sums={}
+  for i=1,#suggestions do
+    j=bchop(testrows,suggestions[i],lt)
+    i1= 100*i/#suggestions
+    j1= 100*j/#testrows
+    k=i1//10
+    print(i1,k)
+    sums[k]=sums[k] or Num.new()
+    sums[k]:add(j1)
+  end 
+  -- for k,num in pairs(sums) do
+  --   a=num:all()
+  --   shout(a)
+  --   --print(k*10,a[.25*#a//1], a[.5*#a//1].a[.75*#a//1]) 
+  --   print(k)
+  -- end
+  shout(report)
+  end
+
+Num.new()
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
