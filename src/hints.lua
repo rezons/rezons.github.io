@@ -503,14 +503,14 @@ Main.worker={}
 
 function Main.worker.sway(s) return s:optimize() end
 function Main.worker.random(s) return s:div() end
-function Main.runs(file,n,     x) 
-  for i=1,(n or 20) do x=Main.run(file,the.tactic) end 
+function Main.runs(file,fun,n,     x) 
+  for i=1,(n or 20) do x=Main.run(file,fun,the.tactic) end 
   shout(x) end
 
 function Main.run(file,fun)
   local rows,evals,s,train,test,testrows,rest
   local lt=function(x,y) return s:better(x,y) end
-  s = Sample.new(the.file)
+  s = Sample.new(file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
     if i % the.xways == 0  then train:add(row) else test:add(row) end end
@@ -558,11 +558,21 @@ Todo.help={"print help",
       print(fmt("  -do %-21s%s",k, Todo[k][1])) end end}
 
 Todo.search ={"runs",  function(x) Main.runs() end}
+Todo.auto93b ={"auto93 random",  function(x) Main.runs("../data/auto93.csv","random") end}
+Todo.auto93c ={"auto93 sway",    function(x) Main.runs("../data/auto93.csv","sway") end}
+Todo.chinab ={"china random",    function(x) Main.runs("../data/china.csv","random") end}
+Todo.chinac ={"china sway",      function(x) Main.runs("../data/china.csv","sway") end}
+Todo.coc4b ={"coc10000 random",  function(x) Main.runs("../data/coc10000.csv","random") end}
+Todo.coc4c ={"coc10000 sway",    function(x) Main.runs("../data/coc10000.csv","sway") end}
+Todo.nasa93b ={"nasa93 random",  function(x) Main.runs("../data/nasa93dem.csv","random") end}
+Todo.nasa93c ={"nasa93 sway",    function(x) Main.runs("../data/nasa93dem.csv","sway") end}
+Todo.pomb ={"pom random",  function(x) Main.runs("../data/pom.csv","random") end}
+Todo.pomc ={"pom sway",    function(x) Main.runs("../data/pom.csv","sway") end}
 
 Todo.rules={"run rules",function()
   end}
 
-Todo.auto93={"run auto93", function(     s,t,u)
+Todo.auto93a={"run auto93", function(     s,t,u)
   function stats(n,s,      show)
     function show(n,t) 
       return map(t,function(_,x) return fmt(" %8.3f ",x*n) end)  end 
