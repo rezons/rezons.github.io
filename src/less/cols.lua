@@ -25,6 +25,17 @@ function Cols.new(lst,       self,now,what)
       push(goalp(v) and self.ys or self.xs, now) end end
   return self end
 
-Cols.new{"Aa","B-","c","d:"}
+function Cols:better(row1,row2)
+  local n,a,b,s1,s2,e
+  e=2.71828
+  s1, s2, n = 0, 0, #self.ys
+  for _,col in pairs(self.ys) do
+    a  = col:norm(row1[col.at]) --normalize to avoid explosion in exponentiation
+    b  = col:norm(row2[col.at])
+    s1 = s1 - e^(col.w * (a - b) / n)
+    s2 = s2 - e^(col.w * (b - a) / n) end
+  return s1 / n < s2 / n end
+
+function Cols:add(t) for k,x in pairs(t) do self.all[k]:add(x) end; return t end
 
 return Cols

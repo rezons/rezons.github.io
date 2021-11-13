@@ -1,6 +1,7 @@
-local inquire =  require"_about"
+local inquire = require"_about"
 local obj,has = inquire"metas obj has"
 local abs     = inquire"funs abs"
+local per     = inquire"tables per"
 
 local Num= obj"Num" 
 function Num.new(i,s) 
@@ -29,7 +30,10 @@ function Num:dist(x,y)
   else   x,y = self:norm(x), self:norm(y)  end
   return abs(x-y) end
 
+-- central tendency
 function Num:mid(    a) a=self:all(); return a[#a//2] end
+
+-- convert `x` to 0..1 for min..max.
 function Num:norm(x,     lo,hi)
   lo,hi = self.lo,self.hi
   return abs(lo - hi)< 1E-16 and 0 or (x - lo)/(hi-lo) end
@@ -40,10 +44,6 @@ function Num:norm(x,     lo,hi)
 -- of the probability. Well, it is also true that
 -- &plusmn; is 1.28 is 90% of the mass which, to say that 
 -- another way, one standard deviation is 2\*1.28 of &plusmn; 90%.
-function Num:spread(   a,here) 
-  a = self:all() 
-  if #a < 2 then return 0 end
-  function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
-  return (a[here(.9)] - a[here(.1)])/2.56 end
+function Num:spread(   a) a=self:all(); return (per(a,.9) - per(a,.1))/2.56 end
 
 return  Num

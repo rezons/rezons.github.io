@@ -1,4 +1,8 @@
-local firsts,map,keys,shuffle,copy,sum,bchop,top,any ----------------------------------
+local inquire= require"_about"
+local randi  = inquire"rands randi"
+local push   = inquire"funs push"
+
+local firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
 -- return  any item
 function any(t) return t[randi(1,#t)] end
@@ -25,6 +29,11 @@ function keys(t,  u)
 
 -- Call `f(key,value)` on all items  in list.
 function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end
+
+-- Percentile item
+function per(a,p)
+  function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
+  return #a <2 and  a[1] or a[ here(p or .5) ] end
 
 -- Randomly sort in-place a list
 function shuffle(t,    j)
