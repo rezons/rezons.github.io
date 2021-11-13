@@ -470,7 +470,7 @@ function Sample:neighbors(row1,rows,       dist)
   return sort(map(rows or self.rows, dist), firsts) end
 
 -- Recursively throw away worse half of data.
-function Sample:optimize(    go,bests,rests)
+function Sample:optimize(    go,bests,rests,evals)
   function go(rows, worsts,       one,two,ones,twos)
     for _,rest in pairs(worsts) do push(rests,rest) end
     if   #rows < 2*(#self.rows)^the.enough
@@ -505,63 +505,38 @@ Main.worker={}
 
 function Main.worker.sway(s) return s:optimize() end
 function Main.worker.random(s) return s:div() end
-function Main.runs(file,fun,n,     x) 
-  for i=1,(n or 20) do x=Main.run(file,fun,the.tactic) end 
+function Main.runs(file,fun,n,     nums,a,evals) 
+  local function p(n) return fmt("%4.1f", a[n*#a//1]) end
+  nums={}
+  evals={}
+  for i=1,(n or 20) do push(evals, Main.run(file,fun or the.tactic,nums)) end 
+  for k,num in pairs(nums) do
+   a = num:all() 
+   print(k, p(.25), p(.5), p(.75))
+  end
+  shout(evals)
   end
 
-function Main.runx(file,fun)
+function Main.run(file,fun,nums,j,i1,j1,k)
   local rows,evals,s,train,test,testrows,rest
   local lt=function(x,y) return s:better(x,y) end
   s = Sample.new(file)
   train,test= s:clone(), s:clone()
   for i,row in pairs(shuffle(s.rows)) do
-    if i % the.xways == 0  then train:add(row) else test:add(row) end end
-  local evals,suggestions,_ = Main.worker[fun](train)
-  --rules(s,suggestions)
-  local report = {train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
-  testrows=test:betters()
-  local tmp={}
-  for i=1,#suggestions do
-    if  i==1 or i==5 or i==10 or i==20 or i==40 or i==#suggestions or i==(#suggestions)//2 then
-      local suggestion = suggestions[i]
-      local rank=bchop(testrows,suggestion,lt); 
-      push(tmp, fmt(" %6.2f ",100*rank/#testrows ))   end end
-  print(out(tmp),out(report))
-  return map({1,5,10,20,40,#suggestions//2,#suggestions},
-            function(_,x) return fmt(" %6s ",x) end)
-  end
-
-function Main.run(file,fun,i,j,i1,j1,k,a)
-  local rows,evals,s,train,test,testrows,rest
-  local lt=function(x,y) return s:better(x,y) end
-  s = Sample.new(file)
-  train,test= s:clone(), s:clone()
-  for i,row in pairs(shuffle(s.rows)) do
-  shout(s.rows[1])
     if i % the.xways == 0  then train:add(row) else test:add(row) end end
   local evals,suggestions,_ = Main.worker[fun](train)
   local report = {seed=Seed,train=#train.rows, xways=the.xways, test=#test.rows, evals=evals}
   testrows=test:betters()
-  local sums={}
   for i=1,#suggestions do
     j=bchop(testrows,suggestions[i],lt)
-    i1= 100*i/#suggestions
-    j1= 100*j/#testrows
-    k=i1//10
-    print(i1,k)
-    sums[k]=sums[k] or Num.new()
-    sums[k]:add(j1)
+    i1= 100*i/#suggestions --  predicted
+    k = i1//10 * 10 
+    nums[k] = nums[k] or Num.new()
+    j1 = 100*j/#testrows -- actual
+    nums[k]:add(j1)
   end 
-  -- for k,num in pairs(sums) do
-  --   a=num:all()
-  --   shout(a)
-  --   --print(k*10,a[.25*#a//1], a[.5*#a//1].a[.75*#a//1]) 
-  --   print(k)
-  -- end
-  shout(report)
-  end
+  return evals end
 
-Num.new()
 
 -- ## Stuff `Todo` at Start-up
 local Todo={} ------------------------------------------------------------------
@@ -605,6 +580,12 @@ Todo.pomc ={"pom sway",    function(x) Main.runs("../data/pom.csv","sway") end}
 
 Todo.rules={"run rules",function()
   end}
+
+Todo.shuffle={"shuffle list", function(t)
+  t={10,20,30,40}
+  for i=1,10 do 
+    shout(shuffle(t)) end
+  end }
 
 Todo.auto93a={"run auto93", function(     s,t,u)
   function stats(n,s,      show)
