@@ -1,6 +1,6 @@
-local inquire= require"_about"
-local randi  = inquire"rands randi"
-local push   = inquire"funs push"
+local inquire   = require"_about"
+local randi     = inquire"rands randi"
+local push,sort = inquire"funs push sort"
 
 local firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
@@ -51,4 +51,4 @@ function top(n,t,   u)
   return u end
 
 return {firsts=firsts,map=map,keys=keys,shuffle=shuffle,
-        copy=copy,sum=sum,bchop=bchop,top=top,any=any}
+        sort=sort,copy=copy,sum=sum,bchop=bchop,top=top,any=any}
