@@ -1,15 +1,15 @@
-local the = {
+local this= {
   what="guess",
   when= "(c) 2021, timm",
   how={
       {"misc", "todo", "-do","help", "start up action"},
-      {"misc", "help", "-h", false,  "show help"},
-      {"misc", "seed", "-S", 10019,  "randomnumber seed"},
+      {"",     "seed", "-S", 10019,  "random number seed"},
       {"dist", "p",    "-p", 2,      "distance exponent"},
-      {"dist", "some", "-s", 128,    "sample size for dist"}},
-  b4= {}}
-
-for k,v in pairs(_ENV) do the.b4[k]=v end
+      {"",     "some", "-s", 128,    "sample size for dist"}},
+  get= function(f,...)
+         local u={}; for _,x in ipairs({...}) do u[#u+1]=require(f)[x] end
+         return table.unpack(u) end,
+  b4= (function(t) for k,v in pairs(_ENV) do t[k]=v end; return t end)()}
 
 -------------------------------------------------------------------------------
 -- ## lib.misc
@@ -51,7 +51,7 @@ function cli(old,a,    x)
 
 function  help(    show,b4)
   function show(_,x) 
-    if x[1] ~= old then print("\n"..x[1]..":") end
+    if #x[1]>0 and x[1] ~= old then print("\n"..x[1]..":") end
     b4 = x[1]
     print(fmt("\t%4s %20s %s [%s]", x[3],x[4],x[5],x[1])) end
   print(the.what,"\n",the.how,"\n\nOPTIONS:")
@@ -70,7 +70,6 @@ function csv(file,      split,stream,tmp)
       if  #t > 0 then return map(t, function(_,x) return tonumber(x) or x end) end
     else io.close(stream) end end end
 
-
 -------------------------------------------------------------------------------
 local Seed, randi, rand 
 Seed=937162211
@@ -88,5 +87,4 @@ Todo.help={"show help",help}
 the.how = cli(the.how,arg)
 Seed=the.seed
 Todo[the.todo][2]()
-for k,v in pairs(_ENV) do if not the.b4[k] then print("? ",k,type(v)) end end
-
+for k,v in pairs(_ENV) do if not this.b4[k] then print("rogue? ",k, type(v)) end end
