@@ -233,7 +233,8 @@ Num = obj"Num" ----------------------------------------------------------------
 function Num.new(i,s) 
   s=s or ""
   return has(Num,{
-    at=i or 0,txt=s, n=0,_contents={}, lo=1E32,hi=-1E32, ok=false,w=weight(s)}) end
+    at=i or 0,txt=s, n=0,_contents={}, lo=1E32,hi=-1E32, ok=false,
+    w=s:find"+" and 1 or s:find"-" and  -1 or 0}) end
 
 function Num:add(x) 
   if x=="?" then return x end

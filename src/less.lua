@@ -1,6 +1,6 @@
 local this= {
-  what="guess",
-  when= "(c) 2021, timm",
+  what= "guess",
+  when= "(c) 2021, timm@ieee.org, unlicense.org",
   how={
       {"misc", "todo", "-do","help", "start up action"},
       {"",     "seed", "-S", 10019,  "random number seed"},
@@ -9,7 +9,7 @@ local this= {
   get= function(f,...)
          local u={}; for _,x in ipairs({...}) do u[#u+1]=require(f)[x] end
          return table.unpack(u) end,
-  b4= (function(t) for k,v in pairs(_ENV) do t[k]=v end; return t end)()}
+  b4= (function(t) t={};for k,v in pairs(_ENV) do t[k]=v end; return t end)()}
 
 -------------------------------------------------------------------------------
 -- ## lib.misc
