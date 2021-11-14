@@ -7,9 +7,9 @@ local firsts,map,keys,shuffle,copy,sum,bchop,top,any
 function any(t) return t[randi(1,#t)] end
 
 -- binary chop (assumes sorted lists)
-function bchop(t,val,lt,      lo,hi,mid)
+function bchop(t,val,lt,lo,hi,     mid)
   lt = lt or function(x,y) return x < y end
-  lo,hi = 1,#t
+  lo,hi = lo or 1, hi or #t
   while lo <= hi do
     mid =(lo+hi) // 2
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
