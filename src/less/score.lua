@@ -1,7 +1,7 @@
-local _,this=require"_about"
+local my=require"my"
 
 local Score={}
-function Score.score(b,r,B,R) return Score[this.rank](b,r,B,R) end
+function Score.score(b,r,B,R) return Score[my.how.rank](b,r,B,R) end
 
 function Score.plan(b,r,B,R) 
   n=1E-32; b,r = b/(n+B),r/(n+R); return b<r and 0 or b^2/(b+r) end

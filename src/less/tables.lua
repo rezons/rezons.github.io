@@ -1,7 +1,6 @@
-local inquire   = require"_about"
-local randi     = inquire"rands randi"
-local push,sort = inquire"funs push sort"
-
+local my        = require"my"
+local randi     = my.get"rands randi"
+local push,sort = my.get"funs push sort"
 local firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
 -- return  any item

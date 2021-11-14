@@ -1,4 +1,4 @@
-local obj,has=require("_about")"metas obj has"
+local obj,has=require("my").get"metas obj has"
 
 local Skip= obj"Skip" 
 function Skip.new(i,s) return has(Skip,{at=i or 0,txt=s or ""}) end

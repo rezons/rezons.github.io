@@ -1,6 +1,6 @@
-local inquire      = require"_about"
-local cat,fmt,sort = inquire"funs cat fmt sort"
-local map,keys     = inquire"tables map keys"
+local my           = require"my"
+local cat,fmt,sort = my.get"funs cat fmt sort"
+local map,keys     = my.get"tables map keys"
 local shout,out,red,green,yellow,blue
 
 function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end

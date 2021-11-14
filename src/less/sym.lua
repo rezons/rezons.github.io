@@ -1,6 +1,6 @@
-local inquire = require"_about"
-local obj,has = inquire"metas obj has"
-local push    = inquire"funs push"
+local my      = require"my"
+local obj,has = my.get"metas obj has"
+local push    = my.get"funs push"
 local Score   = require"score"
 
 local Sym = obj"Sym" 

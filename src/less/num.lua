@@ -1,7 +1,7 @@
-local inquire = require"_about"
-local obj,has = inquire"metas obj has"
-local abs     = inquire"funs abs"
-local per     = inquire"tables per"
+local my      = require"my"
+local obj,has = my.get"metas obj has"
+local abs     = my.get"funs abs"
+local per     = my.get"tables per"
 
 local Num= obj"Num" 
 function Num.new(i,s) 
