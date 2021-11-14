@@ -2,7 +2,7 @@ local my        = require"my"
 local cli       = my.get"cli cli"
 local round     = my.get"maths round"
 local push,abs = my.get"funs push abs"
-local firsts,sort,map  = my.get"tables firsts sort map"
+local top,any,firsts,sort,map  = my.get"tables top any firsts sort map"
 local srand,rand= my.get"rands srand rand"
 local out,shout = my.get"prints out shout"
 
@@ -10,27 +10,44 @@ function poly3(x,x0,a,b,c) return x0 + a*x^1 + b*x^2 + c*x^3  end
 
 task ={n= 60,
        e= 0.05,
-       truth= {y1=function(x) return poly3(x.x1,1,-10,6,4) end },
-       x= {x1={-10,10}},
-       w= {a={-10,10},b={-10,10}, c={-10,10}, x0={-10,10}},
-       y= {y1=function(x,w) return poly3(x.x1,w.x0, w.a, w.b, w.c) end}}
+       want= function(x) return poly3(x,1,-10,6,4) end,
+       x= {-10,10},
+       w= {{.0001, {a=-10,b=-10,c=-10,x0=-10}},
+           {.0001, {a= 10,b= 10,c= 10,x0= 10}}},
+       y= function(x,w) return poly3(x,w.x0, w.a, w.b, w.c) end}
 
-function evals(task,out)
-  local x1,w,y,d,p,any,mre,eval,want,got
-  d = d or 2
-  function p(x)      return round(x,d) end
-  function any(_,x)  return p(rand(x[1],x[2])) end
-  function eval(_,f) return p(f(x,w)) end
-  for i=1,task.n do 
-    local now = {}
-    now.x = map(task.x, any)
-    now.c = map(task.c, any)
-    now.y = map(task.y, function(_,f) return f(now.x,now.w) end) 
-    want  = task.truth.y1(now.x)
-    push(out, {abs((now.y.y1 - want)/want), w}) end 
-  return out end
+function add(t,k,v)
+  self=has(Mem,{lo=math.huge, hi=-math.huge, 
+                bins={{},{},{},{},{},{},{},{},{},{}}})
+  self.lo = math.min(k,self.lo)
+  self.hi = math.max(k,self.hi)
+  norm = (k - self.lo)/(self.hi - self.lo)
+  norm = abs(math.log(norm,2)//1) end
+
+function from(t) return t[1]+rand()*(t[2] - t[1]) end
+
+function froms(t,u,    v)
+  v={}; for k,x in pairs(t) do v[k]=from({x,u[k]}) end; return v end
+
+function evals(it,ws,n,best)
+  local w,x,got,mre,out,want
+  out = {}
+  for i=1,n do 
+    w =  #ws==2 and froms(ws[1], ws[2]) or froms(any(ws), any(ws))
+    x   = from(task.x)
+    got = task.y(x,w)
+    want= task.want(x)
+    mre = abs((got - want)/want)
+    if mre<best then
+      best = mre
+      push(out, {mre, w}) end end
+  return top(n//3, sort(out,firsts)) end
 
 my = cli(my.how, arg)
 srand(my.seed)
-all=sort(evals(task,{}),firsts)
-shout(all[1])
+ws=task.w
+best=math.huge
+for i=1,10 do
+  ws = evals(task,ws,20,best)
+  print(ws[1][1])
+  ws = map(ws,function(_,x) return x[2] end) end
