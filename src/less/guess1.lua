@@ -1,10 +1,11 @@
 local my        = require"my"
 local cli       = my.get"cli cli"
 local round     = my.get"maths round"
-local push,abs = my.get"funs push abs"
-local top,any,firsts,sort,map  = my.get"tables top any firsts sort map"
+local obj,has   = my.get"metas obj has"
+local push,abs  = my.get"funs push abs"
 local srand,rand= my.get"rands srand rand"
 local out,shout = my.get"prints out shout"
+local top,any,firsts,sort,map  = my.get"tables top any firsts sort map"
 
 function poly3(x,x0,a,b,c) return x0 + a*x^1 + b*x^2 + c*x^3  end
 
@@ -16,13 +17,21 @@ task ={n= 60,
            {.0001, {a= 10,b= 10,c= 10,x0= 10}}},
        y= function(x,w) return poly3(x,w.x0, w.a, w.b, w.c) end}
 
-function add(t,k,v)
-  self=has(Mem,{lo=math.huge, hi=-math.huge, 
-                bins={{},{},{},{},{},{},{},{},{},{}}})
-  self.lo = math.min(k,self.lo)
-  self.hi = math.max(k,self.hi)
-  norm = (k - self.lo)/(self.hi - self.lo)
-  norm = abs(math.log(norm,2)//1) end
+local Best=obj"Best"
+function Best.new() return has(Best,{total=0, all={}, keep=20}) end
+
+function Best:add(k,v)
+  pos = bchop(self.all,{k,v},firsts)
+  if pos > #self.best-self.keep then
+    table.insert(self.best,pos,{k,v}) 
+    self.total = self.total + k end end
+
+function Best:one()
+  local r=rand()*self.all
+  for i = #self.all,1,-1 do
+    r = r - self.all[i][1]
+    if r<=0 then return self.all[i][2] end end
+  return self.all[1][2] end
 
 function from(t) return t[1]+rand()*(t[2] - t[1]) end
 
