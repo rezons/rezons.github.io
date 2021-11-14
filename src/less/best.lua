@@ -7,7 +7,7 @@ local val=function(x) return x[2] end
 local firsts=function(x,y) return  x[1] < y[1] end
 
 local Best=obj"Best"
-function Best.new(keep,inits,  self) return has(Best,
+function Best.new(keep,inits) return has(Best,
   {keep=keep or 10, total=sum(inits, key), all=sort(inits, firsts)}) end
 
 function Best:add(k,v, border,pos)
@@ -16,8 +16,7 @@ function Best:add(k,v, border,pos)
   if #self.all < self.keep or k > key(self.all[border])then
     pos = bchop(self.all,{k,v},firsts)
     push(self.best,pos,{k,v}) 
-    self.total = self.total + k 
-  end end 
+    self.total = self.total + k end end 
 
 function Best:one()
   local r=rand()*self.total
