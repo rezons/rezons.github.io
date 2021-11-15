@@ -6,6 +6,8 @@ local key=function(x) return x[1] end
 local val=function(x) return x[2] end
 local firsts=function(x,y) return  x[1] < y[1] end
 
+--- constructor   
+-- No args
 local Best=obj"Best"
 function Best.new(keep,inits) return has(Best,
   {keep=keep or 10, total=sum(inits, key), all=sort(inits, firsts)}) end
