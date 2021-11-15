@@ -1,4 +1,4 @@
-local get,help,updateFromCommandLine
+local get,help,cli,updateFromCommandLine
 
 function get(s,   t,u)
   for x in s:gmatch("%w+") do 
@@ -22,10 +22,12 @@ function updateFromCommandLine(fours,    x)
     x[t[2]] = (t[4]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end 
   return x end
 
-return function(t,  b4,the) 
+function cli(t,  b4,the) 
   the = updateFromCommandLine(t.how)
   the.b4 = {}
   for k,v in pairs(_ENV) do the.b4[k]=v end
   the._help = help(t)
   the.get = get  
   return the end
+
+return cli

@@ -17,26 +17,11 @@ task ={n= 60,
            {.0001, {a= 10,b= 10,c= 10,x0= 10}}},
        y= function(x,w) return poly3(x,w.x0, w.a, w.b, w.c) end}
 
-local Best=obj"Best"
-function Best.new() return has(Best,{total=0, all={}, keep=20}) end
-
-function Best:add(k,v)
-  pos = bchop(self.all,{k,v},firsts)
-  if pos > #self.best-self.keep then
-    table.insert(self.best,pos,{k,v}) 
-    self.total = self.total + k end end
-
-function Best:one()
-  local r=rand()*self.all
-  for i = #self.all,1,-1 do
-    r = r - self.all[i][1]
-    if r<=0 then return self.all[i][2] end end
-  return self.all[1][2] end
-
 function from(t) return t[1]+rand()*(t[2] - t[1]) end
 
 function froms(t,u,    v)
   v={}; for k,x in pairs(t) do v[k]=from({x,u[k]}) end; return v end
+
 
 function evals(it,ws,n,best)
   local w,x,got,mre,out,want
