@@ -24,8 +24,8 @@ function updateFromCommandLine(fours,    x)
 
 function cli(t,  b4,the) 
   the = updateFromCommandLine(t.how)
-  the.b4 = {}
-  for k,v in pairs(_ENV) do the.b4[k]=v end
+  the._b4 = {}
+  for k,v in pairs(_ENV) do the._b4[k]=v end
   the._help = help(t)
   the.get = get  
   return the end
