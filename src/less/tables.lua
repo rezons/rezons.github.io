@@ -1,7 +1,7 @@
 local my        = require"my"
 local randi     = my.get"rands randi"
 local push,sort = my.get"funs push sort"
-local firsts,map,keys,shuffle,copy,sum,bchop,top,any 
+local per,firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
 -- return  any item
 function any(t) return t[randi(1,#t)] end

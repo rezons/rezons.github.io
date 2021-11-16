@@ -1,6 +1,8 @@
 local my      = require"my"
 local obj,has = my.get"metas obj has"
-local rand    = my.get"rands rand"
+local sort,sum = my.get"tables sort sum"
+
+local r=math.randomseed
 
 local key=function(x) return x[1] end
 local val=function(x) return x[2] end
@@ -9,7 +11,7 @@ local firsts=function(x,y) return  x[1] < y[1] end
 --- constructor   
 -- No args
 local Best=obj"Best"
-function Best.new(keep,inits) return has(Best,
+function Best.new(inits,keep) return has(Best,
   {keep=keep or 10, total=sum(inits, key), all=sort(inits, firsts)}) end
 
 function Best:add(k,v, border,pos)
@@ -20,11 +22,15 @@ function Best:add(k,v, border,pos)
     push(self.best,pos,{k,v}) 
     self.total = self.total + k end end 
 
-function Best:one()
-  local r=rand()*self.total
+function Best:one(   pos)
+  print("!",math.random(),self.total)
+  local enough=math.random()*self.total
+  pos=1
   for i = #self.all,1,-1 do
-    r = r - key(self.all[i])
-    if r<=0 then return val(self.all[i]) end end
-  return val(self.all[1]) end
+    --print(enough, key(self.all[i]))
+    enough  = enough - key(self.all[i])
+    if enough <=0 then pos=i; break end end
+  print(key(self.all[1]), key(self.all[pos]), key(self.all[#self.all]))
+  return val(self.all[pos]) end
 
 return Best
