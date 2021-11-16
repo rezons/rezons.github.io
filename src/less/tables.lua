@@ -30,7 +30,7 @@ function keys(t,  u)
 function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 -- Percentile item
-function per(a,p)
+function per(a,p,    here)
   function here(x) x=x*#a//1; return x < 1 and 1 or x>#a and #a or x end
   return #a <2 and  a[1] or a[ here(p or .5) ] end
 
@@ -49,5 +49,5 @@ function top(n,t,   u)
   u={}; for i,x in pairs(t) do u[#u+1]=x; if i>=n then break end end
   return u end
 
-return {firsts=firsts,map=map,keys=keys,shuffle=shuffle,
+return {firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
         sort=sort,copy=copy,sum=sum,bchop=bchop,top=top,any=any}

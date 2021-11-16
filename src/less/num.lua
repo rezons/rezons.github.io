@@ -1,7 +1,8 @@
 local my      = require"my"
 local obj,has = my.get"metas obj has"
-local abs     = my.get"funs abs"
-local per     = my.get"tables per"
+local push,abs= my.get"funs push,abs"
+local per= my.get"tables per"
+print(per)
 
 local Num= obj"Num" 
 function Num.new(i,s) 
