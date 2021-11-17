@@ -31,25 +31,25 @@ local function froms(t,u,    v)
 
 local nums=Num.new()
 
-local function mre(want,got,x)  return math.abs((want-got)/want) end
+local function mre(want,got,x)  print(want,got)
+  return math.abs(want-got) end
 
 local function init(it,m,n,  t)
   local  function go(   w,err,x,got,want)
     w=    map(it.w, function(_,z) return from(z) end)
-    err= map(it.z, function(_,_) return 0 end)
-    for j=1,n do
-      x=    map(it.x,  function(_,z) return from(z) end)
-      got=  map(it.y,  function(_,f) return f(x,w)  end)
-      want= map(it.z,  function(_,f) return f(x)  end)
-      for k,x in pairs(want) do err[k] = round(err[k] + mre(x, got[k])/n,3) end end 
+    x=    map(it.x,  function(_,z) return from(z) end)
+    got=  map(it.y,  function(_,f) return f(x,w)  end)
+    want= map(it.z,  function(_,f) return f(x)  end)
+    err = map(want, function(k,want1)  return round(mre(want1, got[k]),4) end) 
     nums:add(err.y1)
     return {err.y1, w}  
   end -----
   t={}; for i=1,m do t[1+#t] = go() end; return sort(t,firsts) end
 
 math.randomseed(my.seed)
-for _,n in pairs{10,20,50,100,200,500,1000,2000,5000} do
-   local b =init(task,n,10)
+--for _,n in pairs{10,20,50,100,200,500,1000,2000,5000} do
+for _,n in pairs{100} do
+   local b =init(task,n,20)
    print(n,b[1][1],out(b[1][2]))
 end
 
@@ -58,5 +58,4 @@ print("")
 print(.35*nums:spread())
 for _,p in  pairs{.01,.025,.05,.1,.25,.5} do
   print(p,per(nums:all(),p)) end
-
 for k,v in pairs(_ENV) do if not my._b4[k] then print("? ",k,type(v)) end end
