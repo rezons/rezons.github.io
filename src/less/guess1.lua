@@ -31,7 +31,7 @@ local function froms(t,u,    v)
 
 local nums=Num.new()
 
-local function mre(want,got,x)  print(want,got)
+local function mre(want,got,x)  --print(want,got)
   return math.abs(want-got) end
 
 local function init(it,m,n,  t)
@@ -42,6 +42,7 @@ local function init(it,m,n,  t)
     want= map(it.z,  function(_,f) return f(x)  end)
     err = map(want, function(k,want1)  return round(mre(want1, got[k]),4) end) 
     nums:add(err.y1)
+    print(err.y1)
     return {err.y1, w}  
   end -----
   t={}; for i=1,m do t[1+#t] = go() end; return sort(t,firsts) end
