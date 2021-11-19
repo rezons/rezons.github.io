@@ -34,6 +34,6 @@ local function cli(t,  b4,the)
              b4     = {},
              rogues = function() rogies(_ENV,the._etc.b4) end}
   for k,v in pairs(_ENV) do the._etc.b4[k]=v end
-    return the end
+  return setmetatable(the,the) end
 
 return cli
