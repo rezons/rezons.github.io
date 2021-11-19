@@ -1,6 +1,6 @@
-local the        = require"the"
-local randi     = the"rands randi"
-local push,sort = the"funs push sort"
+local the = require"the"
+local randi = the"rands randi"
+local same,push,sort = the"funs same push sort"
 local per,firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
 -- return  any item
