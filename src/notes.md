@@ -49,11 +49,10 @@ prune:
 - goto prune
       
 check:
-- TEST= sort(map(f, TEST))
+- test= sort(map(f, test))
   - not something you can do in practice, but here we are doing a what-if query
   - specifically: if we knew all the test y values, where does our test set fall
-- for pos,one in enumerate(TRAIN) do
-     
+- for pos,one in pairs(train) do
 
 
 
