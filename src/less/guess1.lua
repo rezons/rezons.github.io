@@ -1,8 +1,8 @@
 local my        = require"my"
-local per,firsts,sort,map  = my.get"tables per firsts sort map"
-local push      = my.get"funs push abs"
-local out,shout = my.get"prints out shout"
-local round     = my.get"maths round"
+local per,firsts,sort,map  = my"tables per firsts sort map"
+local push      = my"funs push abs"
+local out,shout = my"prints out shout"
+local round     = my"maths round"
 local Best      = require"best"
 local Num       = require"num"
 local poly3,task,from,froms2,init

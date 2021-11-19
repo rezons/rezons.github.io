@@ -1,6 +1,6 @@
 local my           = require"my"
-local push         = my.get"funs push"
-local obj,has      = my.get"metas obj has"
+local push         = my"funs push"
+local obj,has      = my"metas obj has"
 local Num,Sym,Skip = require"num", require"sym", require"skip"
 local goalp,klassp,nump,skipp
 

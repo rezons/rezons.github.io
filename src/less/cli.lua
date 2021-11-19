@@ -15,7 +15,7 @@ local function updateFromCommandLine(fours,    x)
     x[t[2]] = (t[4]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end 
   return x end
 
-local function getSomeFunctionsFromFile(s,   t,u)
+local function getSomeFunctionsFromFile(_,s,   t,u)
   for x in s:gmatch("%w+") do 
     if not t then t,u = require(x),{} else u[ 1+#u ] = t[x] end end
   return table.unpack(u) end
@@ -25,8 +25,7 @@ return function (t,  b4,the)
   the = updateFromCommandLine(t.how)
   the._etc={}
   the._etc= {help   = generateHelpString(t),
-             get    = getSomeFunctionsFromFile,  
              rogues = function ()
                         for k,v in pairs(_ENV) do if not b4[k] then 
                           print("?? rogue",k,type(v)) end end end}
-  return setmetatable(the,{__call=the._etc.get}) end
+  return setmetatable(the,{__call=getSomeFunctionsFromFile}) end

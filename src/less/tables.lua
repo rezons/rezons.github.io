@@ -1,6 +1,6 @@
 local my        = require"my"
-local randi     = my.get"rands randi"
-local push,sort = my.get"funs push sort"
+local randi     = my"rands randi"
+local push,sort = my"funs push sort"
 local per,firsts,map,keys,shuffle,copy,sum,bchop,top,any 
 
 -- return  any item
