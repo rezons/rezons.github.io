@@ -1,6 +1,6 @@
-local my      = require"my"
-local obj,has = my"metas obj has"
-local sort,sum = my"tables sort sum"
+local the      = require"the"
+local obj,has  = the"metas obj has"
+local sort,sum = the"tables sort sum"
 
 local r=math.randomseed
 

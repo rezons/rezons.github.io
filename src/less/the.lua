@@ -1,4 +1,4 @@
-return require("magic"){
+return require"d"{
   what= "guess",
   when= "(c) 2021, timm@ieee.org, unlicense.org",
   how = {

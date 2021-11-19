@@ -1,6 +1,6 @@
-local my      = require"my"
-local obj,has = my"metas obj has"
-local push    = my"funs push"
+local the      = require"the"
+local obj,has = the"metas obj has"
+local push    = the"funs push"
 local Score   = require"score"
 
 local Sym = obj"Sym" 

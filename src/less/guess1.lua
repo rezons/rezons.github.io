@@ -1,8 +1,8 @@
-local my        = require"my"
-local per,firsts,sort,map  = my"tables per firsts sort map"
-local push      = my"funs push abs"
-local out,shout = my"prints out shout"
-local round     = my"maths round"
+local the        = require"the"
+local per,firsts,sort,map  = the"tables per firsts sort map"
+local push      = the"funs push abs"
+local out,shout = the"prints out shout"
+local round     = the"maths round"
 local Best      = require"best"
 local Num       = require"num"
 local poly3,task,from,froms2,init
@@ -51,7 +51,7 @@ local function init(it,m,n,   t,w,x,err,got,want)
     t[1+#t] = {err.y1, w} end 
   return sort(t,firsts) end
 
-math.randomseed(my.seed)
+math.randomseed(the.seed)
 for _,n in pairs{10,20,50,100,200,500,1000,2000,5000} do
    local b =init(task,n,10)
    print(n,
@@ -64,4 +64,5 @@ print("")
 print(.35*nums:spread())
 for _,p in  pairs{.01,.025,.05,.1,.25,.5} do
   print(p,round(per(nums:all(),p),4)) end
-for k,v in pairs(_ENV) do if not my._b4[k] then print("? ",k,type(v)) end end
+
+the"END"

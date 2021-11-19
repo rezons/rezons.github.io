@@ -1,6 +1,6 @@
-local my           = require"my"
-local cat,fmt,sort = my"funs cat fmt sort"
-local map,keys     = my"tables map keys"
+local the           = require"the"
+local cat,fmt,sort = the"funs cat fmt sort"
+local map,keys     = the"tables map keys"
 local shout,out,red,green,yellow,blue
 
 function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
