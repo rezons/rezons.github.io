@@ -25,15 +25,13 @@ local function rogues(now, before)
     if not before[k] then
        print("?? rogue",k,type(v)) end end end
 
-local function cli(t,  b4,the) 
+return function (t,  b4,the) 
+  b4={}
+  for k,_ in pairs(_ENV) do b4[k]=k end
   the = updateFromCommandLine(t.how)
   the._etc={}
-  the.__call  = the._etc.get
   the._etc= {help   = generateHelpString(t),
              get    = getSomeFunctionsFromFile,  
-             b4     = {},
-             rogues = function() rogies(_ENV,the._etc.b4) end}
-  for k,v in pairs(_ENV) do the._etc.b4[k]=v end
-  return setmetatable(the,the) end
-
-return cli
+             b4     = b4,
+             rogues = function() roguies(_ENV,the._etc.b4) end}
+  return setmetatable(the,{__call=the._etc.get}) end
