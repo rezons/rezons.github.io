@@ -1,4 +1,4 @@
-return require("cli"){
+return require("magic"){
   what= "guess",
   when= "(c) 2021, timm@ieee.org, unlicense.org",
   how = {
