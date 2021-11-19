@@ -20,18 +20,13 @@ local function getSomeFunctionsFromFile(s,   t,u)
     if not t then t,u = require(x),{} else u[ 1+#u ] = t[x] end end
   return table.unpack(u) end
 
-local function rogues(now, before)
-  for k,v in pairs(now) do
-    if not before[k] then
-       print("?? rogue",k,type(v)) end end end
-
-return function (t,  b4,the) 
-  b4={}
-  for k,_ in pairs(_ENV) do b4[k]=k end
+return function (t,  b4,the)
+  b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
   the = updateFromCommandLine(t.how)
   the._etc={}
   the._etc= {help   = generateHelpString(t),
              get    = getSomeFunctionsFromFile,  
-             b4     = b4,
-             rogues = function() roguies(_ENV,the._etc.b4) end}
+             rogues = function ()
+                        for k,v in pairs(_ENV) do if not b4[k] then 
+                          print("?? rogue",k,type(v)) end end end}
   return setmetatable(the,{__call=the._etc.get}) end
