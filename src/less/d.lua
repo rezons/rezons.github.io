@@ -23,7 +23,7 @@ local function helpString(opt)
   for group,slots in items(opt.how) do
     print("\n"..group..":")
     for _,x in items(slots) do
-      local what= (x[2]==false          and "   " ) or (
+      local what= (x[2]==false          and "   ") or (
                    type(x[2])=="number" and " N ") or (
                    type(x[2])=="string" and " S ") or (
                    " X ")
@@ -59,4 +59,3 @@ return function(t)
     return someFunsFromFile(thing)  
   end --
   return setmetatable(updateFromCommandLine(t.how), {__call=what2do}) end
-
