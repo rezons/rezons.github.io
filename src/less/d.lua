@@ -1,19 +1,44 @@
-local function helpString(opt,    show,b4,s)
-  s= opt.what .. "\n" .. opt.when .. "\n\nOPTIONS:"
-  function show(x) 
-    if #x[1]>0 and x[1] ~= b4 then s=s.."\n"..x[1]..":\n" end
-    b4 = x[1]
-    s = s..string.format("  %3s  %s [%s]\n", x[3],x[5],x[4]) end
-  for _,four in pairs(opt.how) do show(four) end
-  return s end
+--[[ 
+Converts things  like this into help text and a table of values
+{SLOT1 = VALUE1, SLOT2 = VALUE2,.. } where each VALUE is one of the
+DEFAULTs below, updated from the  command line (if there exists
+FLAG on the command line.
 
-local function updateFromCommandLine(fours,    x)
-  x={}
-  for _,t in pairs(fours) do
-    x[t[2]] = t[4]
-    for n,word in ipairs(arg) do if word==t[3] then
-    x[t[2]] = (t[4]==false) and true or tonumber(arg[n+1]) or arg[n+1] end end end 
-  return x end
+{ what= USAGE
+  when= COPYRIGHT
+  how = {
+    GROUP1 = {SLOT1 = {FLAG1, DEFAULT1, HELP1},
+              SLOT2 = {FLAG2, DEFAULT2, HELP2}},
+    GROUP2 = {...} }
+}
+--]]
+
+local function items(t) 
+  local i,u = 0,{}; for k,_ in pairs(t) do u[ 1+#u ]=k end
+  table.sort(u)
+  return function() if i<#u then i=i+1; return u[i], t[u[i]] end end end 
+
+local function helpString(opt)
+  print( opt.what .. " [OPTIONS]\n" .. opt.when .. "\n\nOPTIONS:" )
+  for group,slots in items(opt.how) do
+    print("\n"..group..":")
+    for _,x in items(slots) do
+      local what= (x[2]==false          and "   " ) or (
+                   type(x[2])=="number" and " N ") or (
+                   type(x[2])=="string" and " S ") or (
+                   " X ")
+      print(string.format("  %3s  %s  %s [default=%s]",
+            x[1],what,x[3],x[2])) end end end
+
+local function updateFromCommandLine(t0,   t)
+  t={}
+  for group,slots in pairs(t0) do
+    for key,x in pairs(slots) do
+      t[key] = x[2]
+      for n,word in ipairs(arg) do if word==x[1] then
+        t[key] = x[2]==false and true or tonumber(arg[n+1]) or arg[n+1]
+        end end end end
+  return t end
 
 local function someFunsFromFile(s,   t,u)
   for x in s:gmatch("%w+") do 
