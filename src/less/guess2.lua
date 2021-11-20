@@ -1,6 +1,7 @@
 local the=require"the"
 local obj,has = the"metas obj has"
 
+--[[
 // Initialize parameters
 μ := −6
 σ2 := 100
@@ -22,6 +23,7 @@ while t < maxits and σ2 > ε do
   t := t + 1
   // Return mean of final sampling distribution as solution
 return μ
+--]]
 
 local Num=obj"Num"
 function Num.new(mu,sd) return has(Num,{n-0,mu=mu or 0,m2=0,sd=sd or 0}} end
