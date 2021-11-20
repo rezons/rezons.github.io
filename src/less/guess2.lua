@@ -18,7 +18,7 @@ function Num:sample()
 local e= math.exp(1)
 math.randomseed(the.seed)
 
-function run(it,   sd,tmp,best)
+function run(self,   sd,tmp,best)
   sd = math.huge
   b4 = it.b4
   for t = 1,it.max do
