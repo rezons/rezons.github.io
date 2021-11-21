@@ -1,12 +1,10 @@
 local the      = require"the"
+local r,srand  = the"maths r srand"
 local obj,has  = the"metas obj has"
-local sort,sum = the"tables sort sum"
-
-local r=math.randomseed
+local firsts,sort,sum = the"tables firsts sort sum"
 
 local key=function(x) return x[1] end
 local val=function(x) return x[2] end
-local firsts=function(x,y) return  x[1] < y[1] end
 
 --- constructor   
 -- No args
@@ -24,10 +22,9 @@ function Best:add(k,v, border,pos)
 
 function Best:one(   pos)
   print("!",math.random(),self.total)
-  local enough=math.random()*self.total
+  local enough = r()*self.total
   pos=1
   for i = #self.all,1,-1 do
-    --print(enough, key(self.all[i]))
     enough  = enough - key(self.all[i])
     if enough <=0 then pos=i; break end end
   print(key(self.all[1]), key(self.all[pos]), key(self.all[#self.all]))

@@ -1,7 +1,8 @@
-local the           = require"the"
-local cat,fmt,      = the"funs cat fmt sort"
-local map,keys     = the"tables map keys"
-local shout,out,red,green,yellow,blue
+local the = require"the"
+local sort,cat,map,keys = the"tables sort cat map keys"
+local fmt,shout,out,red,green,yellow,blue
+
+fmt = string.format
 
 function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
 function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
@@ -25,4 +26,4 @@ function out(t,    seen,u,f1,f2)
 function shout(x) print(out(x)) end
 
 return {red=red,green=green,yellow=yellow,blue=blue,
-        out=out,shout=shout}
+        out=out,shout=shout,fmt=fmt}

@@ -1,10 +1,25 @@
-local the = require"the"
-local randi = the"rands randi"
-local same,push,sort = the"funs same push sort"
-local per,firsts,map,keys,shuffle,copy,sum,bchop,top,any 
+local the  = require"the"
+local r    = the"maths r"
+local push,sort,per,firsts,map,keys,shuffle,copy,sum
+local bchop,top,any,first,last,second,cat,pop,push,sort
+local each
 
--- return  any item
-function any(t) return t[randi(1,#t)] end
+-- defined in metas, but if defining again here
+-- avoids a cyclic dependancy
+local same = function (x) return x end
+
+-- table position shortcuts
+first = function(t) return t[1] end
+second= function(t) return t[2] end
+last  = function(t) return t[#t] end
+any   = function(t) return t[r(#t)] end
+
+-- general table shortcuts
+cat   = table.concat
+pop   = table.remove
+push  = table.insert
+sort  = function(t,f) table.sort(t,f); return t end
+firsts= function(x,y) return x[1] < x[2] end
 
 -- binary chop (assumes sorted lists)
 function bchop(t,val,lt,lo,hi,     mid)
@@ -18,8 +33,8 @@ function bchop(t,val,lt,lo,hi,     mid)
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
 
--- `firsts` is used for sorting {{score,x}, {score,y},...}
-function firsts(x,y) return x[1] < y[1] end
+-- Loop over n items
+function each(n,f,  u) u={}; for i=1,n do u[i]=f(i) end; return u end
 
 -- Sorted table keys
 function keys(t,  u)
@@ -49,5 +64,7 @@ function top(n,t,   u)
   u={}; for i,x in pairs(t) do u[#u+1]=x; if i>=n then break end end
   return u end
 
-return {firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
+return {each=each,
+        firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
+        first=first,last=last,second=second,cat=cat,pop=pop,push=push,
         sort=sort,copy=copy,sum=sum,bchop=bchop,top=top,any=any}

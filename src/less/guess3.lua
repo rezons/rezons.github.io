@@ -26,10 +26,11 @@ function Num:add(x)
   self.sd = ((self.m2<0 or self.n<2) and 0) or ((self.m2/(self.n-1))^0.5)
   return x end
 
+
 local function rnd2(x) return round(x,2) end
 local function rnd3(x) return round(x,3) end
 
-local function suggestions(it)
+local function suggestions1(it)
   it.verbose= it.verbose or false
   it.m      = it.m      or 10
   it.n      = it.n      or 100
@@ -39,11 +40,11 @@ local function suggestions(it)
   it.f      = it.f      or function(x) return x^2 end
   return it end
 
-local function crossEntropy(it)
+local function crossEntropy1(it)
   local best,good,one,xs1,xs,ys
   function one(_,x)  x=xs:any(); return {x=x,y=it.f(x)} end
   function good(a,b) return it.better(a.y,b.y) end 
-  it = suggestions(it)
+  it = suggestions1(it)
   xs = it.before
   best = it.n*it.top
   for i = 1,it.m do
