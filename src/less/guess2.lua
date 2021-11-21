@@ -39,22 +39,21 @@ local function suggestions(it)
   it.f      = it.f      or function(x) return x^2 end
   return it end
 
-local function crossEntropy(it)
-  local best,good,one,xs1,xs,ys
-  function one(_,x)  x=xs:any(); return {x=x,y=it.f(x)} end
-  function good(a,b) return it.better(a.y,b.y) end 
+local function crossEntropy(it,      best,ok,xy,now,b4,ys)
+  function ok(a,b) return it.better(a.y,b.y) end 
+  function xy(_)   local x= b4:any(); return {x=x,y=it.f(x)} end
   it = suggestions(it)
-  xs = it.before
+  b4 = it.before
   best = it.n*it.top
   for i = 1,it.m do
-    xs1, ys = Num(), Num()
-    for _,xy in pairs(top(best, sort(ntimes(it.n, one), good))) do
-      xs1:add(xy.x) 
-      ys:add(xy.y) end
-    if it.verbose then print(rnd3(xs1.mu), rnd3(ys.mu)) end
-    xs = xs1 
+    now, ys = Num(), Num()
+    for _,one in pairs(top(best, sort(ntimes(it.n,xy), ok))) do  
+      now:add(one.x) 
+      ys:add(one.y) end
+    if it.verbose then print(rnd3(now.mu), rnd3(ys.mu)) end
+    b4 = now 
   end
-  return xs1,ys end
+  return now,ys end
 
 srand(the.seed)
 local xs,ys =crossEntropy {
