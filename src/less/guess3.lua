@@ -7,10 +7,16 @@ local round,sqrt,log,cos,pi,lt,gt,r = the"maths round sqrt log cos pi lt gt r"
 local Best = require"best"
 
 -------------------------------------------------------------------------------
+local LoHi=obj"LoHi"
+function LoHi.new(t) t=t or {}; return has(LoHi,{lo=t.lo or 0,hi=t.hi or 1}) end
+function LoHi:any()             return r(self.lo, self.hi) end
+
+
 local Num=obj"Num"
 function Num.new(t, self) 
   t=t or {}
-  self=has(Num,{lo=1E32,hi=-1E32,at=t.at or 0,txt=t.txt or"",n=0,mu=0,m2=0,sd=0})
+  self=has(Num,{lo=t.lo or 1E32, hi=t.hi or -1E32, at=t.at or 0,
+                txt=t.txt or"", n=0, mu=0, m2=0, sd=0})
   self.w = self.txt:find"-" and -1 or 1
   return self:adds(t.inits or {}) end
 
@@ -42,9 +48,10 @@ function Sym:any(   k1)
   for k,v in pairs(self.has) do k1=k;n=n-v; if n<=0 then return k end end
   return k1 end
 function Sym:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
-function Sym:add(x)
-  self.n = self.n + 1
-  self.seen[x] = 1 + (self.has[x] or 0)
+function Sym:add(x,  inc)
+  inc = inc or 1
+  self.n = self.n + inc
+  self.seen[x] = inc + (self.has[x] or 0)
   if self.has[x] > self.most then self.most,self.mode=self.has[x],x end 
   return x end
 
@@ -59,6 +66,7 @@ function Cols.new(lst)
   return has(Cols, {header=lst,all=all,xs=xs,ys=ys}) end
 
 function Cols:clump() return Cols{self.header} end
+function Cols:xany()  return map(self.xs, function(_,c) return c:any() end) end 
 
 function Cols:better(row1,row2)
   local n,a,b,s1,s2,e
@@ -77,6 +85,18 @@ function Cols:add(row)
   for _,col in pairs(self.all) do col:add(row[col.at]) end; return row end
 
 -------------------------------------------------------------------------------
+
+local function zdt1(t)
+  local f1,g,h,f2
+  for i=1,(d or 10) do t[i]=r() end
+  f1 = t[1]
+  g  = 0; for i=2,#t do g = g + t[i] / (#t - 1) end
+  g  = 1 + 9 * g
+  h  = 1 - (f1 / g)^.5
+  t[1+#t] = f1
+  t[1+#t] = g*h
+  return t end
+
 local function rnd2(x) return round(x,2) end
 local function rnd3(x) return round(x,3) end
 
@@ -92,14 +112,16 @@ local function suggestions1(it)
 
 local function crossEntropy1(it)
   local best,good,one,xs1,xs,ys
-  function one(_,x)  x=xs:any(); return {x=x,y=it.f(x)} end
-  function good(a,b) return it.better(a.y,b.y) end 
+  function one()     return it.f( cols:any() ) end 
+  function good(a,b) return cols:better(a,b) end 
   it = suggestions1(it)
   xs = it.before
   best = it.n*it.top
+  cols = Cols(it.names)
+  for i,lohi in pairs(it.before) do cols[i].lo=lohi[1]; cols[i].hi=lohi[2] end
   for i = 1,it.m do
-    xs1, ys = Num(), Num()
-    for _,xy in pairs(top(best, sort(each(it.n, one), good))) do
+    cols = Cols{it.names}
+    for _,xy in pairs(top(best, sort(ntimes(it.n, one), good))) do
       xs1:add(xy.x) 
       ys:add(xy.y) end
     if it.verbose then print(rnd3(xs1.mu), rnd3(ys.mu)) end
@@ -112,23 +134,16 @@ local xs,ys =crossEntropy {
    m=5;n=30; top=.2;
    better = gt,
    verbose= true,
-   before = Num{mu=-2,sd=3},
-   f      = function(x) return e^(-(x-2)^2) + .8*e^(-(x+2)^2) end}
+   names  = {"X1","X2","X3","X4","X5","Y1-","Y2-"},
+   before = {LoHi{lo=0,hi=1}, LoHi{lo=0,hi=1},
+             LoHi{lo=0,hi=1}, LoHi{lo=0,hi=1},
+             LoHi{lo=0,hi=1}}, 
+   f      = zdt1}
 
 -- lean {
 --   max=1000, wait=10,  pause=100, 
 --   goal=gt,  enough=0, before=Num{mu=-6,sd=100},
 --   f = function(x) return e^(-(x-2)^2) + .8*e^(-(x+2)^2) end}
-
-local function zdt1(d)
-  local f1,g,h,f2
-  local t={}
-  for i=1,(d or 10) do t[i]=r() end
-  f1 = t[1]
-  g  = 0; for i=2,#t do g = g + t[i] / (#t - 1) end
-  g  = 1 + 9 * g
-  h  = 1 - (f1 / g)^.5
-  return {f1, g*h} end
 
 print(5, table.unpack(zdt1(5)))
 the"END"

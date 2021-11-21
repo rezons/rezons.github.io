@@ -2,7 +2,7 @@ local the  = require"the"
 local r    = the"maths r"
 local push,sort,per,firsts,map,keys,shuffle,copy,sum
 local bchop,top,any,first,last,second,cat,pop,push,sort
-local each
+local ntimes
 
 -- defined in metas, but if defining again here
 -- avoids a cyclic dependancy
@@ -32,10 +32,6 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
-
--- Loop over n items
-function each(n,f,  u) u={}; for i=1,n do u[i]=f(i) end; return u end
-
 -- Sorted table keys
 function keys(t,  u)
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
@@ -43,6 +39,9 @@ function keys(t,  u)
 
 -- Call `f(key,value)` on all items  in list.
 function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end
+
+-- Loop over n items
+function ntimes(n,f,  u) u={}; for i=1,n do u[i]=f(i) end; return u end
 
 -- Percentile item
 function per(a,p,    here)
