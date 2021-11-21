@@ -19,7 +19,7 @@ cat   = table.concat
 pop   = table.remove
 push  = table.insert
 sort  = function(t,f) table.sort(t,f); return t end
-firsts= function(x,y) return x[1] < x[2] end
+firsts= function(x,y) return x[1] < y[1] end
 
 -- binary chop (assumes sorted lists)
 function bchop(t,val,lt,lo,hi,     mid)
@@ -32,6 +32,8 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
+
+
 -- Sorted table keys
 function keys(t,  u)
   u={};for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
@@ -41,7 +43,9 @@ function keys(t,  u)
 function map(t,f,  u) u={}; for k,v in pairs(t) do u[k]=f(k,v) end; return u end
 
 -- Loop over n items
-function ntimes(n,f,  u) u={}; for i=1,n do u[i]=f(i) end; return u end
+function ntimes(m,n,f,  u) 
+  if not f then return ntimes(1,m,n) end
+  u={}; for i=1,n do u[i]=f(i) end; return u end
 
 -- Percentile item
 function per(a,p,    here)
@@ -63,7 +67,7 @@ function top(n,t,   u)
   u={}; for i,x in pairs(t) do u[#u+1]=x; if i>=n then break end end
   return u end
 
-return {each=each,
+return {ntimes=ntimes,
         firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
         first=first,last=last,second=second,cat=cat,pop=pop,push=push,
         sort=sort,copy=copy,sum=sum,bchop=bchop,top=top,any=any}
