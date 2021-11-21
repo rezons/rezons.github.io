@@ -7,26 +7,25 @@ local round,sqrt,log,cos,pi,lt,gt,r = the"maths round sqrt log cos pi lt gt r"
 local Best = require"best"
 
 -------------------------------------------------------------------------------
-local LoHi=obj"LoHi"
-function LoHi.new(t) t=t or {}; return has(LoHi,{lo=t.lo or 0,hi=t.hi or 1}) end
-function LoHi:any()             return r(self.lo, self.hi) end
-
--------------------------------------------------------------------------------
 local Num=obj"Num"
 function Num.new(t, self) 
   t=t or {}
   self=has(Num,{lo=t.lo or 1E32, hi=t.hi or -1E32, at=t.at or 0,
-                txt=t.txt or"", n=0, mu=0, m2=0, sd=0})
+                txt=t.txt or"", n=0, mu=0, m2=0, sd=0, new=true})
   self.w = self.txt:find"-" and -1 or 1
   return self:adds(t.inits or {}) end
 
 function Num:z(x)    return (x - self.mu) / self.sd end
-function Num:any()   return self.mu+self.sd*sqrt(-2*log(r()))*cos(2*pi*r()) end
 function Num:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
+function Num:any()   
+  if   self.new 
+  then return self.lo+r()*(self.hi - self.lo) 
+  else return self.mu+self.sd*sqrt(-2*log(r()))*cos(2*pi*r()) end end 
 function Num:norm(x)
   local lo, hi = self.lo, self.hi
   return abs(lo - hi) < 1E-31 and 0 or (x - lo) / (hi - lo) end
 function Num:add(x)
+  self.new = false
   local d = x - self.mu
   self.n  = self.n + 1
   self.mu = self.mu + d/self.n
@@ -110,18 +109,16 @@ local function suggestions1(it)
   it.f      = it.f      or function(x) return x^2 end
   return it end
 
-local function crossEntropy1(it)
-  local best,good,one,xs1,xs,ys
-  function one()     return it.f( cols:any() ) end 
-  function good(a,b) return cols:better(a,b) end 
+local function lean(it, best,good,one,xs1,xs,ys)
+  function xy()     return it.f( cols:any() ) end 
+  function ok(a,b) return cols:better(a,b) end 
   it = suggestions1(it)
-  xs = it.before
-  best = it.n*it.top
+  b4 = it.before
   cols = Cols(it.names)
   for i,lohi in pairs(it.before) do cols[i].lo=lohi[1]; cols[i].hi=lohi[2] end
   for i = 1,it.m do
     cols = Cols{it.names}
-    for _,xy in pairs(top(best, sort(ntimes(it.n, one), good))) do
+    for _,xy in pairs(top(it.n*it.top, sort(ntimes(it.n, one), good))) do
       xs1:add(xy.x) 
       ys:add(xy.y) end
     if it.verbose then print(rnd3(xs1.mu), rnd3(ys.mu)) end
@@ -130,14 +127,14 @@ local function crossEntropy1(it)
   return xs1,ys end
 
 srand(the.seed)
-local xs,ys =crossEntropy {
+local xs,ys = lean {
    m=5;n=30; top=.2;
    better = gt,
    verbose= true,
    names  = {"X1","X2","X3","X4","X5","Y1-","Y2-"},
-   before = {LoHi{lo=0,hi=1}, LoHi{lo=0,hi=1},
-             LoHi{lo=0,hi=1}, LoHi{lo=0,hi=1},
-             LoHi{lo=0,hi=1}}, 
+   before = {Num{lo=0,hi=1}, Num{lo=0,hi=1}, Num{lo=0,hi=1}, 
+             Num{lo=0,hi=1}, Num{lo=0,hi=1},
+             Num(), Num()},
    f      = zdt1}
 
 -- lean {
