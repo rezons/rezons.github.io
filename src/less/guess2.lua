@@ -30,24 +30,24 @@ local function rnd2(x) return round(x,2) end
 local function rnd3(x) return round(x,3) end
 
 local function suggestions(it)
+  it        = it or {}
   it.verbose= it.verbose or false
-  it.m      = it.m      or 10
-  it.n      = it.n      or 100
-  it.top    = it.top    or .1
-  it.better = it.better or lt
-  it.before = it.before or Num{mu=0,sd=1}
-  it.f      = it.f      or function(x) return x^2 end
+  it.m      = it.m       or 10
+  it.n      = it.n       or 100
+  it.top    = it.top     or .1
+  it.better = it.better  or lt
+  it.before = it.before  or Num{mu=0,sd=1}
+  it.f      = it.f       or function(x) return x^2 end
   return it end
 
-local function crossEntropy(it,      best,ok,xy,now,b4,ys)
-  function ok(a,b) return it.better(a.y,b.y) end 
-  function xy(_)   local x= b4:any(); return {x=x,y=it.f(x)} end
+local function crossEntropy(it,      ok,xy,now,b4,ys)
   it = suggestions(it)
   b4 = it.before
-  best = it.n*it.top
+  function xy(_)   local x= b4:any(); return {x=x,y=it.f(x)} end
+  function ok(a,b) return it.better(a.y,b.y) end 
   for i = 1,it.m do
     now, ys = Num(), Num()
-    for _,one in pairs(top(best, sort(ntimes(it.n,xy), ok))) do  
+    for _,one in pairs(top(it.n*it.top, sort(ntimes(it.n,xy), ok))) do  
       now:add(one.x) 
       ys:add(one.y) end
     if it.verbose then print(rnd3(now.mu), rnd3(ys.mu)) end

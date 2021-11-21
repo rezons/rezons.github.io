@@ -11,7 +11,7 @@ local LoHi=obj"LoHi"
 function LoHi.new(t) t=t or {}; return has(LoHi,{lo=t.lo or 0,hi=t.hi or 1}) end
 function LoHi:any()             return r(self.lo, self.hi) end
 
-
+-------------------------------------------------------------------------------
 local Num=obj"Num"
 function Num.new(t, self) 
   t=t or {}
