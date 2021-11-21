@@ -61,7 +61,7 @@ local xs,ys =crossEntropy {
    m=5;n=30; top=.2;
    better = gt,
    verbose= true,
-   before = Num{mu=-2,sd=3},
+   before = Num{mu=-0,sd=3},
    f      = function(x) return e^(-(x-2)^2) + .8*e^(-(x+2)^2) end}
 
 the"END"
