@@ -1,11 +1,11 @@
-local the          = require"the"
-local obj,has      = the"metas obj has"
-local out,shout    = the"prints out shout"
-local top,ntimes,firsts,push = the"tables top ntimes firsts push"
-local sort,map,per = the"tables sort map per"
+local the                = require"the"
+local obj,has            = the"metas obj has"
+local out,shout,fmt      = the"prints out shout fmt"
+local gt,r,e             = the"maths gt r e"
+local srand,cos,pi,lt    = the"maths srand cos pi lt"
+local sort,map,per,push  = the"tables sort map per push"
+local top,ntimes,firsts  = the"tables top ntimes firsts"
 local round,sqrt,abs,log = the"maths round sqrt abs log"
-local srand,cos,pi,lt,gt,r,e = the"maths srand cos pi lt gt r e"
-local Best = require"best"
 
 -------------------------------------------------------------------------------
 local Num=obj"Num"
@@ -34,9 +34,12 @@ function Num:any(    z)
   else  return self.mu+self.sd*sqrt(-2*log(r()))*cos(2*pi*r()) end end 
 function Num:mid() 
   return self.mu end
-function Num:norm(x)
+function Num:norm(x,  z)
   local lo, hi = self.lo, self.hi
-  return abs(lo - hi) < 1E-31 and 0 or (x - lo) / (hi - lo) end
+  local x1= abs(lo - hi) < 1E-31 and 0 or (x - lo) / (hi - lo) 
+  print("::",x,lo,hi,x1)
+  return x
+  end
 function Num:z(x)    
   return (x - self.mu) / self.sd end
 
@@ -63,88 +66,96 @@ function Sym:mid()
   return self.mode end
 
 -------------------------------------------------------------------------------
-local Cols=obj"Cols"
-function Cols.new(lst)
+local Summary=obj"Summary"
+function Summary.new(lst)
   local all,xs,ys={},{},{}
   for k,v in pairs(lst) do
-    local now = (v:match"^[A-Z]*" and Num or Sym){txt=v,at=k}
+    local now = (v:match"^[A-Z]" and Num or Sym){txt=v,at=k}
     push(all, now)
     push((v:find"+" or v:find"-") and ys or xs, now) end 
-  return has(Cols, {header=lst,all=all,xs=xs,ys=ys}) end
+  return has(Summary, {header=lst,all=all,xs=xs,ys=ys,n=0}) end
 
-function Cols:add(row)
-  for _,col in pairs(self.all) do col:add(row[col.at]) end; return row end
-function Cols:any(cols)  
+function Summary:add(eg)
+  self.n = self.n + 1
+  for _,col in pairs(self.all) do col:add(eg[col.at]) end
+  return eg end
+function Summary:any(cols)  
   return map(cols or self.all, function(_,c) return c:any() end) end 
-function Cols:better(row1,row2)
+function Summary:better(eg1,eg2)
   local n,a,b,s1,s2
   s1, s2, n = 0, 0, #self.ys
   for _,col in pairs(self.ys) do
-    a  = col:norm(row1[col.at]) --normalize to avoid
-    b  = col:norm(row2[col.at])
+    a  = col:norm(eg1[col.at]) --normalize to avoid
+    b  = col:norm(eg2[col.at])
     s1 = s1 - e^(col.w * (a - b) / n)
     s2 = s2 - e^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
-function Cols:betters(rows)
-  return sort(self.rows or rows, function(a,b) return self:better(a,b) end) end
-function Cols:clone() 
-  return Cols(self.header) end
-function Cols:mid(cols)
+function Summary:betters(egs)
+  return sort(egs, function(a,b) return self:better(a,b) end) end
+function Summary:clone() 
+  return Summary(self.header) end
+function Summary:mid(cols)
   return map(cols or self.all,function(_,col) return col:mid() end) end
-function Cols:range(lo,hi)
+function Summary:range(lo,hi)
   for _,col in pairs(self.all) do 
     if col._is=="Num" then col.lo=lo or 0; col.hi=hi or 1 end end
   return self end
   
-srand(the.seed)
 -------------------------------------------------------------------------------
-local function zdt1(t,  d)
-  local f1,g,h,f2
-  for i=1,(d or 10) do t[i]=r() end
-  f1 = t[1]
-  g  = 0; for i=2,#t do g = g + t[i] end
-  g  = 1 + 9 / (#t-1) * g
+local function zdt1(egx,  d)
+  local f1,g,h,f2,eg
+  for i=1,(d or 10) do egx[i]=r() end
+  f1 = egx[1]
+  g  = 0; for i=2,#egx do g = g + egx[i] end
+  g  = 1 + 9 / (#egx-1) * g
   h  = 1 - (f1 / g)^.5
-  t[1+#t] = f1
-  t[1+#t] = g*h
-  return t end
+  eg = egx
+  push(eg, f1)
+  push(eg. g*h)
+  return eg end
 
-local rnd2,rnd3,with,nCrossEntropy
+local r2,r3,r3s,nCrossEntropy,with
 
 function r2(x) return round(x,2) end
 function r3(x) return round(x,3) end
 function r3s(t) return map(t,function(_,x) return round(x,3) end) end
-function with(t,   u) 
-  t, u = t or {}, u or {}
-  for k,v in pairs(t) do u[k]=v end; return u end
 
-function nCrossEntropy(it0,        tmp,first,best,it,xy,ok,now,b4,ys)
-  it = with(it0, {verbose=false,m=10,n=100,top=.1})
+function with(it,it0, out) 
+  out, it, it0 = {}, it or {}, it0 or {}
+  for k,v in pairs(it)  do assert(it0[k] ~= nil, fmt("with %s not known",k)) end
+  for k,v in pairs(it0) do out[k] = it[k]==nil and it0[k] or it[k] end
+  return out end
+
+function nCrossEntropy(it0,        now,first,best,it,xy,ok,now,b4,ys)
+  it = with(it0, {verbose=false,n=10,generations=100,top=.1,
+                  before=false,f=function(_) return true end})
   b4 = it.before
-  function xy()    return it.f( b4:any(b4.xs) ) end
-  function ok(a,b) return b4:better(a,b) end 
+  function xy(_,egx) egx=b4:any(b4.xs); return now:add(it.f(egx)) end
+  function ok(a,b)   return now:better(a,b) end 
   for i = 1,it.generations do
-    now = b4:clone()
-    tmp=sort(ntimes(it.n, xy), ok)
-    if i==1 then
-      shout(r3s(tmp[1]))
-      shout(r3s(tmp[#tmp//2]))
-      shout(r3s(tmp[#tmp])) end
-    for _,one in pairs(top(it.n*it.top, tmp)) do
-      now:add(one) end
+    now= b4:clone()
+    now= sort(ntimes(it.n, xy), ok)
     if i==1 then first=now end
+    if i==1 then
+      shout(r3s(now[1]))
+      shout(r3s(now[#now//2]))
+      shout(r3s(now[#now])) end
+    best = b4:clone()
+    for _,one in pairs(top(it.n*it.top, now)) do
+      best:add(one) end
     if it.verbose then print( out(now:mid(now.ys))) end
-    b4 = now 
+    b4 = best 
   end
-  return first,now end
+  return first,best end
 
+-------------------------------------------------------------------------------
 srand(the.seed)
 local first,last = nCrossEntropy {
    generations = 10,
    n       = 1000,
-   top     = .2;
+   top     = .05;
    verbose = false,
-   before  = Cols({"X1","X2","X3","X4","X5","Y1-","Y2-"}):range(),
+   before  = Summary({"X1","X2","X3","X4","X5","Y1-","Y2-"}):range(),
    f       = zdt1}
 
 shout(first:mid(first.ys))
