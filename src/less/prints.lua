@@ -10,7 +10,7 @@ function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
 function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 -- Generate  a pretty-print string from a table (recursively).
-function out(t,    seen,u,f1,f2)
+function out(t,    u,key,seen,value)
   function key(_,k)   return fmt(":%s %s",yellow(k),out(t[k],seen)) end
   function value(_,v) return out(v,seen) end
   if type(t) == "function" then return "FUN" end

@@ -1,9 +1,10 @@
-local the       = require"the"
-local obj,has   = the"metas obj has"
-local shout     = the"prints shout"
-local r,e,srand = the"maths r e srand"
-local top,each,firsts,push,sort,per = the"tables top each firsts push sort per"
-local round,sqrt,log,cos,pi,lt,gt,r = the"maths round sqrt log cos pi lt gt r"
+local the          = require"the"
+local obj,has      = the"metas obj has"
+local out,shout    = the"prints out shout"
+local top,ntimes,firsts,push = the"tables top ntimes firsts push"
+local sort,map,per = the"tables sort map per"
+local round,sqrt,abs,log = the"maths round sqrt abs log"
+local srand,cos,pi,lt,gt,r,e = the"maths srand cos pi lt gt r e"
 local Best = require"best"
 
 -------------------------------------------------------------------------------
@@ -40,7 +41,7 @@ function Num:z(x)
   return (x - self.mu) / self.sd end
 
 -------------------------------------------------------------------------------
-local Sym=obj"Syn"
+local Sym=obj"Sym"
 function Sym.new(t,  self) 
   t=t or {}
   self=has(Sym,{at=t.at or 0,txt=t.txt or "",has={},most=0,mode=nil})
@@ -58,18 +59,17 @@ function Sym:any(   k1)
   local n = r(self.n)
   for k,v in pairs(self.has) do k1=k;n=n-v; if n<=0 then return k end end
   return k1 end
-function Syn:mid() 
+function Sym:mid() 
   return self.mode end
 
 -------------------------------------------------------------------------------
-local Cols=obj"Cols"}
-
+local Cols=obj"Cols"
 function Cols.new(lst)
   local all,xs,ys={},{},{}
   for k,v in pairs(lst) do
-    local now = (k:match("^[A-Z]") and Num or Sym){txt=v,at=k}
-    push(self.all, now)
-    push((k:find"+" or k:find"-") and self.ys or self.xs, now) end 
+    local now = (v:match"^[A-Z]*" and Num or Sym){txt=v,at=k}
+    push(all, now)
+    push((v:find"+" or v:find"-") and ys or xs, now) end 
   return has(Cols, {header=lst,all=all,xs=xs,ys=ys}) end
 
 function Cols:add(row)
@@ -77,7 +77,7 @@ function Cols:add(row)
 function Cols:any(cols)  
   return map(cols or self.all, function(_,c) return c:any() end) end 
 function Cols:better(row1,row2)
-  local n,a,b,s1,s2,e
+  local n,a,b,s1,s2
   s1, s2, n = 0, 0, #self.ys
   for _,col in pairs(self.ys) do
     a  = col:norm(row1[col.at]) --normalize to avoid
@@ -87,11 +87,16 @@ function Cols:better(row1,row2)
   return s1 / n < s2 / n end
 function Cols:betters(rows)
   return sort(self.rows or rows, function(a,b) return self:better(a,b) end) end
-function Cols:clump() 
-  return Cols{self.header} end
+function Cols:clone() 
+  return Cols(self.header) end
 function Cols:mid(cols)
   return map(cols or self.all,function(_,col) return col:mid() end) end
-
+function Cols:zeroOne()
+  for _,col in pairs(self.all) do 
+    if col._is=="Num" then col.lo=0; col.hi=1 end end
+  return self end
+  
+srand(the.seed)
 -------------------------------------------------------------------------------
 local function zdt1(t)
   local f1,g,h,f2
@@ -104,43 +109,41 @@ local function zdt1(t)
   t[1+#t] = g*h
   return t end
 
-local function rnd2(x) return round(x,2) end
-local function rnd3(x) return round(x,3) end
+local rnd2,rnd3,insert,nCrossEntropy
 
-local function ready(t,defaults)
-  for k,v in pairs(defaults) do if t[k]==nil then it[k] = v end end i
-  return t end 
+function rnd2(x) return round(x,2) end
+function rnd3(x) return round(x,3) end
+function insert(t,   u) for k,v in pairs(t) do u[k]=v end; return u end
 
-local function nCrossEntropy(it, best,good,one,xs1,xs,ys)
-  it = ready(it, {verbose=false,m=10,n=100,top=.1})
+function nCrossEntropy(it0,        best,it,xy,ok,now,b4,ys,all)
+  it = insert(it0, {verbose=false,m=10,n=100,top=.1})
   b4 = it.before
   function xy()    return it.f( b4:any(b4.xs) ) end
   function ok(a,b) return b4:better(a,b) end 
+  all=b4:clone()
   for i = 1,it.generations do
-    now = Cols(it.names)
+    now = b4:clone()
     for _,one in pairs(top(it.n*it.top, sort(ntimes(it.n, xy), ok))) do
+      all:add(one)
       now:add(one) end
-    if it.verbose then shout(new:mid(new.ys)) end
+    if it.verbose then print(out(now:mid(now.ys)), 
+                             out(all:mid(all.ys))) end
     b4 = now 
   end
   return now end
 
 srand(the.seed)
 local xs,ys = nCrossEntropy {
-   generations = 5,
-   n = 30,
-   top = .2;
+   generations = 10,
+   n       = 100,
+   top     = .1;
    verbose = true,
-   names   = {"X1","X2","X3","X4","X5","Y1-","Y2-"},
-   before  = {Num{lo=0,hi=1}, Num{lo=0,hi=1}, Num{lo=0,hi=1}, 
-              Num{lo=0,hi=1}, Num{lo=0,hi=1},
-              Num(), Num()},
-   f      = zdt1}
+   before  = Cols({"X1","X2","X3","X4","X5","Y1-","Y2-"}):zeroOne(),
+   f       = zdt1}
 
 -- lean {
 --   max=1000, wait=10,  pause=100, 
 --   goal=gt,  enough=0, before=Num{mu=-6,sd=100},
 --   f = function(x) return e^(-(x-2)^2) + .8*e^(-(x+2)^2) end}
 
-print(5, table.unpack(zdt1(5)))
 the"END"

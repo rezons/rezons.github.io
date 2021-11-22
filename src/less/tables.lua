@@ -1,7 +1,7 @@
 local the  = require"the"
 local r    = the"maths r"
 local push,sort,per,firsts,map,keys,shuffle,copy,sum
-local bchop,top,any,first,last,second,cat,pop,push,sort
+local bchop,top,any,first,last,second,cat,pop,sort
 local ntimes
 
 -- defined in metas, but if defining again here
@@ -32,7 +32,6 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 -- Shallow copy
 function copy(t) return map(t, function(_,x) return x end) end
-
 
 -- Sorted table keys
 function keys(t,  u)
@@ -67,7 +66,6 @@ function top(n,t,   u)
   u={}; for i,x in pairs(t) do u[#u+1]=x; if i>=n then break end end
   return u end
 
-return {ntimes=ntimes,
-        firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
+return {ntimes=ntimes,firsts=firsts,map=map,keys=keys,shuffle=shuffle,per=per,
         first=first,last=last,second=second,cat=cat,pop=pop,push=push,
         sort=sort,copy=copy,sum=sum,bchop=bchop,top=top,any=any}
