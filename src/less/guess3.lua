@@ -15,16 +15,6 @@ function Num.new(t, self)
   self.w = self.txt:find"-" and -1 or 1
   return self:adds(t.inits or {}) end
 
-function Num:z(x)    return (x - self.mu) / self.sd end
-function Num:mid() return self.mu end
-function Num:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
-function Num:any()   
-  if   self.new 
-  then return self.lo+r()*(self.hi - self.lo) 
-  else return self.mu+self.sd*sqrt(-2*log(r()))*cos(2*pi*r()) end end 
-function Num:norm(x)
-  local lo, hi = self.lo, self.hi
-  return abs(lo - hi) < 1E-31 and 0 or (x - lo) / (hi - lo) end
 function Num:add(x)
   self.new = false
   local d = x - self.mu
@@ -35,6 +25,19 @@ function Num:add(x)
   self.lo = math.min(self.lo,x)
   self.hi = math.max(self.hi,x)
   return x end
+function Num:adds(t) 
+  for _,x in pairs(t) do self:add(x) end; return self end
+function Num:any()   
+  if   self.new 
+  then return self.lo+r()*(self.hi - self.lo) 
+  else return self.mu+self.sd*sqrt(-2*log(r()))*cos(2*pi*r()) end end 
+function Num:mid() 
+  return self.mu end
+function Num:norm(x)
+  local lo, hi = self.lo, self.hi
+  return abs(lo - hi) < 1E-31 and 0 or (x - lo) / (hi - lo) end
+function Num:z(x)    
+  return (x - self.mu) / self.sd end
 
 -------------------------------------------------------------------------------
 local Sym=obj"Syn"
@@ -43,18 +46,20 @@ function Sym.new(t,  self)
   self=has(Sym,{at=t.at or 0,txt=t.txt or "",has={},most=0,mode=nil})
   return self:adds(t.inits or {}) end
 
-function Sym:any(   k1)   
-  local n = r(self.n)
-  for k,v in pairs(self.has) do k1=k;n=n-v; if n<=0 then return k end end
-  return k1 end
-function Syn:mid() return self.mode end
-function Sym:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
 function Sym:add(x,  inc)
   inc = inc or 1
   self.n = self.n + inc
   self.seen[x] = inc + (self.has[x] or 0)
   if self.has[x] > self.most then self.most,self.mode=self.has[x],x end 
   return x end
+function Sym:adds(t) 
+  for _,x in pairs(t) do self:add(x) end; return self end
+function Sym:any(   k1)   
+  local n = r(self.n)
+  for k,v in pairs(self.has) do k1=k;n=n-v; if n<=0 then return k end end
+  return k1 end
+function Syn:mid() 
+  return self.mode end
 
 -------------------------------------------------------------------------------
 local Cols=obj"Cols"
@@ -66,9 +71,10 @@ function Cols.new(lst)
     push((k:find"+" or k:find"-") and self.ys or self.xs, now) end 
   return has(Cols, {header=lst,all=all,xs=xs,ys=ys}) end
 
-function Cols:clump() return Cols{self.header} end
-function Cols:xany()  return map(self.xs, function(_,c) return c:any() end) end 
-
+function Cols:add(row)
+  for _,col in pairs(self.all) do col:add(row[col.at]) end; return row end
+function Cols:any(cols)  
+  return map(cols or self.all, function(_,c) return c:any() end) end 
 function Cols:better(row1,row2)
   local n,a,b,s1,s2,e
   s1, s2, n = 0, 0, #self.ys
@@ -78,13 +84,10 @@ function Cols:better(row1,row2)
     s1 = s1 - e^(col.w * (a - b) / n)
     s2 = s2 - e^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
-
 function Cols:betters(rows)
   return sort(self.rows or rows, function(a,b) return self:better(a,b) end) end
-
-function Cols:add(row)
-  for _,col in pairs(self.all) do col:add(row[col.at]) end; return row end
-
+function Cols:clump() 
+  return Cols{self.header} end
 function Cols:mid(cols)
   return map(cols or self.all,function(_,col) return col:mid() end) end
 
@@ -116,7 +119,7 @@ local function suggestions(it)
 local function nCrossEntropy(it, best,good,one,xs1,xs,ys)
   it = suggestions(it)
   b4 = it.before
-  function xy()    return it.f( b4:xany() ) end
+  function xy()    return it.f( b4:any(b4.xs) ) end
   function ok(a,b) return b4:better(a,b) end 
   for i = 1,it.generations do
     now = Cols(it.names)
