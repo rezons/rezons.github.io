@@ -62,7 +62,8 @@ function Syn:mid()
   return self.mode end
 
 -------------------------------------------------------------------------------
-local Cols=obj"Cols"
+local Cols=obj"Cols"}
+
 function Cols.new(lst)
   local all,xs,ys={},{},{}
   for k,v in pairs(lst) do
@@ -106,18 +107,12 @@ local function zdt1(t)
 local function rnd2(x) return round(x,2) end
 local function rnd3(x) return round(x,3) end
 
-local function suggestions(it)
-  it.verbose= it.verbose or false
-  it.m      = it.m      or 10
-  it.n      = it.n      or 100
-  it.top    = it.top    or .1
-  it.better = it.better or lt
-  it.before = it.before or Num{mu=0,sd=1}
-  it.f      = it.f      or function(x) return x^2 end
-  return it end
+local function ready(t,defaults)
+  for k,v in pairs(defaults) do if t[k]==nil then it[k] = v end end i
+  return t end 
 
 local function nCrossEntropy(it, best,good,one,xs1,xs,ys)
-  it = suggestions(it)
+  it = ready(it, {verbose=false,m=10,n=100,top=.1})
   b4 = it.before
   function xy()    return it.f( b4:any(b4.xs) ) end
   function ok(a,b) return b4:better(a,b) end 
