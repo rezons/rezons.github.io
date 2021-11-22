@@ -16,6 +16,7 @@ function Num.new(t, self)
   return self:adds(t.inits or {}) end
 
 function Num:z(x)    return (x - self.mu) / self.sd end
+function Num:mid() return self.mu end
 function Num:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
 function Num:any()   
   if   self.new 
@@ -46,6 +47,7 @@ function Sym:any(   k1)
   local n = r(self.n)
   for k,v in pairs(self.has) do k1=k;n=n-v; if n<=0 then return k end end
   return k1 end
+function Syn:mid() return self.mode end
 function Sym:adds(t) for _,x in pairs(t) do self:add(x) end; return self end
 function Sym:add(x,  inc)
   inc = inc or 1
@@ -83,8 +85,10 @@ function Cols:betters(rows)
 function Cols:add(row)
   for _,col in pairs(self.all) do col:add(row[col.at]) end; return row end
 
--------------------------------------------------------------------------------
+function Cols:mid(cols)
+  return map(cols or self.all,function(_,col) return col:mid() end) end
 
+-------------------------------------------------------------------------------
 local function zdt1(t)
   local f1,g,h,f2
   for i=1,(d or 10) do t[i]=r() end
@@ -99,7 +103,7 @@ local function zdt1(t)
 local function rnd2(x) return round(x,2) end
 local function rnd3(x) return round(x,3) end
 
-local function suggestions1(it)
+local function suggestions(it)
   it.verbose= it.verbose or false
   it.m      = it.m      or 10
   it.n      = it.n      or 100
@@ -109,32 +113,30 @@ local function suggestions1(it)
   it.f      = it.f      or function(x) return x^2 end
   return it end
 
-local function lean(it, best,good,one,xs1,xs,ys)
-  function xy()     return it.f( cols:any() ) end 
-  function ok(a,b) return cols:better(a,b) end 
-  it = suggestions1(it)
+local function nCrossEntropy(it, best,good,one,xs1,xs,ys)
+  it = suggestions(it)
   b4 = it.before
-  cols = Cols(it.names)
-  for i,lohi in pairs(it.before) do cols[i].lo=lohi[1]; cols[i].hi=lohi[2] end
-  for i = 1,it.m do
-    cols = Cols{it.names}
-    for _,xy in pairs(top(it.n*it.top, sort(ntimes(it.n, one), good))) do
-      xs1:add(xy.x) 
-      ys:add(xy.y) end
-    if it.verbose then print(rnd3(xs1.mu), rnd3(ys.mu)) end
-    xs = xs1 
+  function xy()    return it.f( b4:xany() ) end
+  function ok(a,b) return b4:better(a,b) end 
+  for i = 1,it.generations do
+    now = Cols(it.names)
+    for _,one in pairs(top(it.n*it.top, sort(ntimes(it.n, xy), ok))) do
+      now:add(one) end
+    if it.verbose then shout(new:mid(new.ys)) end
+    b4 = now 
   end
-  return xs1,ys end
+  return now end
 
 srand(the.seed)
-local xs,ys = lean {
-   m=5;n=30; top=.2;
-   better = gt,
-   verbose= true,
-   names  = {"X1","X2","X3","X4","X5","Y1-","Y2-"},
-   before = {Num{lo=0,hi=1}, Num{lo=0,hi=1}, Num{lo=0,hi=1}, 
-             Num{lo=0,hi=1}, Num{lo=0,hi=1},
-             Num(), Num()},
+local xs,ys = nCrossEntropy {
+   generations = 5,
+   n = 30,
+   top = .2;
+   verbose = true,
+   names   = {"X1","X2","X3","X4","X5","Y1-","Y2-"},
+   before  = {Num{lo=0,hi=1}, Num{lo=0,hi=1}, Num{lo=0,hi=1}, 
+              Num{lo=0,hi=1}, Num{lo=0,hi=1},
+              Num(), Num()},
    f      = zdt1}
 
 -- lean {

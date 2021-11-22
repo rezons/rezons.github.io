@@ -45,7 +45,7 @@ local function crossEntropy(it,      ok,xy,now,b4,ys)
   b4 = it.before
   function xy(_)   local x= b4:any(); return {x=x,y=it.f(x)} end
   function ok(a,b) return it.better(a.y,b.y) end 
-  for i = 1,it.m do
+  for i = 1,it.generations do
     now, ys = Num(), Num()
     for _,one in pairs(top(it.n*it.top, sort(ntimes(it.n,xy), ok))) do  
       now:add(one.x) 
@@ -57,7 +57,7 @@ local function crossEntropy(it,      ok,xy,now,b4,ys)
 
 srand(the.seed)
 local xs,ys =crossEntropy {
-   m=5;n=30; top=.2;
+   generations=5;n=30; top=.2;
    better = gt,
    verbose= true,
    before = Num{mu=-0,sd=3},
