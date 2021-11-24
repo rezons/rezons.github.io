@@ -1,11 +1,50 @@
-s=[[
+local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
+----------------------------------------------
 
-import f1 aa mm nn
+local lunatic, Lambda, Hint, From, Local, Return, Self
+local fmt = string.format
+
+function lunatic(s,todo,      act)
+  function act(t)
+    for k,f in pairs(t) do if (todo or {})[k] ~= false then s=f(s) end end end
+  act{Lambda=Lambda}
+  act{Local=Local,Self=Self,Return=Return,From=From,Hint=Hint} 
+  return s end
+
+function Local(s)  return s:gsub("`","local ") end
+function Return(s) return s:gsub("(%s)^"," return ")end
+function Self(s)   return s:gsub("%f[%w_]o%f[^%w_]","self") end
+function Lambda(s) 
+  return s:gsub("(`)(%b())", 
+           function(_,b) return fmt("function %s end", b:sub(2,#b-1)) end) end
+ 
+function Hint(s)
+  return s:gsub("(function[^\n]+)(%b())(%s*:[^\n]*)\n",
+           function(a,b,c) return fmt("%s%s\n",a,b:gsub(":[^,)]+","")) end) end
+
+function From(s,        act)
+  function act (file, wants,     t,pre,post) 
+    t={}; for want in wants:gmatch("([^ ]+)") do t[#t+1] = want end
+    pre,post = t[1], fmt('require("%s").%s',file ,t[1]) 
+    for i=2,#t do
+      pre  = pre  ..  ", " .. t[i] 
+      post = post ..  ", " .. fmt('require("%s").%s',file, t[i]) end
+    return "\nlocal "..pre .." = "..post.."\n"  end 
+  return s:gsub("\nfrom%s+([^\n]*)%s+import([^\n]*)\n", act) end
+
+
+-- return lunatic
+----------------------------------------------
+
+local s = lunatic[[
+
+from f1 import aa mm nn
 
 function asda(a : ?[int],b:num) : fasdas
   return o end
 
 `function X:bad(c:num,d) :nil
+   x= map(d, `((x) ^x+(1/math.exp(1))))
    ^o.bad end
 
 ^aa
@@ -14,31 +53,8 @@ function asda(a : ?[int],b:num) : fasdas
 
 `((y) ^a)
 ]]
-function lunatic(s,is,         nohints,fun, with,fmt)
-  fmt = string.format
-  function nohints(a,b,c) return fmt("%s%s\n", a, b:gsub(":[^,)]+","")) end
-  function fun(_,b)       return fmt("function %s end", b:sub(2,#b-1))  end
-  function imports(s)
-    t={}; for word in s:gmatch(  "([^ ]+)") do  t[#t+1] = word end
-    local sep,pre,post,file = "","","",t[1]
-    for i=2,#t do
-      pre  = pre .. sep .. t[i] 
-      post = post..sep..fmt('require("%s").%s',file, t[i])
-      sep  = ", " end 
-    return "\n"..pre .." = "..post.."\n" end
-  function with(t,defaults,  u)
-    u={}
-    for k,v in pairs(defaults or {}) do u[k] = v end
-    for k,v in pairs(t        or {}) do u[k] = v end
-    return u end
-  is = with(is,{FUN=true,LOCAL=true,RETURN=true,SELF=true,IMPORTS=true,LAMBDA=true})
-  s = is.FUN     and s:gsub("(`)(%b())", fun)              or s
-  s = is.LOCAL   and s:gsub("`","local ")                  or s
-  s = is.RETURN  and s:gsub("(%s)^","%1return ")           or s
-  s = is.SELF    and s:gsub("%f[%w_]o%f[^%w_]","self")     or s
-  s = is.IMPORTS and s:gsub("\nimport([^\n]*)\n", imports) or s
-  s = is.LAMBDA  and s:gsub("(function[^\n]+)(%b())(%s*:[^\n]*)\n",nohints) or s
-  return s end
 
-s=lunatic(s)
 print(s)
+
+----------------------------------------------
+for k,v in pairs(_ENV) do if not b4[k] then print("?? rogue",k,type(v)) end end 
