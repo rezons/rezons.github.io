@@ -16,22 +16,21 @@ function Return(s) return s:gsub("(%s)^"," return ")end
 function Self(s)   return s:gsub("%f[%w_]o%f[^%w_]","self") end
 function Lambda(s) 
   return s:gsub("(`)(%b())", 
-           function(_,b) return fmt("function %s end", b:sub(2,#b-1)) end) end
+    function(_,b) return fmt("function %s end", b:sub(2,#b-1)) end) end
  
 function Hint(s)
   return s:gsub("(function[^\n]+)(%b())(%s*:[^\n]*)\n",
-           function(a,b,c) return fmt("%s%s\n",a,b:gsub(":[^,)]+","")) end) end
+    function(a,b,c) return fmt("%s%s\n",a,b:gsub(":[^,)]+","")) end) end
 
 function From(s,        act)
-  function act (file, wants,     t,pre,post) 
-    t={}; for want in wants:gmatch("([^ ]+)") do t[#t+1] = want end
-    pre,post = t[1], fmt('require("%s").%s',file ,t[1]) 
-    for i=2,#t do
-      pre  = pre  ..  ", " .. t[i] 
-      post = post ..  ", " .. fmt('require("%s").%s',file, t[i]) end
-    return "\nlocal "..pre .." = "..post.."\n"  end 
+  function act (file,wants,     sep,pre,post) 
+    sep,pre,post = "","",""
+    for want in wants:gmatch("([^ ]+)") do 
+      pre  = pre  .. sep .. want
+      post = post .. sep .. fmt('require("%s").%s',file,want) 
+      sep  = ", " end
+    return fmt("\nlocal %s = %s\n",pre,post) end
   return s:gsub("\nfrom%s+([^\n]*)%s+import([^\n]*)\n", act) end
-
 
 -- return lunatic
 ----------------------------------------------
