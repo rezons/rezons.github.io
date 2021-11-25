@@ -6,7 +6,8 @@ local fmt = string.format
 
 function lunatic(s,todo,      act)
   function act(t)
-    for k,f in pairs(t) do if (todo or {})[k] ~= false then s=f(s) end end end
+    for k,f in pairs(t) do if (todo or {})[k] ~= false then s=f(s) end end 
+  end
   act{Lambda=Lambda}
   act{Local=Local,Self=Self,Return=Return,From=From,Hint=Hint} 
   return s end
@@ -29,7 +30,8 @@ function From(s,        act)
       pre  = pre  .. sep .. want
       post = post .. sep .. fmt('require("%s").%s',file,want) 
       sep  = ", " end
-    return fmt("\nlocal %s = %s\n",pre,post) end
+    return fmt("\nlocal %s = %s\n",pre,post) 
+  end
   return s:gsub("\nfrom%s+([^\n]*)%s+import([^\n]*)\n", act) end
 
 -- return lunatic
