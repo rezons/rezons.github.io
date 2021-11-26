@@ -60,14 +60,11 @@ print(s)
 ----------------------------------------------
 for k,v in pairs(_ENV) do if not b4[k] then print("?? rogue",k,type(v)) end end 
   
-function collect(t,f,walk,n,  u) 
+function collect(t,f,walk,  u) 
   walk = walk or pairs
   u={}
   for k,x in walk(t) do 
-    if n==2 
-    then x,also = f(k,x) 
-
-    else x,also=f(x) end 
+    x,also = f(k,x) 
     if   also == nil 
     then if x~= nil then u[#u+1] = x end
     else if x~= nil then u[x] = also end end end
@@ -79,22 +76,23 @@ function collect(t,f,walk,n,  u)
 -- s=s:gsub("[(](.*)for.*(%w)%s*,%s*(%w).*in(.*)[)]",five)
 -- s=s:gsub("[(](.*)for.*(%w)%s*,%s*(%w).*on(.*)[)]",five)
 
---- `[x+2 for x          in lst] ==> collect(lst, function(_,x) return x+2 end, pairs,1)
---- `[print(x,y) for x,y in lst] ==> collect(lst, function(k,x) return print(x,y) end,pairs,2)
---- `[print(x,y) for x,y on lst] ==> collect(lst, function(k,x) return print(x,y) end,ipairs,2)
---- `[print(x,y) for x,y on lst] ==> collect(lst, function(k,x) return print(x,y) end,ipairs,2)
+function Comprehension(s,   act)
+  function collect(a,b,c,d,e)
+    return fmt("collect(%s,function (%s,%s) return %s end),%s)",
+               a,b,c,d,e) end
+  function pairs1(src,x,t)    return collect(t,"_",x,src,"pairs") end
+  function pairs2(src,k,x,t)  return collect(t,k,   x,src,"pairs") end
+  function ipairs1(src,x,t)   return collect(t,"_",x,src,"ipairs") end
+  function ipairs2(src,k,x,t) return collect(t,k,  x,src,"ipairs") end
 
--- function Comprehend(s)
---   function two(src,args,how,t) 
---     return fmt("collect(%s,function(%s) return %s end,%s,2)",
---                t, args, body, how=="in" and "pairs" or "ipairs") end
---   function one(src,args,how,t) 
---     return fmt("collect(%s,function(_,%s) return %s end,%s,1)",
---                t, args, body, how=="in" and "pairs" or "ipairs") end
---   function act(s)
---     s = s:gsub("[(](.*)%sfor%s+(%w,%w)%s+(in|on)(.*)[)]",  two)
---     s = s:gsub("[(](.*)%sfor%s+%w%s+(in|on))(.*)[)]",       one)
---     return s
---   end
---   return s:gsub("`(%b[])",act) end
--- s="(assa    aa , bb  sds )"; s=s:gsub("[(].*(%w)%s*,%s*(%w).*[)]",two)
+  s= s:gsub("`[(](.*)for%s+(%S+)%s*,%s*(%S+)%s+in(.*)[)]", ipairs2) 
+  s= s:gsub("`[{](.*)for%s+(%S+)%s*,%s*(%S+)%s+in(.*)[}]",  pairs2) 
+  s= s:gsub("`[(](.*)for%s+(%S+)%s+in(.*)[)]", ipairs1) 
+  s= s:gsub("`[{](.*)for%s+(%S+)%s+in(.*)[}]",  pairs1) 
+  return s end
+
+s=Comprehension("`(assa() and b(aa) for aa , bb in sds(aa))"); print(100,s)
+s=Comprehension("`{assa() and b(aa) for aa , bb in sds(aa)}"); print(200,s)
+s=Comprehension("`{assa() and b(aa)  for    aa   in sds })");  print(300,s)
+s=Comprehension("`{assa() and b(aa)  for    aa   in sds })");  print(400,s)
+
