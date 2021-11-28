@@ -1,5 +1,5 @@
 local the = require"the"
-local sort,cat,map,keys = the"tables sort cat map keys"
+local sort,cat,map,keys = the.get"tables sort cat map keys"
 local fmt,shout,out,red,green,yellow,blue
 
 fmt = string.format

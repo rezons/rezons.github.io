@@ -40,9 +40,13 @@ local function updateFromCommandLine(t0,   t)
         end end end end
   return t end
 
-local function someFunsFromFile(s,   t,u)
-  for x in s:gmatch("%w+") do 
-    if not t then t,u = require(x),{} else u[ 1+#u ] = t[x] end end
+local function someFunsFromFile(s,   u,file)
+  u={}
+  for word in s:gmatch("%w+") do 
+    if   not file 
+    then file = word
+    else assert(require(file)[word] ~= nil, word.." not in "..file) 
+         u[ 1+#u ] = require(file)[word] end end
   return table.unpack(u) end
   
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
@@ -52,10 +56,12 @@ local function rogues(b4)
     if not b4[k] then 
       print("?? rogue",k,type(v)) end end end
 
+local function what2do(thing,t)
+  if thing=="END"  then return rogues(b4)    end
+  if thing=="HELP" then return helpString(t) end
+   return someFunsFromFile(thing)  end 
+
 return function(t)
-  local function what2do(_,thing)
-    if thing=="END"  then return rogues(b4)    end
-    if thing=="HELP" then return helpString(t) end
-    return someFunsFromFile(thing)  
-  end --
-  return setmetatable(updateFromCommandLine(t.how), {__call=what2do}) end
+  t = updateFromCommandLine(t.how)
+  t.get = function(thing) return what2do(thing,t) end
+  return t end 

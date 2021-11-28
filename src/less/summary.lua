@@ -1,6 +1,8 @@
-local the           = require"the"
-local push         = the"funs push"
-local obj,has      = the"metas obj has"
+local the       = require"the"
+local map,push,sort,firsts = the.get"tables map push sort firsts"
+local shout,out = the.get"prints shout out"
+local e,rnd        = the.get"maths e round"
+local obj,has   = the.get"metas obj has"
 local Num,Sym,Skip = require"num", require"sym", require"skip"
 local goalp,klassp,nump,skipp
 
@@ -13,21 +15,23 @@ function skipp(v)  return v:find":" end
 -- New columns are always stored in `all` and
 -- independent/dependent columns (that we are not `skipp`ing)
 -- are stored  in `xs` or `ys` respectively.
-Cols= obj"Cols" ---------------------------------------------------------------
-function Cols.new(lst,       self,now,what)
-  self = has(Cols, {header=lst,all={},xs={},ys={},klass=nil}) 
+Summary= obj"Summary" ---------------------------------------------------------
+function Summary.new(lst,       self,now,what)
+  self = has(Summary, {header=lst,all={},xs={},ys={},klass=nil}) 
   for k,v in pairs(lst) do
     what = (skipp(v) and Skip) or (nump(v) and Num) or Sym 
-    now = what.new(k,v)
+    now = what(k,v)
     push(self.all, now)
     if not skipp(v) then 
       if klassp(v) then self.klass=now end
       push(goalp(v) and self.ys or self.xs, now) end end
   return self end
 
-function Cols:better(row1,row2)
-  local n,a,b,s1,s2,e
-  e=2.71828
+function Summary:add(t)
+  for k,x in pairs(t) do self.all[k]:add(x) end; return t end
+
+function Summary:better(row1,row2)
+  local n,a,b,s1,s2
   s1, s2, n = 0, 0, #self.ys
   for _,col in pairs(self.ys) do
     a  = col:norm(row1[col.at]) --normalize to avoid explosion in exponentiation
@@ -36,6 +40,16 @@ function Cols:better(row1,row2)
     s2 = s2 - e^(col.w * (b - a) / n) end
   return s1 / n < s2 / n end
 
-function Cols:add(t) for k,x in pairs(t) do self.all[k]:add(x) end; return t end
+function Summary:dist(row1, row2, cols)
+  local d,n,p = 0,0,the.p
+  for _,col in pairs(cols or self.xs) do
+    inc = col:dist(row1[col.at], row2[col.at]) 
+    n,d = n + 1, d + inc^p 
+    print(col.at, n, rnd(d,3), row1[col.at], row2[col.at], inc) end
+  return (d/n)^(1/p) end
 
-return Cols
+function Summary:neighbors(row1,rows,       dist)
+  function dist(_,row2) return {self:dist(row1,row2),row2} end
+  return sort(map(rows, dist), firsts) end
+
+return Summary

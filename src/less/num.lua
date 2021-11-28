@@ -1,7 +1,7 @@
 local the      = require"the"
-local obj,has  = the"metas obj has"
-local abs      = the"maths abs"
-local push,per = the"tables push pers"
+local obj,has  = the.get"metas obj has"
+local abs      = the.get"maths abs"
+local push,per = the.get"tables push per"
 
 local Num= obj"Num" 
 function Num.new(i,s) 

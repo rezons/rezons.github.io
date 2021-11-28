@@ -1,5 +1,5 @@
-local the  = require"the"
-local r    = the"maths r"
+local the = require"the"
+local r   = the.get"maths r"
 local push,sort,per,firsts,map,keys,shuffle,copy,sum
 local bchop,top,any,first,last,second,cat,pop,sort
 local ntimes

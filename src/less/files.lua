@@ -1,3 +1,6 @@
+local the      = require"the"
+local map,push = the.get"tables map push"
+
 local function csv(file,      split,stream,tmp)
   stream = file and io.input(file) or io.input()
   tmp    = io.read()
