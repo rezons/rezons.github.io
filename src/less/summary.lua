@@ -1,5 +1,5 @@
 local the       = require"the"
-local map,push,sort,firsts = the.get"tables map push sort firsts"
+local shuffle,top,map,push,sort,firsts = the.get"tables shuffle top map push sort firsts"
 local shout,out = the.get"prints shout out"
 local e,rnd        = the.get"maths e round"
 local obj,has   = the.get"metas obj has"
@@ -48,8 +48,9 @@ function Summary:dist(row1, row2, cols)
     print(col.at, n, rnd(d,3), row1[col.at], row2[col.at], inc) end
   return (d/n)^(1/p) end
 
-function Summary:neighbors(row1,rows,       dist)
+function Summary:neighbors(row1,rows,       some,dist)
+  some = top(the.some, shuffle(rows))
   function dist(_,row2) return {self:dist(row1,row2),row2} end
-  return sort(map(rows, dist), firsts) end
+  return sort(map(some, dist), firsts) end
 
 return Summary

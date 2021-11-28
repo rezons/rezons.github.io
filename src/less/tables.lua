@@ -53,7 +53,7 @@ function per(a,p,    here)
 
 -- Randomly sort in-place a list
 function shuffle(t,    j)
-  for i = #t,2,-1 do j=randi(1,i); t[i],t[j] = t[j],t[i] end
+  for i = #t,2,-1 do j=r(1,i); t[i],t[j] = t[j],t[i] end
   return t end
 
 -- Sum items in a list, optionally filtered via  `f`.
