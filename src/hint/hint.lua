@@ -145,6 +145,74 @@ function obj(s, o,new)
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
 -------------------------------------------------------------------------------
+-- doscretization tricks
+local splits={}
+function splits.best(sample,    best,tmp,xpect,out)
+  best = maths.huge
+  for _,x in pairs(sample.xs) do
+    tmp, xpect = splits.whatif(x.at,self)
+    if   xpect < best 
+    then out,best = tmp,xpect end end
+  return out end
+   
+function splits.whatif(col,sample,     out)
+  out = map(splits.spans(col,sample), function(_,bin) bin.col=col end)
+  return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.rows end
+
+function splits.spans(col,sample,      xs,xys, symbolic,x)
+  xys,xs,  symbolic ={},{}, sample.nums[col]
+  for rank,row in pairs(sample.rows) do
+    x = row[col]
+    if x ~= "?" then 
+      push(xs,x)
+      if   symbolic
+      then -- in symbolic columns, xys are the rows seen with each symbol
+           xys[x] = xys[x] or {}
+           push(xys[x], rank) 
+      else -- in numeric columns, xys are each number paired with itsrow id
+           push(xys,    {x=x,y=rank}) end end 
+  end
+  if   symbolic 
+  then return map(xys, function(x,t) return {lo=x, hi=x, has=sort(t)} end)
+  else return splits.merge(
+                 splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
+
+-- Generate a new range when     
+-- 1. there is enough left for at least one more range; and     
+-- 2. the lo,hi delta in current range is not boringly small; and    
+-- 3. there are enough x values in this range; and   
+-- 4. there is natural split here
+-- Fuse adjacent ranges when:
+-- 5. the combined class distribution of two adjacent ranges 
+--    is just as simple as the parts.
+function splits.div(xys, tiny, dull,           now,out,x,y)
+  xys = sort(xys, function(a,b) return a.x < b.x end)
+  now = {lo=xys[1].x, hi=xys[1].x, has={}}
+  out = {now}
+  for j,xy in pairs(xys) do
+    x, y = xy.x, xy.y
+    if   j<#xys-tiny and x~=xys[j+1].x and #now.has>tiny and now.hi-now.lo>dull 
+    then now = {o=x, hi=x, has={}}
+         push(out, now) end 
+    now.hi = x 
+    push(now.has, y) end
+  return map(out, function(_,one) table.sort(one.has) end) end 
+
+function splits.merge(b4,       j,tmp,a,n,hasnew) 
+  j, n, tmp = 0, #b4, {}
+  while j<n do
+    j = j + 1
+    a = b4[j]
+    if j < n-1 then
+      better = mergeable(a.has, b4[j+1].has)
+      if better then 
+        j = j + 1 
+        a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
+    push(tmp,a) end 
+  return #tmp==#b4 and b4 or merge(tmp) end
+
+
+-------------------------------------------------------------------------------
 -- Samples store rows. They know about 
 -- (a) lo,hi ranges on the numerics
 -- and (b) what  are independent `x` or dependent `y` columns.
@@ -191,7 +259,7 @@ function Sample:tree(min,      node,min,sub)
   min = min  or self.rows^the.small
   if #self.rows >= 2*min then 
     --- here
-    for _,span in pairs(bestSplit(sample)) do
+    for _,span in pairs(splits.best(sample)) do
       sub = self:clone()
       for _,at in pairs(span.has) do sub:add(self.rows[at]) end 
       push(node.kids, span) 
@@ -199,7 +267,6 @@ function Sample:tree(min,      node,min,sub)
   return node end
 
 -- at node
-
 function Sample:where(tree,row,    max,x,default)
   if #kid.has==0 then return tree end
   max = 0
@@ -211,75 +278,8 @@ function Sample:where(tree,row,    max,x,default)
         return self:where(kid.has.row) end end end
   return self:where(default, row) end
 
--- 
 -- ordered object
 -- per sd add sort here. mergabe
-
--------------------------------------------------------------------------------
--- doscretization tricks
-local bestSolitter, whatif, spans, div, merge
-function bestSplit(sample,    best,tmp,xpect,out)
-  best = maths.huge
-  for _,x in pairs(sample.xs) do
-    tmp, xpect = whatif(x.at,self)
-    if   xpect < best 
-    then out,best = tmp,xpect end end
-  return out end
-   
-function whatif(col,sample,     out)
-  out = map(spans(col,sample), function(_,bin) bin.col=col end)
-  return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.rows end
-
-function spans(col,sample,      xs,xys, symbolic,x)
-  xys,xs,  symbolic ={},{}, sample.nums[col]
-  for rank,row in pairs(sample.rows) do
-    x = row[col]
-    if x ~= "?" then 
-      push(xs,x)
-      if   symbolic
-      then -- in symbolic columns, xys are the rows seen with each symbol
-           xys[x] = xys[x] or {}
-           push(xys[x], rank) 
-      else -- in numeric columns, xys are each number paired with itsrow id
-           push(xys,    {x=x,y=rank}) end end 
-  end
-  if   symbolic 
-  then return map(xys, function(x,t) return {lo=x, hi=x, has=sort(t)} end)
-  else return merge(div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
-
--- Generate a new range when     
--- 1. there is enough left for at least one more range; and     
--- 2. the lo,hi delta in current range is not boringly small; and    
--- 3. there are enough x values in this range; and   
--- 4. there is natural split here
--- Fuse adjacent ranges when:
--- 5. the combined class distribution of two adjacent ranges 
---    is just as simple as the parts.
-function div(xys, tiny, dull,           now,out,x,y)
-  xys = sort(xys, function(a,b) return a.x < b.x end)
-  now = {lo=xys[1].x, hi=xys[1].x, has={}}
-  out = {now}
-  for j,xy in pairs(xys) do
-    x, y = xy.x, xy.y
-    if   j<#xys-tiny and x~=xys[j+1].x and #now.has>tiny and now.hi-now.lo>dull 
-    then now = {o=x, hi=x, has={}}
-         push(out, now) end 
-    now.hi = x 
-    push(now.has, y) end
-  return map(out, function(_,one) table.sort(one.has) end) end 
-
-function merge(b4,       j,tmp,a,n,hasnew) 
-  j, n, tmp = 0, #b4, {}
-  while j<n do
-    j = j + 1
-    a = b4[j]
-    if j < n-1 then
-      better = mergeable(a.has, b4[j+1].has)
-      if better then 
-        j = j + 1 
-        a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
-    push(tmp,a) end 
-  return #tmp==#b4 and b4 or merge(tmp) end
 
 -------------------------------------------------------------------------------
 -- geometry tricks
@@ -316,34 +316,34 @@ function better(row1,row2,sample,     e,n,a,b,s1,s2)
 
 -------------------------------------------------------------------------------
 -- sample sample sorting
-local hint,score,hints1,hints
-function score(row) return row end
+local hints={}
+function hints.default(row) return row end
 
-function hints(     sample,train,test,tree)
+function hints.sort(score,     sample,train,test,tree)
   sample = Sample.new(the.file)
   train,test = {}, {}
   for i,rows in pairs(shuffle(sample.rows)) do
-     push(i<= the.train*#rows and trains or test, row) end
-  train = hints(score, sample, train, {}, (#train)^the.small)
+     push(i<= the.train*#rows and train or test, row) end
+  train = hints.recurse(sample, train,
+                        score or hints.default, {}, (#train)^the.small)
   tree  = sample:clone(train):tree() 
   test  = betters(test, sample)
 end
 
-function hints1(scorefun, sample, rows, out, stop)
-  local scoreds = {}   
-  function act(_,row) return hint(scoreds,row,sample) end
+function hints.recurse(sample, rows, scorefun, out, small)
   if #rows < small then 
     for i=1, #rows do push(out, pop(rows)) end 
-  else
-    for j=1,the.hints do push(scoreds, scorefun(pop(rows))) end
-    scoreds = betters(scoreds, sample)
-    rows    = map(sort(map(rows, act),firsts),second)
-    for i=1,#rows//2 do push(out, pop(rows)) end
-    hints1(scorefun, sample, rows, out, stop) 
+    return out 
   end
-  return out end
+  local scoreds = {}   
+  function worker(_,row) return hint.locate(scoreds,row,sample) end
+  for j=1,the.hints do push(scoreds, scorefun(pop(rows))) end
+  scoreds = betters(scoreds, sample)
+  rows    = map(sort(map(rows, worker),firsts),second)
+  for i=1,#rows//2 do push(out, pop(rows)) end
+  return hints.recurse(sample, rows, scorefun, out, small)  end
 
-function hint(scoreds,row,sample,        closest,rank,tmp)
+function hint.locate(scoreds,row,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
     tmp = self:dist(row,scored,sample)
