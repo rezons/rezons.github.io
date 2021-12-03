@@ -1,11 +1,12 @@
---   __  __                          __                  
---  /\ \/\ \      __                /\ \__               
---  \ \ \_\ \    /\_\        ___    \ \ ,_\        ____  
---   \ \  _  \   \/\ \     /' _ `\   \ \ \/       /',__\ 
---    \ \ \ \ \   \ \ \    /\ \/\ \   \ \ \_     /\__, `\
---     \ \_\ \_\   \ \_\   \ \_\ \_\   \ \__\    \/\____/
---      \/_/\/_/    \/_/    \/_/\/_/    \/__/     \/___/ 
-
+--[[
+ __  __      ______      __  __      ______   
+/\ \/\ \    /\__  _\    /\ \/\ \    /\__  _\  
+\ \ \_\ \   \/_/\ \/    \ \ `\\ \   \/_/\ \/  
+ \ \  _  \     \ \ \     \ \ , ` \     \ \ \  
+  \ \ \ \ \     \_\ \__   \ \ \`\ \     \ \ \ 
+   \ \_\ \_\    /\_____\   \ \_\ \_\     \ \_\
+    \/_/\/_/    \/_____/    \/_/\/_/      \/_/ --]]
+                                              
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 local fmt, help, cli, the = string.format
 
@@ -67,12 +68,16 @@ function sum(t,f)
 
 -------------------------------------------------------------------------------
 -- table tricks
-local cat,map,pop,push,sort,firsts,shuffle
+local cat,map,copy,pop,push,sort,firsts,first,second,shuffle,bchop
 cat     = table.concat
 sort    = function(t,f) table.sort(t,f); return t end
 push    = table.insert
 push    = table.remove
-firsts  = function(a,b) return a[1] < b[1] end
+first   = function(t) return t[1] end
+second  = function(t) return t[2] end
+firsts  = function(a,b) return first(a) < first(b) end
+
+function copy(t) return map(t, function(_,x) return x end) end
 
 function shuffle(t,   j)
   for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
@@ -145,7 +150,10 @@ local Sample=obj"Sample"
 function Sample.new()
   return has(Sample,{names=nil, nums={}, ys={}, xs={}, rows={}})  end
 
-function Sample:clone() return Sample.new():add(self.names) end
+function Sample:clone(      inits,out) 
+  out = Sample.new():add(self.names) 
+  for _,row in pairs(inits or {}) do out:add(row) end
+  return out end
 
 function Sample:add(row,     name,datum)
   function name(col,new,    tmp) 
@@ -175,7 +183,7 @@ function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub)
   if #self.rows >= 2*min then 
     xpect1 = math.huge 
     for _,x in pairs(sample.xs) do
-      xpect0, bins0 = bins(x.at,self)
+      bins0, xpect0 = bins(x.at,self)
       if   xpect0 < xpect1 
       then xpect1, bins1 = xpect0, bins0 end end
     for _,bin in pairs(bins1) do
@@ -187,25 +195,27 @@ function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub)
  
 -------------------------------------------------------------------------------
 -- doscretization tricks
-local bins,merge,discretize
-function bins(col,sample,      xys, x,y,tmp,out,n,xpect)
-  xys,all, seen, symbolic ={},{}, {}, sample.nums[col]
+local bins,bins1,merge,discretize
+function bins(col,sample,     out)
+  out = bins1(col,sample)
+  return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.rows end
+
+function bins1(col,sample,      xs,xys, x,y,tmp,out,n,xpect)
+  xys,xs, seen, symbolic ={},{}, {}, sample.nums[col]
   for rank,row in pairs(sample.rows) do
     x,y = row[col], rank
     if x ~= "?" then 
       if   symbolic
       then seen[x] = seen[x] or {}
            push(seen[x], y) 
-      else push(all,x)
+      else push(xs,x)
            push(xys,{x=x,y=y}) end end 
   end
   if   symbolic 
-  then out = map(seen, function(x,t) return {col=col, lo=x, hi=x, has=sort(t)} end)
-  else xys = sort(xys, function(a,b) return a.x < b.x end)
-       out = discretize(col,xys, #all^the.small,  sd(sort(all)) * the.trivial) 
-  end
-  xpect = sum(out, function(one) return #one.has/#all*sd(one.has) end)
-  return xpect, out end
+  then return map(seen, function(x,t) return {col=col, lo=x, hi=x, has=sort(t)} end)
+  else return discretize(col,sort(xys, function(a,b) return a.x < b.x end)
+                             #xs^the.small,  sd(sort(xs)) * the.trivial)  end end
+
 
 -- Generate a new range when     
 -- 1. there is enough left for at least one more range; and     
@@ -274,37 +284,41 @@ function better(row1,row2,sample,     e,n,a,b,s1,s2)
   return s1/n < s2/n end 
 
 local want
-function want(scoreds,row,sample,        closest,rank,tmp)
+function hint(scoreds,row,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
     tmp = self:dist(row,scored,sample)
     if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank0+tmp, row}
+  return {rank+closest/10^6, row}
 end 
 
-function hints(sample)
-  local all, bests = {}
-  local train, test, stop = {}, {}, (#sample.rows)^the.small
-  for i,row in pairs(shuffle(sample.rows)) do 
-    push(i < the.train*#sample.rows and train or test, row) end
-  while #train > stop do
-    local scoreds = {}   
-    for j=1,the.hints do push(scoreds, pop(train)) end
-    scoreds = betters(scoreds, sample)
-    train = sort(map(train, function(_,row) return want(scoreds,row,sample) end),
-                 firsts)
-    bests = {}
-    for rank,t in pairs(train) do 
-      push(rank <= .5*#train and bests or all, {rank, t[2]}) end 
-    train = map(bests, function(_,t) return t[2] end)
-  end
-  for _,best in pairs(bests) do push(all,best) end
-  return map(sort(all, firsts), function(_,x) return x[2] end), betters(test,sample)
-end
+--classify the test set
 
-local sample = Sample.new()
-for _,row in pairs(lines(the.file)) do sample:add(row) end
-sample.rows = hints(sample)
+function score(row) return row end
+
+function hints1(scorefun, sample, rows, out, stop)
+  local scoreds = {}   
+  function act(_,row) return hint(scoreds,row,sample) end
+  if #rows < small then 
+    for i=1, #rows do push(out, pop(rows)) end 
+  else
+    for j=1,the.hints do push(scoreds, scorefun(pop(rows))) end
+    scoreds = betters(scoreds, sample)
+    rows    = map(sort(map(rows, act),firsts),second)
+    for i=1,#rows//2 do push(out, pop(rows)) end
+    hints1(scorefun, sample, rows, out, stop) 
+  end
+  return out end
+
+function hints()
+  local sample = Sample.new()
+  for _,row in pairs(lines(the.file)) do sample:add(row) end
+  train,test = {}. {}
+  for i,rows in pairs(shuffle(sample.rows)) do
+     push(i<= the.train*#rows and trains or test, row) end
+  test  = betters(test, sample)
+  train = hints(score, sample, train, {}, (#train)^the.small))
+  tree  = sample:clone(train):tree() end
 
 --
 -- for _,row in sort(s.rows, function(a,b) return s:better(a,b) end)  do
