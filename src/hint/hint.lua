@@ -19,20 +19,23 @@ how = {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
        {"trivial",  "-T",  .35    ,"small delta = trivial*sd"   }}}
 
 local fmt = string.format
+
+local function help(opt)
+  print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
+    for _,t in pairs(opt.how) do print(fmt("%6s %-11s: %s %s",
+      t[2],
+      t[3] and t[1] or"",
+      t[4],
+      t[3] and fmt("(%s=%s)",t[1],t[3]) or"")) end end 
+
 local function cli(opt,   u) 
   u={}
   for _,t in pairs(opt.how) do
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
       u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
-  if u.help then 
-    print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
-    for _,t in pairs(opt.how) do print(fmt("%6s %-11s: %s %s",
-      t[2],
-      t[3] and t[1] or"",
-      t[4],
-      t[3] and fmt("(%s=%s)",t[1],t[3]) or"")) end end 
-  math.randomseed(u.seed)
+  if u.help then help(opt) end
+  math.randomseed(u.seed or 100019)
   return u end
 
 local the = cli(options)
@@ -46,6 +49,7 @@ function norm(x,lo,hi)
   if x=="?" then return x end
   return abs(hi - o) < 1E32 and 0 or (x - lo)/(hi - lo) end
 
+-- Nums class for sorted numbers
 function per(t,p,    here)
   function here(x) x=x*#t//1; return x < 1 and 1 or x>#t and #t or x end
   return #t <2 and  t[1] or t[ here(p or .5) ] end
@@ -182,26 +186,21 @@ function Sample:add(row,     name,datum)
 -- bins his
 -- bins sorts
  
-function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub,x)
+function Sample:tree(min,      node,min,sub)
   node = {node=self, kids={}}
   min = min  or self.rows^the.small
   if #self.rows >= 2*min then 
-    xpect1 = math.huge 
-    for _,x in pairs(sample.xs) do
-      bins0, xpect0 = bins(x.at,self)
-      if   xpect0 < xpect1 
-      then x,xpect1, bins1 = x.at, xpect0, bins0 end end
-   -- {col=col, lo=x, hi=x, has=sort(t)} end   
-   for _,bin in pairs(bins1) do
+    --- here
+    for _,span in pairs(bestSplit(sample)) do
       sub = self:clone()
-      for _,at in pairs(bin.has) do sub:add(self.rows[at]) end 
-      push(node.kids, bin) 
-      bin.has = sub:tree(min) end end 
+      for _,at in pairs(span.has) do sub:add(self.rows[at]) end 
+      push(node.kids, span) 
+      span.has = sub:tree(min) end end 
   return node end
 
 -- at node
 
-function Sample:where(tree,row,    max,default)
+function Sample:where(tree,row,    max,x,default)
   if #kid.has==0 then return tree end
   max = 0
   for _,kid in pairs(tree.node) do
@@ -212,28 +211,41 @@ function Sample:where(tree,row,    max,default)
         return self:where(kid.has.row) end end end
   return self:where(default, row) end
 
+-- 
+-- ordered object
+-- per sd add sort here. mergabe
+
 -------------------------------------------------------------------------------
 -- doscretization tricks
-local bins,bins1,merge,discretize
-function bins(col,sample,     out)
-  out = bins1(col,sample)
+local bestSolitter, whatif, spans, div, merge
+function bestSplit(sample,    best,tmp,xpect,out)
+  best = maths.huge
+  for _,x in pairs(sample.xs) do
+    tmp, xpect = whatif(x.at,self)
+    if   xpect < best 
+    then out,best = tmp,xpect end end
+  return out end
+   
+function whatif(col,sample,     out)
+  out = map(spans(col,sample), function(_,bin) bin.col=col end)
   return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.rows end
 
-function bins1(col,sample,      xs,xys, x,y,tmp,out,n,xpect)
-  xys,xs, seen, symbolic ={},{}, {}, sample.nums[col]
+function spans(col,sample,      xs,xys, symbolic,x)
+  xys,xs,  symbolic ={},{}, sample.nums[col]
   for rank,row in pairs(sample.rows) do
-    x,y = row[col], rank
+    x = row[col]
     if x ~= "?" then 
+      push(xs,x)
       if   symbolic
-      then seen[x] = seen[x] or {}
-           push(seen[x], y) 
-      else push(xs,x)
-           push(xys,{x=x,y=y}) end end 
+      then -- in symbolic columns, xys are the rows seen with each symbol
+           xys[x] = xys[x] or {}
+           push(xys[x], rank) 
+      else -- in numeric columns, xys are each number paired with itsrow id
+           push(xys,    {x=x,y=rank}) end end 
   end
   if   symbolic 
-  then return map(seen, function(x,t) return {col=col, lo=x, hi=x, has=sort(t)} end)
-  else return discretize(col,sort(xys, function(a,b) return a.x < b.x end),
-                             #xs^the.small,  sd(sort(xs)) * the.trivial)  end end
+  then return map(xys, function(x,t) return {lo=x, hi=x, has=sort(t)} end)
+  else return merge(div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
 
 -- Generate a new range when     
 -- 1. there is enough left for at least one more range; and     
@@ -243,19 +255,20 @@ function bins1(col,sample,      xs,xys, x,y,tmp,out,n,xpect)
 -- Fuse adjacent ranges when:
 -- 5. the combined class distribution of two adjacent ranges 
 --    is just as simple as the parts.
-function discretize(col, xys, tiny, dull,           now,out,x,y)
-  now = {col=col, lo=xys[1].x, hi=xys[1].x, has={}}
+function div(xys, tiny, dull,           now,out,x,y)
+  xys = sort(xys, function(a,b) return a.x < b.x end)
+  now = {lo=xys[1].x, hi=xys[1].x, has={}}
   out = {now}
   for j,xy in pairs(xys) do
     x, y = xy.x, xy.y
     if   j<#xys-tiny and x~=xys[j+1].x and #now.has>tiny and now.hi-now.lo>dull 
-    then now = {col=col, lo=x, hi=x, has={}}
+    then now = {o=x, hi=x, has={}}
          push(out, now) end 
     now.hi = x 
     push(now.has, y) end
-  return merge(col, map(out, function(_,one) table.sort(one.has) end)) end 
+  return map(out, function(_,one) table.sort(one.has) end) end 
 
-function merge(col, b4,       j,tmp,a,n,hasnew) 
+function merge(b4,       j,tmp,a,n,hasnew) 
   j, n, tmp = 0, #b4, {}
   while j<n do
     j = j + 1
@@ -264,9 +277,9 @@ function merge(col, b4,       j,tmp,a,n,hasnew)
       better = mergeable(a.has, b4[j+1].has)
       if better then 
         j = j + 1 
-        a = {col=col, lo=a.lo, hi= b4[j+1].hi, has=better} end end
+        a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
     push(tmp,a) end 
-  return #tmp==#b4 and b4 or merge(col,tmp) end
+  return #tmp==#b4 and b4 or merge(tmp) end
 
 -------------------------------------------------------------------------------
 -- geometry tricks
