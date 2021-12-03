@@ -1,9 +1,10 @@
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; --[[
 
-  |     _)          |   
-  __ \   |   __ \   __| 
-  | | |  |   |   |  |   
- _| |_| _|  _|  _| \__|   --]] local options={
+   __  __     __     __   __     ______  
+  /\ \_\ \   /\ \   /\ "-.\ \   /\__  _\ 
+  \ \  __ \  \ \ \  \ \ \-.  \  \/_/\ \/ 
+   \ \_\ \_\  \ \_\  \ \_\\"\_\    \ \_\ 
+    \/_/\/_/   \/_/   \/_/ \/_/     \/_/   --]] local options = {
 
 what  = "Small sample multi-objective optimizer.",
 usage = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
@@ -15,7 +16,7 @@ how = {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
        {"small",    "-s",  .5     ,"div list t into t^small"    },
        {"seed",     "-S",  10019  ,"random number seed"         },
        {"train",    "-t",  .5     ,"train set size"             },
-       {"trivial",  "-T",  .35    ,"small delta = trivial*sd"}  }}
+       {"trivial",  "-T",  .35    ,"small delta = trivial*sd"   }}}
 
 local fmt = string.format
 local function cli(opt,   u) 
