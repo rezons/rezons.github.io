@@ -1,44 +1,42 @@
---[[
- __  __      ______      __  __      ______   
-/\ \/\ \    /\__  _\    /\ \/\ \    /\__  _\  
-\ \ \_\ \   \/_/\ \/    \ \ `\\ \   \/_/\ \/  
- \ \  _  \     \ \ \     \ \ , ` \     \ \ \  
-  \ \ \ \ \     \_\ \__   \ \ \`\ \     \ \ \ 
-   \ \_\ \_\    /\_____\   \ \_\ \_\     \ \_\
-    \/_/\/_/    \/_____/    \/_/\/_/      \/_/ --]]
-                                              
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
-local fmt, help, cli, the = string.format
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
 
-function help(opt)
-  print(fmt("lua %s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],opt.copyright,opt.what))
-  for _,t in pairs(opt.how) do print(fmt("%5s %-9s : %s%s",
-      t[2], (not t[3] and " " or t[1]),
-      t[4], (not t[3] and " " or fmt(" (%s=%s)",t[1],t[3])))) end end
+  |     _)          |   
+  __ \   |   __ \   __| 
+  | | |  |   |   |  |   
+ _| |_| _|  _|  _| \__|   --]] local options={
 
-function cli(opt,   u) 
-  u={}; for _,t in pairs(opt.how) do
+what  = "Small sample multi-objective optimizer.",
+usage = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
+
+how = {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
+       {"help",     "-h",  false  ,"show help"                  },
+       {"hints",    "-H",  4      ,"hints per generation"       },
+       {"p",        "-p",  2      ,"exponent on distance calc"  },
+       {"small",    "-s",  .5     ,"div list t into t^small"    },
+       {"seed",     "-S",  10019  ,"random number seed"         },
+       {"train",    "-t",  .5     ,"train set size"             },
+       {"trivial",  "-T",  .35    ,"small delta = trivial*sd"}  }}
+
+local fmt = string.format
+local function cli(opt,   u) 
+  u={}
+  for _,t in pairs(opt.how) do
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
-      u[t[1]] = not t[3] and true or tonumber(arg[n+1]) or arg[n+1] end end end
-  if u.help then help(opt) end
+      u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
+  if u.help then 
+    print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
+    for _,t in pairs(opt.how) do print(fmt("%6s %-11s: %s %s",
+      t[2],
+      t[3] and t[1] or"",
+      t[4],
+      t[3] and fmt("(%s=%s)",t[1],t[3]) or"")) end end 
   math.randomseed(u.seed)
   return u end
 
-the=cli{
-  what=      "Small sample multi-objective optimizer.",
-  copyright= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
-  how = {
-    {"file"   , "-f", "../../data/auto93.csv", "data file"},
-    {"help"   , "-h", false, "show help"},
-    {"hints"  , "-H", 4    , "hints per generation"},
-    {"p"      , "-p", 2    , "exponent on distance calc"},
-    {"small"  , "-s", .5   , "div list t into t^small"},
-    {"seed"   , "-S", 10019, "random number seed"},
-    {"train"  , "-t", .5   , "train set size"},
-    {"trivial", "-T", .35  , "small delta = trivial*sd"} }}
+local the = cli(options)
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- maths tricks
 local abs,norm,per,sd,xpect,mergeable,sum
 abs = math.abs
@@ -118,8 +116,7 @@ function out(t,    u,key,keys,value,public)
 -------------------------------------------------------------------------------
 -- file i/o tricks
 local lines
-function lines(file,fun,    line,t,out)
-  fun  = fun or function(x) return(x) end
+function lines(file,   line,t,out)
   file = io.input(file)
   line = io.read()
   out  = {}
@@ -127,7 +124,7 @@ function lines(file,fun,    line,t,out)
     t={}
     for cell in line:gsub("[\t\r ]*",""):gsub("#.*",""):gmatch("([^,]+)") do
       push(t, tonumber(cell) or cell) end 
-    if #t>0 then push(out, fun(t)) end 
+    if #t>0 then push(out, t) end 
     line = io.read()
   end 
   io.close(file)
@@ -147,8 +144,12 @@ function obj(s, o,new)
 -- (a) lo,hi ranges on the numerics
 -- and (b) what  are independent `x` or dependent `y` columns.
 local Sample=obj"Sample"
-function Sample.new()
-  return has(Sample,{names=nil, nums={}, ys={}, xs={}, rows={}})  end
+function Sample.new(     src,self)
+  self = has(Sample,{names=nil, nums={}, ys={}, xs={}, rows={}})  
+  if src then
+    src = type(src)=="string" and lines(src) or src
+    for _,x in pairs(src) do self:add(x) end end
+  return self end
 
 function Sample:clone(      inits,out) 
   out = Sample.new():add(self.names) 
@@ -176,8 +177,11 @@ function Sample:add(row,     name,datum)
   else push(self.rows, row)
        map(row, function(col,x) datum(col,x) end) end 
   return self end
+
+-- bins his
+-- bins sorts
  
-function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub)
+function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub,x)
   node = {node=self, kids={}}
   min = min  or self.rows^the.small
   if #self.rows >= 2*min then 
@@ -185,14 +189,28 @@ function Sample:tree(min,      node,xpect1,bins1,xpect0,bins0,sub)
     for _,x in pairs(sample.xs) do
       bins0, xpect0 = bins(x.at,self)
       if   xpect0 < xpect1 
-      then xpect1, bins1 = xpect0, bins0 end end
-    for _,bin in pairs(bins1) do
+      then x,xpect1, bins1 = x.at, xpect0, bins0 end end
+   -- {col=col, lo=x, hi=x, has=sort(t)} end   
+   for _,bin in pairs(bins1) do
       sub = self:clone()
       for _,at in pairs(bin.has) do sub:add(self.rows[at]) end 
       push(node.kids, bin) 
       bin.has = sub:tree(min) end end 
   return node end
- 
+
+-- at node
+
+function Sample:where(tree,row,    max,default)
+  if #kid.has==0 then return tree end
+  max = 0
+  for _,kid in pairs(tree.node) do
+    if #kid.has > max then default,max = kid,#kid.has end
+    x = row[kid.col]
+    if x ~= "?" then
+      if x <= kid.hi and x >= kid.lo then 
+        return self:where(kid.has.row) end end end
+  return self:where(default, row) end
+
 -------------------------------------------------------------------------------
 -- doscretization tricks
 local bins,bins1,merge,discretize
@@ -213,9 +231,8 @@ function bins1(col,sample,      xs,xys, x,y,tmp,out,n,xpect)
   end
   if   symbolic 
   then return map(seen, function(x,t) return {col=col, lo=x, hi=x, has=sort(t)} end)
-  else return discretize(col,sort(xys, function(a,b) return a.x < b.x end)
+  else return discretize(col,sort(xys, function(a,b) return a.x < b.x end),
                              #xs^the.small,  sd(sort(xs)) * the.trivial)  end end
-
 
 -- Generate a new range when     
 -- 1. there is enough left for at least one more range; and     
@@ -283,18 +300,20 @@ function better(row1,row2,sample,     e,n,a,b,s1,s2)
     s2 = s2 - e^(num.w * (b-a)/n) end
   return s1/n < s2/n end 
 
-local want
-function hint(scoreds,row,sample,        closest,rank,tmp)
-  closest, rank, tmp = 1E32, 1E32, nil
-  for rank0, scored in pairs(scoreds) do
-    tmp = self:dist(row,scored,sample)
-    if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank+closest/10^6, row}
-end 
-
---classify the test set
-
+-------------------------------------------------------------------------------
+-- sample sample sorting
+local hint,score,hints1,hints
 function score(row) return row end
+
+function hints(     sample,train,test,tree)
+  sample = Sample.new(the.file)
+  train,test = {}, {}
+  for i,rows in pairs(shuffle(sample.rows)) do
+     push(i<= the.train*#rows and trains or test, row) end
+  train = hints(score, sample, train, {}, (#train)^the.small)
+  tree  = sample:clone(train):tree() 
+  test  = betters(test, sample)
+end
 
 function hints1(scorefun, sample, rows, out, stop)
   local scoreds = {}   
@@ -310,18 +329,15 @@ function hints1(scorefun, sample, rows, out, stop)
   end
   return out end
 
-function hints()
-  local sample = Sample.new()
-  for _,row in pairs(lines(the.file)) do sample:add(row) end
-  train,test = {}. {}
-  for i,rows in pairs(shuffle(sample.rows)) do
-     push(i<= the.train*#rows and trains or test, row) end
-  test  = betters(test, sample)
-  train = hints(score, sample, train, {}, (#train)^the.small))
-  tree  = sample:clone(train):tree() end
+function hint(scoreds,row,sample,        closest,rank,tmp)
+  closest, rank, tmp = 1E32, 1E32, nil
+  for rank0, scored in pairs(scoreds) do
+    tmp = self:dist(row,scored,sample)
+    if tmp < closest then closest,rank = tmp,rank0 end end
+  return {rank+closest/10^6, row}
+end 
 
---
--- for _,row in sort(s.rows, function(a,b) return s:better(a,b) end)  do
---    shout(row) end
 
+-------------------------------------------------------------------------------
+-- trick for checking for rogues.
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
