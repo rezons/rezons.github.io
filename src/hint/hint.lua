@@ -51,7 +51,7 @@ local function cli(opt,   u)
   math.randomseed(u.seed or 100019)
   return u end
 
-local the = cli(options)
+local the = cli(options) -- e.g. the = {seed=10019, help=false, p=2...}
 
 ------------------------------------------------------------------------------
 -- maths tricks
@@ -68,7 +68,7 @@ function sum(t,f)
 
 -------------------------------------------------------------------------------
 -- table tricks
-local cat,map,copy,pop,push,sort,firsts,first,second,shuffle,bchop
+local cat,map,keys,copy,pop,push,sort,firsts,first,second,shuffle,bchop
 cat     = table.concat
 sort    = function(t,f) table.sort(t,f); return t end
 push    = table.insert
@@ -87,6 +87,11 @@ function map(t,f,     u)
       if y then u[x]=y else u[1+#u]=x end end end 
   return u end
 
+function keys(t,u)
+  u={}; for k,_ in pairs(t) do if public(k) then push(u,k) end end
+  return sort(u) 
+end
+
 -------------------------------------------------------------------------------
 -- printing tricks
 local out,shout,red,green,yellow,blue
@@ -97,16 +102,14 @@ function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 shout= function(x) print(out(x)) end
 
-function out(t,    u,key,keys,value,public)
-  function key(_,k)   return fmt(":%s %s",blue(k),out(t[k])) end
+function out(t,seen,    u,key,keys,value,public)
+  function key(_,k)   return fmt(":%s %s",blue(k),out(t[k],seen)) end
   function value(_,v) return out(v,seen) end
   function public(k)  return tostring(k):sub(1,1)~="_" end
-  function keys(t,u)
-    u={}; for k,_ in pairs(t) do if public(k) then push(u,k) end end
-    return sort(u) 
-  end
   if type(t) == "function" then return "FUN" end
   if type(t) ~= "table"    then return tostring(t) end
+  seen = seen or {}
+  if seen[t] then return "..." else seen[t] = t end
   u = #t>0 and map(t, value) or map(keys(t), key) 
   return red((t._is or"").."{")..cat(u," ")..red("}") end 
 
@@ -133,6 +136,7 @@ function obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
+--
 
 local Nums=obj"Nums"
 function Nums.new(inits,     self) 
@@ -155,14 +159,15 @@ function Nums:per(p,    here,t)
 
 function Nums:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
-function Nums:xpect(other,    n1,n2) 
-  n1, n2 = #self.has, #other.has
-  return (n1*self:sd() + n2*other:sd()) / (n1+n2) end
-
-function Nums:mergeable(other,    new)  
+function Nums:merge(other,    new)
   new = Nums.new(self.has)
   for _,x in pairs(other.has) do new:add(x) end
-  if self:xpect(other) >= new:sd() then return new end end
+  return new end
+
+function Nums:mergeable(other,    new,b4)
+  new = self:merge(other)
+  b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
+  if b4 >= new:sd() then return new end end
 
 -------------------------------------------------------------------------------
 -- doscretization tricks
