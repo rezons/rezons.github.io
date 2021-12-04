@@ -1,16 +1,25 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
-   __                              __      
-  /\ \          __                /\ \__   
-  \ \ \___     /\_\        ___    \ \ ,_\  
-   \ \  _ `\   \/\ \     /' _ `\   \ \ \/  
-    \ \ \ \ \   \ \ \    /\ \/\ \   \ \ \_ 
-     \ \_\ \_\   \ \_\   \ \_\ \_\   \ \__\
-      \/_/\/_/    \/_/    \/_/\/_/    \/__/   --]] local options={
+           _  _  _    _    _           _  _  _                        
+  __ _    | |(_)| |_ | |_ | |  ___    | |(_)| |_  ___                 
+ / _` |   | || || __|| __|| | / _ \   | || || __|/ _ \                
+| (_| |   | || || |_ | |_ | ||  __/   | || || |_|  __/                
+ \__,_|   |_||_| \__| \__||_| \___|   |_||_| \__|\___|                
+   __           _        _                            _               
+  / /  /\ /\   /_\      | |  ___   __ _  _ __  _ __  (_) _ __    __ _ 
+ / /  / / \ \ //_\\     | | / _ \ / _` || '__|| '_ \ | || '_ \  / _` |
+/ /___\ \_/ //  _  \    | ||  __/| (_| || |   | | | || || | | || (_| |
+\____/ \___/ \_/ \_/    |_| \___| \__,_||_|   |_| |_||_||_| |_| \__, |
+ _  _  _                                                        |___/ 
+| |(_)| |__   _ __  __ _  _ __  _   _                                 
+| || || '_ \ | '__|/ _` || '__|| | | |                                
+| || || |_) || |  | (_| || |   | |_| |                                
+|_||_||_.__/ |_|   \__,_||_|    \__, |                                
+                                |___/     -]] local options={ 
 
 what = "Small sample multi-objective optimizer.",
 usage= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 about= [[
-Sort N examples on multi-goals using a handful of "hints"; i.e.
+Sort N examples on multi-goals using a handful of 'hints'; i.e.
 
 - Evaluate and rank, a few examples (on their y-values);
 - Sort other examples by x-distance to the ranked ones;
@@ -34,14 +43,15 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
       {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
       {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
-local fmt = string.format
-local function help(opt)
+local fmt,help,cli,the
+fmt = string.format
+function help(opt)
   print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
     for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
       t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
   print("\n"..opt.about); os.exit() end 
 
-local function cli(opt,   u) 
+function cli(opt,   u) 
   u={}
   for _,t in pairs(opt.how) do
     u[t[1]] = t[3]
@@ -51,24 +61,11 @@ local function cli(opt,   u)
   math.randomseed(u.seed or 100019)
   return u end
 
-local the = cli(options) -- e.g. the = {seed=10019, help=false, p=2...}
-
-------------------------------------------------------------------------------
--- maths tricks
-local abs,norm,sum
-abs = math.abs
-
-function norm(x,lo,hi)
-  if x=="?" then return x end
-  return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
-
-function sum(t,f)
-  f= f or function(x) return x end
-  out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
+the = cli(options) -- e.g. the = {seed=10019, help=false, p=2...}
 
 -------------------------------------------------------------------------------
 -- table tricks
-local cat,map,keys,copy,pop,push,sort,firsts,first,second,shuffle,bchop
+local cat,map,lap,keys, copy,pop,push,sort,firsts,first,second,shuffle,bchop
 cat     = table.concat
 sort    = function(t,f) table.sort(t,f); return t end
 push    = table.insert
@@ -80,17 +77,49 @@ firsts  = function(a,b) return first(a) < first(b) end
 function shuffle(t,   j)
   for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
-function map(t,f,     u) 
+function lap(t,f)  return map(t,f,1) end
+
+function map(t,f,one,     u) 
   u={}; for x,y in pairs(t) do 
-    x,y = f(x,y) 
+    if one then x,y=f(y) else x,y=f(x,y) end
     if x ~= nil then
       if y then u[x]=y else u[1+#u]=x end end end 
   return u end
 
 function keys(t,u)
-  u={}; for k,_ in pairs(t) do if public(k) then push(u,k) end end
+  u={}
+  for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
   return sort(u) 
 end
+
+-- binary chop (assumes sorted lists)
+function bchop(t,val,lt,lo,hi,     mid)
+  lt = lt or function(x,y) return x < y end
+  lo,hi = lo or 1, hi or #t
+  while lo <= hi do
+    mid =(lo+hi) // 2
+    if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
+  return math.min(lo,#t)  end
+
+
+------------------------------------------------------------------------------
+-- maths tricks
+local abs,norm,sum,rnd,rnds
+abs = math.abs
+
+function rnd(x,d,  n) 
+  n=10^(d or 0); return math.floor(x*n+0.5) / n end
+
+function rnds(t,d) 
+  return lap(t, function(x) return rnd(x,d) end ) end
+
+function norm(x,lo,hi)
+  if x=="?" then return x end
+  return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
+
+function sum(t,f)
+  f= f or function(x) return x end
+  out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
 -------------------------------------------------------------------------------
 -- printing tricks
@@ -102,15 +131,14 @@ function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
 shout= function(x) print(out(x)) end
 
-function out(t,seen,    u,key,keys,value,public)
-  function key(_,k)   return fmt(":%s %s",blue(k),out(t[k],seen)) end
-  function value(_,v) return out(v,seen) end
-  function public(k)  return tostring(k):sub(1,1)~="_" end
-  if type(t) == "function" then return "FUN" end
+function out(t,seen,    u,key,value,public)
+  function key(k)   return fmt(":%s %s",blue(k),out(t[k],seen)) end
+  function value(v) return out(v,seen) end
+  if type(t) == "function" then return "(...)" end
   if type(t) ~= "table"    then return tostring(t) end
   seen = seen or {}
   if seen[t] then return "..." else seen[t] = t end
-  u = #t>0 and map(t, value) or map(keys(t), key) 
+  u = #t>0 and lap(t, value) or lap(keys(t), key) 
   return red((t._is or"").."{")..cat(u," ")..red("}") end 
 
 -------------------------------------------------------------------------------
@@ -136,7 +164,6 @@ function obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
---
 
 local Nums=obj"Nums"
 function Nums.new(inits,     self) 
@@ -182,14 +209,14 @@ function splits.best(sample,    best,tmp,xpect,out)
    
 function splits.whatif(col,sample,     out)
   out   = splits.spans(col,sample)
-  xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.rows 
+  xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.egs 
   out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
   return out, xpect end
 
 function splits.spans(col,sample,      xs,xys, symbolic,x)
   xys,xs,  symbolic ={}, Nums(), sample.nums[col]
-  for rank,row in pairs(sample.rows) do
-    x = row[col]
+  for rank,eg in pairs(sample.egs) do
+    x = eg[col]
     if x ~= "?" then 
       xs:add(x)
       if   symbolic
@@ -202,7 +229,7 @@ function splits.spans(col,sample,      xs,xys, symbolic,x)
   if   symbolic 
   then return map(xys, function(x,t) return {lo=x, hi=x, has=Nums(t)} end)
   else return splits.merge(
-                 splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
+                splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
 
 -- Generate a new range when     
 -- 1. there is enough left for at least one more range; and     
@@ -237,7 +264,6 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
         a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
     push(tmp,a) end 
   return #tmp==#b4 and b4 or merge(tmp) end
-
 
 -------------------------------------------------------------------------------
 -- Samples store examples. Samples know about 
@@ -346,45 +372,46 @@ function better(eg1,eg2,sample,     e,n,a,b,s1,s2)
 local hints={}
 function hints.default(eg) return eg end
 
-function hints.sort(sample,score,    test,train)
+function hints.sort(sample,score,    test,train,evals)
   sample = Sample.new(the.file)
   train,test = {}, {}
   for i,eg in pairs(shuffle(sample.egs)) do
      push(i<= the.train*#sample.egs and train or test, eg) end
-  train = hints.recurse(sample, train,
+  evals,train = hints.recurse(sample, train,0,
                         score or hints.default, {}, (#train)^the.small)
-  return sample:clone(train), sample:clone(test) end
+  return evals,sample:clone(train), sample:clone(test) end
 
-function hints.recurse(sample, egs, scorefun, out, small)
+function hints.recurse(sample, egs, evals, scorefun, out, small, worker)
   if #egs < small then 
     for i=1, #egs do push(out, pop(egs)) end 
-    return out 
+    return evals,out 
   end
   local scoreds = {}   
-  function worker(_,eg) return hints.locate(scoreds,eg,sample) end
-  for j=1,the.hints do push(scoreds, scorefun(pop(egs))) end
+  function worker(eg) return hints.locate(scoreds,eg,sample) end
+  for j=1,the.hints do evals=evals+1; 
+                       push(scoreds, scorefun(pop(egs))) end
   scoreds = betters(scoreds, sample)
-  shout(scoreds)
-  egs     = map(sort(map(egs, worker),firsts),second)
+  egs     = lap(sort(lap(egs, worker),firsts),second)
   for i=1,#egs//2 do push(out, pop(egs)) end
-  return hints.recurse(sample, egs, scorefun, out, small)  end
+  return hints.recurse(sample, egs,evals, scorefun, out, small)  
+end
 
 function hints.locate(scoreds,eg,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
-    tmp = dist(row, scored, sample)
+    tmp = dist(eg, scored, sample)
     if tmp < closest then closest,rank = tmp,rank0 end end
   return {rank+closest/10^6, eg} end 
 
 -------------------------------------------------------------------------------
-local eg,fail,go={},0
-function go(k,f,    ok,msg)
+local eg,fail,example={},0
+function example(k,      f,ok,msg)
+  f= eg[k]; assert(f,"unknown action "..k)
   the=cli(options)
   if the.wild then return f() end
   ok,msg = pcall(f)
-  if ok 
-  then print(green("PASS"),k) 
-  else print(red("FAIL"),k,msg); fail=fail+1 end end
+  if ok then print(green("PASS"),k) 
+  else       print(red("FAIL"),  k,msg); fail=fail+1 end end
 
 function eg.norm() 
   assert(norm(5,0,10)==.5,"small") end
@@ -423,13 +450,32 @@ function eg.sample(    s,tmp,d1,d2)
   assert(d1*10<d2)
 end
 
-function eg.hints(    s)
+function eg.hints(    s,_,__,evals)
   s=Sample(the.file) 
-  hints.sort(sample)assert(s.ys[4].lo==1613) end
+  sort1= betters(s.egs,s)
+  for _,eg in pairs(sort1) do shout(lap(s.ys, function(col) return eg[col.col] end )) end
+  -- assert(s.ys[4].lo==1613) 
+  -- evals, train,__ = hints.sort(s) 
+  -- print("=",evals) 
+  -- for m,eg in pairs(sort1) do
+  --   n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
+  --   print(m,n) end
+  end
 
-if the.todo=="all" then map(eg,go) else go(the.todo,eg[the.todo]) end
+if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
 
 -------------------------------------------------------------------------------
 -- trick for checking for rogues.
-for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
+for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
 os.exit(fail)
+
+
+
+--[[
+needs stats on samples
+
+teaching:
+- sample is v.useful
+
+
+--]]
