@@ -1,5 +1,4 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; --[[
-
    __  __     __     __   __     ______  
   /\ \_\ \   /\ \   /\ "-.\ \   /\__  _\ 
   \ \  __ \  \ \ \  \ \ \-.  \  \/_/\ \/ 
@@ -9,24 +8,21 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; --[[
 what = "Small sample multi-objective optimizer.",
 usage = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 about = [[
-N examples are sorted on multi-goals using just a handful pf
-examples.
+N examples are sorted on multi-goals using just a handful of
+"hints"; i.e.
 
-A recursive descent CART-style regression tree is applied to
+(a) evaluate, then rank,  a few randomly selected
+    examples (on their y-values);
+(b) sort the remaining examples by their x-value
+    distance  to the ranked ones;
+(c) recursing on the better half (so we sample more and more
+    from the better half, then quarter, then eighth...).
+
+A recursive descent CART-style regression tree is then applied to
 the sorted examples (ranked left to right, worst to best).
 By finding branches that reduce the variance of the index
 of those examples, the regression tree reports what
 attribute ranges select for the better (or worse) examples.
-That sort is built via "hinting"; i.e.
-
-(a) evaluating, then ranking,  a few randomly selected
-examples (on their y-values);
-
-(b)  sorting the remaining examples by their x-value
-distance  to the ranked ones;
-
-(c) recursing on the better half (so we sample more and more
-from the better half, then quarter, then eighth...).
 ]],
 how = {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
        {"help",     "-h",  false  ,"show help"                  },
@@ -369,7 +365,6 @@ function hint.locate(scoreds,eg,sample,        closest,rank,tmp)
     if tmp < closest then closest,rank = tmp,rank0 end end
   return {rank+closest/10^6, eg}
 end 
-
 
 -------------------------------------------------------------------------------
 -- trick for checking for rogues.
