@@ -49,22 +49,6 @@ function norm(x,lo,hi)
   if x=="?" then return x end
   return abs(hi - o) < 1E32 and 0 or (x - lo)/(hi - lo) end
 
--- Nums class for sorted numbers
-function per(t,p,    here)
-  function here(x) x=x*#t//1; return x < 1 and 1 or x>#t and #t or x end
-  return #t <2 and  t[1] or t[ here(p or .5) ] end
-
-function sd(t) return (per(t,.9) - per(t,.1))/ 2.56 end
-
-function xpect(t1,t2) return (#t1*sd(t1) + #t2*sd(t2)) / (#t1 + #t2) end
-
-function mergeable(t1,t2,    t3)  
-  t3 = {}
-  for _,x in pairs(t1) do push(t3,x) end
-  for _,x in pairs(t2) do push(t3,x) end
-  t3 = sort(t3) 
-  if xpect(t1,t2) >= sd(t3) then return t3 end end
-
 function sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
@@ -79,8 +63,6 @@ push    = table.remove
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
 firsts  = function(a,b) return first(a) < first(b) end
-
-function copy(t) return map(t, function(_,x) return x end) end
 
 function shuffle(t,   j)
   for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
@@ -132,7 +114,7 @@ function lines(file,   line,t,out)
     if #t>0 then push(out, t) end 
     line = io.read()
   end 
-  io.close(file)
+  io.close(file) ------
   return  out end
 
 -------------------------------------------------------------------------------
@@ -143,6 +125,34 @@ function obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
+
+local Nums=obj"Nums"
+function Nums.new(inits,     self) 
+  self= has(Nums,{has={}, n=0, ready=true})
+  for _,one in pairs(inits or {}) do self:add(one) end
+  return self end
+
+function Nums:add(x) push(self.has,x); n=n+1; self.ready=false end
+function Nums:all(x) 
+  if not self.ready then table.sort(self.has) end
+  self.ready = true
+  return self end
+
+function Nums:per(p,    here)
+  function here(x) x=x*#t//1; return x < 1 and 1 or x>#t and #t or x end
+  t=self:all()
+  return #t <2 and  t[1] or t[ here(p or .5) ] end
+
+function Nums:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
+
+function Nums:xpect(other) 
+  n1, n2 = #self.has, #other.has
+  return (n1*self:sd() + n2*other:sd()) / (n1+n2) end
+
+function Nums:mergeable(other,    new)  
+  new = Nums.new(self.has)
+  for _,x in pairs(other.has) do new:add(x) end
+  if self:xpect(other) >= new:sd() then return new end end
 
 -------------------------------------------------------------------------------
 -- doscretization tricks
@@ -156,24 +166,26 @@ function splits.best(sample,    best,tmp,xpect,out)
   return out end
    
 function splits.whatif(col,sample,     out)
-  out = map(splits.spans(col,sample), function(_,bin) bin.col=col end)
-  return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.rows end
+  out   = splits.spans(col,sample)
+  xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.rows 
+  out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
+  return out, xpect end
 
 function splits.spans(col,sample,      xs,xys, symbolic,x)
-  xys,xs,  symbolic ={},{}, sample.nums[col]
+  xys,xs,  symbolic ={}, Nums(), sample.nums[col]
   for rank,row in pairs(sample.rows) do
     x = row[col]
     if x ~= "?" then 
-      push(xs,x)
+      xs:add(x)
       if   symbolic
       then -- in symbolic columns, xys are the rows seen with each symbol
            xys[x] = xys[x] or {}
            push(xys[x], rank) 
       else -- in numeric columns, xys are each number paired with itsrow id
-           push(xys,    {x=x,y=rank}) end end 
+           push(xys, {x=x,y=rank}) end end 
   end
   if   symbolic 
-  then return map(xys, function(x,t) return {lo=x, hi=x, has=sort(t)} end)
+  then return map(xys, function(x,t) return {lo=x, hi=x, has=Nums(t)} end)
   else return splits.merge(
                  splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
 
@@ -187,16 +199,16 @@ function splits.spans(col,sample,      xs,xys, symbolic,x)
 --    is just as simple as the parts.
 function splits.div(xys, tiny, dull,           now,out,x,y)
   xys = sort(xys, function(a,b) return a.x < b.x end)
-  now = {lo=xys[1].x, hi=xys[1].x, has={}}
+  now = {lo=xys[1].x, hi=xys[1].x, has=Nums()}
   out = {now}
   for j,xy in pairs(xys) do
     x, y = xy.x, xy.y
-    if   j<#xys-tiny and x~=xys[j+1].x and #now.has>tiny and now.hi-now.lo>dull 
-    then now = {o=x, hi=x, has={}}
+    if   j<#xys-tiny and x~=xys[j+1].x and now.has.n>tiny and now.hi-now.lo>dull 
+    then now = {lo=x, hi=x, has=Nums()}
          push(out, now) end 
     now.hi = x 
-    push(now.has, y) end
-  return map(out, function(_,one) table.sort(one.has) end) end 
+    now.has:add(y) end
+  return out end
 
 function splits.merge(b4,       j,tmp,a,n,hasnew) 
   j, n, tmp = 0, #b4, {}
@@ -204,7 +216,7 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
     j = j + 1
     a = b4[j]
     if j < n-1 then
-      better = mergeable(a.has, b4[j+1].has)
+      better = a.has:mergeable(b4[j+1].has)
       if better then 
         j = j + 1 
         a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
@@ -326,9 +338,7 @@ function hints.sort(score,     sample,train,test,tree)
      push(i<= the.train*#rows and train or test, row) end
   train = hints.recurse(sample, train,
                         score or hints.default, {}, (#train)^the.small)
-  tree  = sample:clone(train):tree() 
-  test  = betters(test, sample)
-end
+  return sample:clone(train), sample:clone(test) end
 
 function hints.recurse(sample, rows, scorefun, out, small)
   if #rows < small then 
@@ -346,11 +356,9 @@ function hints.recurse(sample, rows, scorefun, out, small)
 function hint.locate(scoreds,row,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
-    tmp = self:dist(row,scored,sample)
+    tmp = self:dist(row, scored, sample)
     if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank+closest/10^6, row}
-end 
-
+  return {rank+closest/10^6, row} end 
 
 -------------------------------------------------------------------------------
 -- trick for checking for rogues.
