@@ -1,47 +1,45 @@
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; --[[
-   __  __     __     __   __     ______  
-  /\ \_\ \   /\ \   /\ "-.\ \   /\__  _\ 
-  \ \  __ \  \ \ \  \ \ \-.  \  \/_/\ \/ 
-   \ \_\ \_\  \ \_\  \ \_\\"\_\    \ \_\ 
-    \/_/\/_/   \/_/   \/_/ \/_/     \/_/   --]] local options = {
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
+   __                              __      
+  /\ \          __                /\ \__   
+  \ \ \___     /\_\        ___    \ \ ,_\  
+   \ \  _ `\   \/\ \     /' _ `\   \ \ \/  
+    \ \ \ \ \   \ \ \    /\ \/\ \   \ \ \_ 
+     \ \_\ \_\   \ \_\   \ \_\ \_\   \ \__\
+      \/_/\/_/    \/_/    \/_/\/_/    \/__/   --]] local options={
 
 what = "Small sample multi-objective optimizer.",
-usage = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
-about = [[
-N examples are sorted on multi-goals using just a handful of
-"hints"; i.e.
+usage= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
+about= [[
+Sort N examples on multi-goals using a handful of "hints"; i.e.
 
-(a) evaluate, then rank,  a few randomly selected
-    examples (on their y-values);
-(b) sort the remaining examples by their x-value
-    distance  to the ranked ones;
-(c) recursing on the better half (so we sample more and more
-    from the better half, then quarter, then eighth...).
+- Evaluate and rank, a few examples (on their y-values);
+- Sort other examples by x-distance to the ranked ones;
+- Recurse on the better half (so we sample more and more
+  from the better half, then quarter, then eighth...).
 
-A recursive descent CART-style regression tree is then applied to
-the sorted examples (ranked left to right, worst to best).
-By finding branches that reduce the variance of the index
-of those examples, the regression tree reports what
-attribute ranges select for the better (or worse) examples.
-]],
-how = {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
-       {"help",     "-h",  false  ,"show help"                  },
-       {"hints",    "-H",  4      ,"hints per generation"       },
-       {"p",        "-p",  2      ,"exponent on distance calc"  },
-       {"small",    "-s",  .5     ,"div list t into t^small"    },
-       {"seed",     "-S",  10019  ,"random number seed"         },
-       {"train",    "-t",  .5     ,"train set size"             },
-       {"trivial",  "-T",  .35    ,"small delta = trivial*sd"   }}}
+A regression tree learner then explores the examples (sorted
+left to right, worst to best).  By finding branches that
+reduce the variance of the index of those examples, this
+tree reports what attribute ranges select for the better (or
+worse) examples.  ]],
+
+how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
+      {"help",     "-h",  false  ,"show help"                 },
+      {"hints",    "-H",  4      ,"hints per generation"      },
+      {"p",        "-p",  2      ,"distance calc exponent"    },
+      {"small",    "-s",  .5     ,"div list t into t^small"   },
+      {"seed",     "-S",  10019  ,"random number seed"        },
+      {"train",    "-t",  .5     ,"size of training set"      },
+      {"trivial",  "-T",  .35    ,"small delta=trivial*sd"    },
+      {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
+      {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
 local fmt = string.format
-
 local function help(opt)
   print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
-    for _,t in pairs(opt.how) do print(fmt("%6s %-11s: %s %s",
-      t[2],
-      t[3] and t[1] or"",
-      t[4],
-      t[3] and fmt("(%s=%s)",t[1],t[3]) or"")) end end 
+    for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
+      t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+  print("\n"..opt.about); os.exit() end 
 
 local function cli(opt,   u) 
   u={}
@@ -57,12 +55,12 @@ local the = cli(options)
 
 ------------------------------------------------------------------------------
 -- maths tricks
-local abs,norm,per,sd,xpect,mergeable,sum
+local abs,norm,sum
 abs = math.abs
 
 function norm(x,lo,hi)
   if x=="?" then return x end
-  return abs(hi - o) < 1E32 and 0 or (x - lo)/(hi - lo) end
+  return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
 
 function sum(t,f)
   f= f or function(x) return x end
@@ -74,7 +72,7 @@ local cat,map,copy,pop,push,sort,firsts,first,second,shuffle,bchop
 cat     = table.concat
 sort    = function(t,f) table.sort(t,f); return t end
 push    = table.insert
-push    = table.remove
+pop     = table.remove
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
 firsts  = function(a,b) return first(a) < first(b) end
@@ -89,21 +87,18 @@ function map(t,f,     u)
       if y then u[x]=y else u[1+#u]=x end end end 
   return u end
 
-function bchop(t,val,lt,      lo,hi,mid)
-  lt = lt or function(x,y) return x < y end
-  lo, hi = 1, #t
-  while lo <= hi do
-    mid =(lo+hi) // 2
-    if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
-  return math.min(lo,#t)  end
-
 -------------------------------------------------------------------------------
 -- printing tricks
-local out,shout
+local out,shout,red,green,yellow,blue
+function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
+function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
+function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
+function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
+
 shout= function(x) print(out(x)) end
 
 function out(t,    u,key,keys,value,public)
-  function key(_,k)   return fmt(":%s %s",k,out(t[k])) end
+  function key(_,k)   return fmt(":%s %s",blue(k),out(t[k])) end
   function value(_,v) return out(v,seen) end
   function public(k)  return tostring(k):sub(1,1)~="_" end
   function keys(t,u)
@@ -113,24 +108,22 @@ function out(t,    u,key,keys,value,public)
   if type(t) == "function" then return "FUN" end
   if type(t) ~= "table"    then return tostring(t) end
   u = #t>0 and map(t, value) or map(keys(t), key) 
-  return (t._is or"").."{"..cat(u," ").."}" end 
+  return red((t._is or"").."{")..cat(u," ")..red("}") end 
 
 -------------------------------------------------------------------------------
 -- file i/o tricks
-local lines
-function lines(file,   line,t,out)
+local csv
+function csv(file,   line)
   file = io.input(file)
   line = io.read()
-  out  = {}
-  while line do
-    t={}
-    for cell in line:gsub("[\t\r ]*",""):gsub("#.*",""):gmatch("([^,]+)") do
-      push(t, tonumber(cell) or cell) end 
-    if #t>0 then push(out, t) end 
-    line = io.read()
-  end 
-  io.close(file) ------
-  return  out end
+  return function(   t,tmp)
+    if line then
+      t={}
+      for cell in line:gsub("[\t\r ]*",""):gsub("#.*",""):gmatch("([^,]+)") do
+        push(t, tonumber(cell) or cell) end 
+      line = io.read()
+      if #t>0 then return t end 
+    else io.close(file) end end end
 
 -------------------------------------------------------------------------------
 -- oo tricks
@@ -147,20 +140,22 @@ function Nums.new(inits,     self)
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
-function Nums:add(x) push(self.has,x); n=n+1; self.ready=false end
+function Nums:add(x) 
+  push(self.has,x); self.n=self.n+1; self.ready=false end
+
 function Nums:all(x) 
   if not self.ready then table.sort(self.has) end
   self.ready = true
-  return self end
+  return self.has end
 
-function Nums:per(p,    here)
+function Nums:per(p,    here,t)
   function here(x) x=x*#t//1; return x < 1 and 1 or x>#t and #t or x end
   t=self:all()
   return #t <2 and  t[1] or t[ here(p or .5) ] end
 
 function Nums:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
-function Nums:xpect(other) 
+function Nums:xpect(other,    n1,n2) 
   n1, n2 = #self.has, #other.has
   return (n1*self:sd() + n2*other:sd()) / (n1+n2) end
 
@@ -181,7 +176,6 @@ function splits.best(sample,    best,tmp,xpect,out)
   return out end
    
 function splits.whatif(col,sample,     out)
-<<<<<<< HEAD
   out   = splits.spans(col,sample)
   xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.rows 
   out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
@@ -191,28 +185,14 @@ function splits.spans(col,sample,      xs,xys, symbolic,x)
   xys,xs,  symbolic ={}, Nums(), sample.nums[col]
   for rank,row in pairs(sample.rows) do
     x = row[col]
-=======
-  out = map(splits.spans(col,sample), function(_,bin) bin.col=col end)
-  return out, sum(out, function(x) return #x.has*sd(x.has) end)/#sample.egs end
-
-function splits.spans(col,sample,      xs,xys, symbolic,x)
-  xys,xs,  symbolic ={},{}, sample.nums[col]
-  for rank,eg in pairs(sample.egs) do
-    x = eg[col]
->>>>>>> e7a1f3775774cdfc9f43cb3b89382720ca63a568
     if x ~= "?" then 
       xs:add(x)
       if   symbolic
       then -- in symbolic columns, xys are the indexes seen with each symbol
-           xys[x] = xys[x] or {}
-           push(xys[x], rank) 
-<<<<<<< HEAD
-      else -- in numeric columns, xys are each number paired with itsrow id
-           push(xys, {x=x,y=rank}) end end 
-=======
-      else -- in numeric columns, xys are each number paired with its eg id
-           push(xys,    {x=x,y=rank}) end end 
->>>>>>> e7a1f3775774cdfc9f43cb3b89382720ca63a568
+        xys[x] = xys[x] or {}
+        push(xys[x], rank) 
+      else -- in numeric columns,  xys are each number paired with its row id
+        push(xys, {x=x,y=rank}) end end 
   end
   if   symbolic 
   then return map(xys, function(x,t) return {lo=x, hi=x, has=Nums(t)} end)
@@ -262,8 +242,8 @@ local Sample=obj"Sample"
 function Sample.new(     src,self)
   self = has(Sample,{names=nil, nums={}, ys={}, xs={}, egs={}})  
   if src then
-    src = type(src)=="string" and lines(src) or src
-    for _,x in pairs(src) do self:add(x) end end
+    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
+    if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
   return self end
 
 function Sample:clone(      inits,out) 
@@ -273,7 +253,7 @@ function Sample:clone(      inits,out)
 
 function Sample:add(eg,     name,datum)
   function name(col,new,    tmp) 
-    if not new:find":" then return end
+    if new:find":" then return end
     if not (new:find("+") or new:find("-")) then self.xs[col]=col end 
     if new:match("^[A-Z]") then 
       tmp = {col=col, w=0, lo=1E32, hi=-1E22} 
@@ -361,7 +341,7 @@ function better(eg1,eg2,sample,     e,n,a,b,s1,s2)
 local hints={}
 function hints.default(eg) return eg end
 
-function hints.sort(score,     sample,train,test,tree)
+function hints.sort(sample,score,    test,train)
   sample = Sample.new(the.file)
   train,test = {}, {}
   for i,eg in pairs(shuffle(sample.egs)) do
@@ -376,27 +356,75 @@ function hints.recurse(sample, egs, scorefun, out, small)
     return out 
   end
   local scoreds = {}   
-  function worker(_,eg) return hint.locate(scoreds,eg,sample) end
+  function worker(_,eg) return hints.locate(scoreds,eg,sample) end
   for j=1,the.hints do push(scoreds, scorefun(pop(egs))) end
   scoreds = betters(scoreds, sample)
+  shout(scoreds)
   egs     = map(sort(map(egs, worker),firsts),second)
   for i=1,#egs//2 do push(out, pop(egs)) end
   return hints.recurse(sample, egs, scorefun, out, small)  end
 
-function hint.locate(scoreds,eg,sample,        closest,rank,tmp)
+function hints.locate(scoreds,eg,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
-<<<<<<< HEAD
-    tmp = self:dist(row, scored, sample)
+    tmp = dist(row, scored, sample)
     if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank+closest/10^6, row} end 
-=======
-    tmp = self:dist(eg,scored,sample)
-    if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank+closest/10^6, eg}
-end 
->>>>>>> e7a1f3775774cdfc9f43cb3b89382720ca63a568
+  return {rank+closest/10^6, eg} end 
+
+-------------------------------------------------------------------------------
+local eg,fail,go={},0
+function go(k,f,    ok,msg)
+  the=cli(options)
+  if the.wild then return f() end
+  ok,msg = pcall(f)
+  if ok 
+  then print(green("PASS"),k) 
+  else print(red("FAIL"),k,msg); fail=fail+1 end end
+
+function eg.norm() 
+  assert(norm(5,0,10)==.5,"small") end
+
+function eg.map() 
+  assert(3==map({1,2},function(_,x) return x+1 end)[2]) end
+
+function eg.tables() 
+  assert(20==sort(shuffle({{10,20},{30,40},{40,50}}),firsts)[1][2]) end
+
+function eg.csv(   n,z)
+  n=0
+  for eg in csv(the.file) do n=n+1; z=eg end
+  assert(n==399 and z[#z]==50) end
+
+function eg.nums(    n)
+  n=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  assert(15.625 == n:sd()) end
+
+function eg.nums(    n1,n2,n3,n4)
+  n1=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n2=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  assert(n1:mergeable(n2)~=nil) 
+  n3=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n4=Nums{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
+  assert(n3:mergeable(n4)==nil) end
+
+function eg.sample(    s,tmp,d1,d2)
+  s=Sample(the.file) 
+  assert(s.ys[4].lo==1613) 
+  tmp = sort(map(shuffle(s.egs), 
+                   function(_,eg2) return {dist(eg2,s.egs[1],s), eg2} end),
+             firsts) 
+  d1=dist(tmp[1][2], tmp[10][2], s)
+  d2=dist(tmp[1][2], tmp[#tmp][2], s)
+  assert(d1*10<d2)
+end
+
+function eg.hints(    s)
+  s=Sample(the.file) 
+  hints.sort(sample)assert(s.ys[4].lo==1613) end
+
+if the.todo=="all" then map(eg,go) else go(the.todo,eg[the.todo]) end
 
 -------------------------------------------------------------------------------
 -- trick for checking for rogues.
 for k,v in pairs(_ENV) do if not b4[k] then print("? ",k,type(v)) end end
+os.exit(fail)
