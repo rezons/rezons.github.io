@@ -47,12 +47,15 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
 
 local fmt,help,cli,the
 fmt = string.format
+-- Pretty print 'options'.
 function help(opt)
   print(fmt("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],opt.usage,opt.what))
   for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
             t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
   print("\n"..opt.about); os.exit() end 
 
+-- If options has a flag '-x' and the command line has '-x',
+-- then update opt with the command line value.
 function cli(opt,   u) 
   u={}
   for _,t in pairs(opt.how) do
@@ -63,17 +66,19 @@ function cli(opt,   u)
   math.randomseed(u.seed or 100019)
   return u end
 
-the = cli(options) -- e.g. the = {seed=10019, help=false, p=2...}
+-- Make a global with our options e.g. the = {seed=10019, help=false, p=2...}
+the = cli(options)  
 
 -------------------------------------------------------------------------------
 -- table tricks
-local cat,map,lap,keys, copy,pop,push,sort,firsts,first,second,shuffle,bchop
+local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bchop
 cat     = table.concat
 sort    = function(t,f) table.sort(t,f); return t end
 push    = table.insert
 pop     = table.remove
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
+last    = function(t) return t[#t] end
 firsts  = function(a,b) return first(a) < first(b) end
 
 function shuffle(t,   j)
@@ -103,7 +108,6 @@ function bchop(t,val,lt,lo,hi,     mid)
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
 
-
 ------------------------------------------------------------------------------
 -- maths tricks
 local abs,norm,sum,rnd,rnds
@@ -114,10 +118,6 @@ function rnd(x,d,  n)
 
 function rnds(t,d) 
   return lap(t, function(x) return rnd(x,d) end ) end
-
-function norm(x,lo,hi)
-  if x=="?" then return x end
-  return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
 
 function sum(t,f)
   f= f or function(x) return x end
@@ -166,12 +166,12 @@ function obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
-
+
 -------------------------------------------------------------------------------
 -- tricks for Symbolic examples
 local Sym=obj"Sym"
 function Sym.new(inits,     self) 
-  self= has(Num,{has={}, n=0, mode=nil, most=0})
+  self= has(Sym,{has={}, n=0, mode=nil, most=0})
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
@@ -186,7 +186,7 @@ function Sym:mid() return self.mode end
 -- tricks for numeric examples
 local Num=obj"Num"
 function Num.new(inits,     self) 
-  self= has(Num,{has={}, n=0, lo=1E32, hi =1E-32,ready=true})
+  self= has(Num,{has={}, n=0, lo=1E32, hi =1E-32, ready=true})
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
@@ -212,6 +212,11 @@ function Num:mergeable(other,    new,b4)
 
 function Num:mid() return self:per(.5) end
 
+function Num:norm(x,     lo,hi)
+  if x=="?" then return x end
+  lo,hi = self.lo, self.hi
+  return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
+
 function Num:per(p,    t)
   t = self:all()
   p = p*#t//1
@@ -236,7 +241,7 @@ function splits.whatif(col,sample,     out)
   out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
   return out, xpect end
 
-function splits.spans(col,sample,      xs,xys, symbolic,x)
+function splits.spans(col,sample,      xs, symbolic,x)
   xys,xs,  symbolic ={}, Num(), sample.nums[col]
   for rank,eg in pairs(sample.egs) do
     x = eg[col]
@@ -288,6 +293,11 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
     push(tmp,a) end 
   return #tmp==#b4 and b4 or merge(tmp) end
 
+
+
+
+
+
 -------------------------------------------------------------------------------
 -- Samples store examples. Samples know about 
 -- (a) lo,hi ranges on the numerics
@@ -306,25 +316,27 @@ function Sample:clone(      inits,out)
   return out end
 
 function Sample:add(eg,     name,datum)
-  function name(col,new,    howmuch, where, what) 
+  function name(col,new,    weight, where, what) 
     if new:find":" then return end
-    howmuch= new:find"-" and -1 or 1
-    where  = (new:find("+") or new:find("-")) and t.ys or t.xs
-    what   = {col=col, w=howmuch, seen=(new:match("^[A-Z]",x) and Num()  or Sym())}
-    self.all[col] = what
-    where[col]    = what
+    weight= new:find"-" and -1 or 1
+    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
+    where = (new:find("+") or new:find("-")) and self.ys or self.xs
+    push(self.all, what)
+    push(where,    what)
   end -----------------
-  function datum(col,new)
-    if new ~= "?" then self.all[col]:add(new) end 
+  function datum(one,new)
+    if new ~= "?" then one.seen:add(new) end 
   end -----------------
   if   not self.names
   then self.names = eg
        map(eg, function(col,x) name(col,x) end) 
   else push(self.egs, eg)
-       map(eg, function(col,x) datum(col,x) end) end 
+       map(self.all, function(_,col) datum(col,eg[col.col]) end)
+  end 
   return self end
 
-
+function Sample:stats(cols)
+  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
 -- bins his
 -- bins sorts
  
@@ -369,9 +381,9 @@ function dist(eg1,eg2,sample,     a,b,d,n,inc,dist1)
     return abs(a-b) 
   end -------------------------
   d,n=0,0
-  for col,_ in pairs(sample.xs) do
-    a,b = eg1[col], eg2[col]
-    inc = a=="?" and b=="?" and 1 or dist1(sample.nums[col],a,b)
+  for _,x in pairs(sample.xs) do
+    a,b = eg1[x.col], eg2[x.col]
+    inc = a=="?" and b=="?" and 1 or dist1(x._is=="Num",a,b)
     d   = d + inc^the.p
     n   = n + 1 end
   return (d/n)^(1/the.p) end
@@ -382,8 +394,8 @@ function betters(egs,sample)
 function better(eg1,eg2,sample,     e,n,a,b,s1,s2)
   n,s1,s2,e = #sample.ys, 0, 0, 2.71828
   for _,num in pairs(sample.ys) do
-    a  = norm(eg1[num.col], num.lo, num.hi)
-    b  = norm(eg2[num.col], num.lo, num.hi)
+    a  = num.seen:norm(eg1[num.col])
+    b  = num.seen:norm(eg2[num.col])
     s1 = s1 - e^(num.w * (a-b)/n) 
     s2 = s2 - e^(num.w * (b-a)/n) end
   return s1/n < s2/n end 
@@ -434,8 +446,8 @@ function example(k,      f,ok,msg)
   if ok then print(green("PASS"),k) 
   else       print(red("FAIL"),  k,msg); fail=fail+1 end end
 
-function eg.norm() 
-  assert(norm(5,0,10)==.5,"small") end
+function eg.lap() 
+  assert(3==lap({1,2},function(x) return x+1 end)[2]) end
 
 function eg.map() 
   assert(3==map({1,2},function(_,x) return x+1 end)[2]) end
@@ -448,11 +460,19 @@ function eg.csv(   n,z)
   for eg in csv(the.file) do n=n+1; z=eg end
   assert(n==399 and z[#z]==50) end
 
-function eg.nums(    n)
+function eg.rnds(    t)
+  assert(10.2 == first(rnds({10.22,81.22,22.33},1))) end
+
+function eg.sym(    s)
+  s=Sym{"a","a","a","a","b","b","c"}
+  assert("a"==s.mode) end
+
+function eg.num1(    n)
   n=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  assert(.375 == n:norm(25))
   assert(15.625 == n:sd()) end
 
-function eg.nums(    n1,n2,n3,n4)
+function eg.num2(    n1,n2,n3,n4)
   n1=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   n2=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(n1:mergeable(n2)~=nil) 
@@ -460,21 +480,32 @@ function eg.nums(    n1,n2,n3,n4)
   n4=Num{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
   assert(n3:mergeable(n4)==nil) end
 
-function eg.sample(    s,tmp,d1,d2)
+function eg.sample(    s,tmp,d1,d2,n)
   s=Sample(the.file) 
-  assert(s.ys[4].lo==1613) 
-  tmp = sort(map(shuffle(s.egs), 
-                   function(_,eg2) return {dist(eg2,s.egs[1],s), eg2} end),
-             firsts) 
-  d1=dist(tmp[1][2], tmp[10][2], s)
-  d2=dist(tmp[1][2], tmp[#tmp][2], s)
-  assert(d1*10<d2)
+  assert(2110 == last(s.egs)[s.all[3].col])
+  local sort1= betters(s.egs,s)
+  local lo, hi = s:clone(), s:clone()
+  for i=1,20                do lo:add(sort1[i]) end
+  for i=#sort1,#sort1-30,-1 do hi:add(sort1[i]) end
+  shout(s:stats())
+  shout(lo:stats())
+  shout(hi:stats())
+  for m,eg in pairs(sort1) do
+    n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
+    assert(m-n <=2) end
+
+  -- tmp = sort(map(shuffle(s.egs), 
+  --                  function(_,eg2) return {dist(eg2,s.egs[1],s), eg2} end),
+  --            firsts) 
+  -- d1=dist(tmp[1][2], tmp[10][2], s)
+  -- d2=dist(tmp[1][2], tmp[#tmp][2], s)
+  -- assert(d1*10<d2)
 end
 
-function eg.hints(    s,_,__,evals)
+function eg.hints(    s,_,__,evals,sort1)
   s=Sample(the.file) 
   sort1= betters(s.egs,s)
-  for _,eg in pairs(sort1) do shout(lap(s.ys, function(col) return eg[col.col] end )) end
+  for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
   -- assert(s.ys[4].lo==1613) 
   -- evals, train,__ = hints.sort(s) 
   -- print("=",evals) 
