@@ -1,4 +1,5 @@
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
+#!/usr/bin/env lua
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; --[[
            _  _  _    _    _           _  _  _                        
   __ _    | |(_)| |_ | |_ | |  ___    | |(_)| |_  ___                 
  / _` |   | || || __|| __|| | / _ \   | || || __|/ _ \                
@@ -14,7 +15,7 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
 | || || '_ \ | '__|/ _` || '__|| | | |                                
 | || || |_) || |  | (_| || |   | |_| |                                
 |_||_||_.__/ |_|   \__,_||_|    \__, |                                
-                                |___/     -]] local options={ 
+                                |___/     --]] local options={ 
 
 what = "Small sample multi-objective optimizer.",
 usage= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
@@ -64,14 +65,12 @@ function cli(opt,   u)
   return u end
 
 -- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
-the = cli(options)
-
---[[     _   _ _ _ _   _           
-     _   _| |_(_) (_) |_(_) ___  ___ 
-    | | | | __| | | | __| |/ _ \/ __|
-    | |_| | |_| | | | |_| |  __/\__ \
-     \__,_|\__|_|_|_|\__|_|\___||___/   --]]
-                                 
+the = cli(options)                                          
+
+--           _                      _     _   _      
+--   _ __   (_)  ___  __     _  _  | |_  (_) | |  ___
+--  | '  \  | | (_-< / _|   | || | |  _| | | | | (_-<
+--  |_|_|_| |_| /__/ \__|    \_,_|  \__| |_| |_| /__/    
 ------------------------------------------------------------------------------
 -- ## Table Stuff
 local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bchop
@@ -91,11 +90,9 @@ last    = function(t) return t[#t] end
 
 -- Function for sorting pairs of items.
 firsts  = function(a,b) return first(a) < first(b) end
-
 -- Random order of items in a list (sort in place).
 function shuffle(t,   j)
   for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
-
 -- Collect values, passed through 'f'.
 function lap(t,f)  return map(t,f,1) end
 
@@ -213,6 +210,8 @@ function Sym:add(x)
   self.has[x] = 1 + (self.has[x] or 0)
   if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
 
+function Sym:dist(a,b) return a==b and 0 or 1 end
+
 function Sym:mid() return self.mode end 
 
 -------------------------------------------------------------------------------
@@ -236,6 +235,12 @@ function Num:all(x)
   self.ready = true
   return self.has end
 
+function Num:dist(a,b)
+  if     a=="?" then b=self:norm(b); a = b>.5 and 0 or 1
+  elseif b=="?" then a=self:norm(a); b = a>.5 and 0 or 1
+  else   a,b = self:norm(a), self:norm(b) end
+  return abs(a-b) end 
+  
 -- Combine two `num`s.
 function Num:merge(other,    new)
   new = Num.new(self.has)
@@ -414,19 +419,11 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
 -- geometry tricks
 -- y column rankings
 local dist, better,betters
-function dist(eg1,eg2,sample,     a,b,d,n,inc,dist1)
-  function dist1(num,a,b)
-    if not num then return a==b and 0 or 1 end
-    if     a=="?" then b=norm(b, num.lo, num,hi); a = b>.5 and 0 or 1
-    elseif b=="?" then a=norm(a, num.lo, num.hi); b = a>.5 and 0 or 1
-    else   a,b = norm(a, num.lo, num.hi), norm(b, num.lo, num.hi)
-    end
-    return abs(a-b) 
-  end -------------------------
-  d,n=0,0
+function dist(eg1,eg2,sample,     a,b,d,n,inc)
+  d,n = 0,0
   for _,x in pairs(sample.xs) do
     a,b = eg1[x.col], eg2[x.col]
-    inc = a=="?" and b=="?" and 1 or dist1(x._is=="Num",a,b)
+    inc = a=="?" and b=="?" and 1 or x.seen:dist(a,b)
     d   = d + inc^the.p
     n   = n + 1 end
   return (d/n)^(1/the.p) end
@@ -535,28 +532,30 @@ function eg.sample(    s,tmp,d1,d2,n)
   shout(hi:stats())
   for m,eg in pairs(sort1) do
     n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
-    assert(m-n <=2) end
+    assert(m-n <=2) end end
 
-  -- tmp = sort(map(shuffle(s.egs), 
-  --                  function(_,eg2) return {dist(eg2,s.egs[1],s), eg2} end),
-  --            firsts) 
-  -- d1=dist(tmp[1][2], tmp[10][2], s)
-  -- d2=dist(tmp[1][2], tmp[#tmp][2], s)
-  -- assert(d1*10<d2)
+function eg.dists(    s,tmp,d1,d2,n)
+  s=Sample(the.file) 
+  tmp = sort(lap(shuffle(s.egs), 
+                     function(eg2) return {dist(eg2,s.egs[1],s), eg2} end),
+               firsts) 
+   d1=dist(tmp[1][2], tmp[10][2], s)
+   d2=dist(tmp[1][2], tmp[#tmp][2], s)
+   assert(d1*10<d2)
 end
 
-function eg.hints(    s,_,__,evals,sort1)
-  s=Sample(the.file) 
-  sort1= betters(s.egs,s)
-  for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
-  -- assert(s.ys[4].lo==1613) 
-  -- evals, train,__ = hints.sort(s) 
-  -- print("=",evals) 
-  -- for m,eg in pairs(sort1) do
-  --   n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
-  --   print(m,n) end
-  end
-
+-- function eg.hints(    s,_,__,evals,sort1)
+--   s=Sample(the.file) 
+--   sort1= betters(s.egs,s)
+--   for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
+--   -- assert(s.ys[4].lo==1613) 
+--   -- evals, train,__ = hints.sort(s) 
+--   -- print("=",evals) 
+--   -- for m,eg in pairs(sort1) do
+--   --   n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
+--   --   print(m,n) end
+--   end
+--
 if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
 
 -------------------------------------------------------------------------------
