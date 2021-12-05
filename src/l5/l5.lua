@@ -34,6 +34,7 @@ tree reports what attribute ranges select for the better (or
 worse) examples.  ]],
 
 how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
+      {"cull",     "-c",  .5    ,"cuts per repeat"},
       {"help",     "-h",  false  ,"show help"                 },
       {"hints",    "-H",  4      ,"hints per generation"      },
       {"p",        "-p",  2      ,"distance calc exponent"    },
@@ -44,25 +45,27 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
       {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
       {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
-local fmt,help,cli,the
-fmt = string.format
--- Pretty print help text.
-function help(opt)
-  print(fmt("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],opt.usage,opt.what))
-  for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
-            t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
-  print("\n"..opt.about); os.exit() end 
-
--- Update any "-x" flag with "-x" arguments from the command line.
+local Seed,cli,the
+Seed=10019
+-- If `-x X` appears on command line and `-x default` is in `how`
+-- then update default from the command  line (and if `default`)
+-- is false, then set it to true. Also, maybe
+-- set random number seed and maybe show help string.
 function cli(opt,   u) 
   u={}
   for _,t in pairs(opt.how) do
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
       u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
-  if u.help then help(opt) end
-  math.randomseed(u.seed or 100019)
-  return u end
+  if   u.help 
+  then print(string.format("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
+             arg[0],opt.usage,opt.what))
+       for _,t in pairs(opt.how) do print(string.format("%4s %-9s%s\t%s %s",
+         t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+       print("\n"..opt.about)
+       os.exit() end
+  if u.seed then Seed = u.seed end
+  return u end 
 
 -- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
 the = cli(options)                                          
@@ -73,6 +76,7 @@ the = cli(options)
 --  |_|_|_| |_| /__/ \__|    \_,_|  \__| |_| |_| /__/    
 ------------------------------------------------------------------------------
 -- ## Table Stuff
+local randi -- defined later, needed now in "shuffle"
 local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bchop
 -- Table to string.
 cat     = table.concat
@@ -90,15 +94,17 @@ last    = function(t) return t[#t] end
 
 -- Function for sorting pairs of items.
 firsts  = function(a,b) return first(a) < first(b) end
+
 -- Random order of items in a list (sort in place).
 function shuffle(t,   j)
-  for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
+  for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
+
 -- Collect values, passed through 'f'.
 function lap(t,f)  return map(t,f,1) end
-
 -- Collect key,values, passed through 'f'.    
 -- If `f` returns two values, store as key,value.     
 -- If `f` returns one values, store at index value.
+-- If `f' return nil then add nothing (so `map` is also `select`).
 function map(t,f,one,     u) 
   u={}; for x,y in pairs(t) do 
     if one then x,y=f(y) else x,y=f(x,y) end
@@ -124,31 +130,38 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 ------------------------------------------------------------------------------
 -- ## Maths Stuff
-local abs,norm,sum,rnd,rnds
+local abs,norm,sum,rnd,rnds,Seed,rand
 abs = math.abs
 
 -- Round `x` to `d` decimal places.
-function rnd(x,d,  n) 
-  n=10^(d or 0); return math.floor(x*n+0.5) / n end
+function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
 
 -- Round list of items to  `d` decimal places.
-function rnds(t,d) 
-  return lap(t, function(x) return rnd(x,d or 2) end ) end
+function rnds(t,d) return lap(t, function(x) return rnd(x,d or 2) end) end
 
 -- Sum items, filtered through `f`.
 function sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
+Seed=937162211
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+function rand(lo,hi,     mult,mod)
+  lo, hi = lo or 0, hi or 1
+  Seed = (16807 * Seed) % 2147483647
+  return lo + (hi-lo) * Seed / 2147483647 end
+
 -------------------------------------------------------------------------------
 -- ## Printing Stuff
-local out,shout,red,green,yellow,blue
+local out,shout,red,green,yellow,blue,color,fmt
+fmt = string.format
 
 -- Print as red, green, yellow, blue.
-function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
-function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
-function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
-function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
+function color(s,n) return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
+function red(s)     return color(s,31) end
+function green(s)   return color(s,32) end
+function yellow(s)  return color(s,34) end
+function blue(s)    return color(s,36) end
 
 -- Printed string from a nested structure.
 shout= function(x) print(out(x)) end
@@ -273,73 +286,7 @@ function Num:per(p,    t)
 function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -------------------------------------------------------------------------------
--- Samples store examples. Samples know about 
--- (a) lo,hi ranges on the numerics
--- and (b) what  are independent `x` or dependent `y` columns.
-local Sample=obj"Sample"
-function Sample.new(     src,self)
-  self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
-  if src then
-    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
-    if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
-  return self end
-
-function Sample:clone(      inits,out) 
-  out = Sample.new():add(self.names) 
-  for _,eg in pairs(inits or {}) do out:add(eg) end
-  return out end
-
-function Sample:add(eg,     name,datum)
-  function name(col,new,    weight, where, what) 
-    if new:find":" then return end
-    weight= new:find"-" and -1 or 1
-    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
-    where = (new:find("+") or new:find("-")) and self.ys or self.xs
-    push(self.all, what)
-    push(where,    what)
-  end -----------------
-  function datum(one,new)
-    if new ~= "?" then one.seen:add(new) end 
-  end -----------------
-  if   not self.names
-  then self.names = eg
-       map(eg, function(col,x) name(col,x) end) 
-  else push(self.egs, eg)
-       map(self.all, function(_,col) datum(col,eg[col.col]) end)
-  end 
-  return self end
-
-function Sample:stats(cols)
-  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
--- bins his
--- bins sorts
- 
-function Sample:tree(min,      node,min,sub)
-  node = {node=self, kids={}}
-  min = min  or (#self.egs)^the.small
-  if #self.egs >= 2*min then 
-    --- here
-    for _,span in pairs(splits.best(sample)) do
-      sub = self:clone()
-      for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
-      push(node.kids, span) 
-      span.has = sub:tree(min) end end 
-  return node end
-
--- at node
-function Sample:where(tree,eg,    max,x,default)
-  if #kid.has==0 then return tree end
-  max = 0
-  for _,kid in pairs(tree.node) do
-    if #kid.has > max then default,max = kid,#kid.has end
-    x = eg[kid.col]
-    if x ~= "?" then
-      if x <= kid.hi and x >= kid.lo then 
-        return self:where(kid.has.eg) end end end
-  return self:where(default, eg) end
-
--------------------------------------------------------------------------------
--- doscretization tricks
+-- discretization tricks
 local splits={}
 function splits.best(sample,    best,tmp,xpect,out)
   best = maths.huge
@@ -394,53 +341,109 @@ function splits.div(xys, tiny, dull,           now,out,x,y)
     now.has:add(y) end
   return out end
 
-function splits.merge(b4,       j,tmp,a,n,hasnew) 
+function splits.merge(b4,       j,tmp,a,n,simpler) 
   j, n, tmp = 0, #b4, {}
   while j<n do
     j = j + 1
     a = b4[j]
     if j < n-1 then
-      better = a.has:mergeable(b4[j+1].has)
-      if better then 
+      simpler = a.has:mergeable(b4[j+1].has)
+      if simpler then 
         j = j + 1 
-        a = {lo=a.lo, hi= b4[j+1].hi, has=better} end end
+        a = {lo=a.lo, hi= b4[j+1].hi, has=simpler} end end
     push(tmp,a) end 
   return #tmp==#b4 and b4 or merge(tmp) end
 
+-------------------------------------------------------------------------------
+-- Samples store examples. Samples know about 
+-- (a) lo,hi ranges on the numerics
+-- and (b) what  are independent `x` or dependent `y` columns.
+local Sample=obj"Sample"
+function Sample.new(     src,self)
+  self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
+  if src then
+    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
+    if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
+  return self end
 
+function Sample:clone(      inits,out) 
+  out = Sample.new():add(self.names) 
+  for _,eg in pairs(inits or {}) do out:add(eg) end
+  return out end
 
+function Sample:add(eg,     name,datum)
+  function name(col,new,    weight, where, what) 
+    if new:find":" then return end
+    weight= new:find"-" and -1 or 1
+    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
+    where = (new:find("+") or new:find("-")) and self.ys or self.xs
+    push(self.all, what)
+    push(where,    what)
+  end -----------------
+  function datum(one,new)
+    if new ~= "?" then one.seen:add(new) end 
+  end -----------------
+  if   not self.names
+  then self.names = eg
+       map(eg, function(col,x) name(col,x) end) 
+  else push(self.egs, eg)
+       map(self.all, function(_,col) datum(col,eg[col.col]) end)
+  end 
+  return self end
 
-
-
--- ordered object
--- per sd add sort here. mergabe
-
--------------------------------------------------------------------------------
--- geometry tricks
--- y column rankings
-local dist, better,betters
-function dist(eg1,eg2,sample,     a,b,d,n,inc)
-  d,n = 0,0
-  for _,x in pairs(sample.xs) do
-    a,b = eg1[x.col], eg2[x.col]
-    inc = a=="?" and b=="?" and 1 or x.seen:dist(a,b)
-    d   = d + inc^the.p
-    n   = n + 1 end
-  return (d/n)^(1/the.p) end
-
-function betters(egs,sample) 
-  return sort(egs,function(a,b) return better(a,b,sample) end) end
-
-function better(eg1,eg2,sample,     e,n,a,b,s1,s2)
-  n,s1,s2,e = #sample.ys, 0, 0, 2.71828
-  for _,num in pairs(sample.ys) do
+function Sample:better(eg1,eg2,     e,n,a,b,s1,s2)
+  n,s1,s2,e = #self.ys, 0, 0, 2.71828
+  for _,num in pairs(self.ys) do
     a  = num.seen:norm(eg1[num.col])
     b  = num.seen:norm(eg2[num.col])
     s1 = s1 - e^(num.w * (a-b)/n) 
     s2 = s2 - e^(num.w * (b-a)/n) end
   return s1/n < s2/n end 
 
--------------------------------------------------------------------------------
+function Sample:betters(egs) 
+  return sort(egs or self.egs,function(a,b) return self:better(a,b) end) end
+
+function Sample:dist(eg1,eg2,     a,b,d,n,inc)
+  d,n = 0,0
+  for _,x in pairs(self.xs) do
+    a,b = eg1[x.col], eg2[x.col]
+    inc = a=="?" and b=="?" and 1 or x.seen:dist(a,b)
+    d   = d + inc^the.p
+    n   = n + 1 end
+  return (d/n)^(1/the.p) end
+
+function Sample:stats(cols)
+  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
+-- bins his
+-- bins sorts
+ 
+function Sample:tree(min,      node,min,sub)
+  node = {node=self, kids={}}
+  min = min  or (#self.egs)^the.small
+  if #self.egs >= 2*min then 
+    --- here
+    for _,span in pairs(splits.best(sample)) do
+      sub = self:clone()
+      for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
+      push(node.kids, span) 
+      span.has = sub:tree(min) end end 
+  return node end
+
+-- at node
+function Sample:where(tree,eg,    max,x,default)
+  if #kid.has==0 then return tree end
+  max = 0
+  for _,kid in pairs(tree.node) do
+    if #kid.has > max then default,max = kid,#kid.has end
+    x = eg[kid.col]
+    if x ~= "?" then
+      if x <= kid.hi and x >= kid.lo then 
+        return self:where(kid.has.eg) end end end
+  return self:where(default, eg) end
+
+
+
+------------------------------------------------------------------------------
 -- sample sample sorting
 local hints={}
 function hints.default(eg) return eg end
@@ -463,19 +466,25 @@ function hints.recurse(sample, egs, evals, scorefun, out, small, worker)
   function worker(eg) return hints.locate(scoreds,eg,sample) end
   for j=1,the.hints do evals=evals+1; 
                        push(scoreds, scorefun(pop(egs))) end
-  scoreds = betters(scoreds, sample)
+  scoreds = sample:betters(scoreds)
   egs     = lap(sort(lap(egs, worker),firsts),second)
-  for i=1,#egs//2 do push(out, pop(egs)) end
-  return hints.recurse(sample, egs,evals, scorefun, out, small)  
-end
+  print(the.cull*#egs)
+  for i=1,the.cull*#egs//1 do push(out, pop(egs)) end
+  return hints.recurse(sample, egs,evals, scorefun, out, small) end
 
 function hints.locate(scoreds,eg,sample,        closest,rank,tmp)
   closest, rank, tmp = 1E32, 1E32, nil
   for rank0, scored in pairs(scoreds) do
-    tmp = dist(eg, scored, sample)
+    tmp = sample:dist(eg, scored)
     if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank+closest/10^6, eg} end 
+  return {rank, eg} end 
+  --return {rank+closest/10^6, eg} end 
 
+
+--      _                          
+--   __| |  ___   _ __    ___   ___
+--  / _` | / -_) | '  \  / _ \ (_-<
+--  \__,_| \___| |_|_|_| \___/ /__/
 -------------------------------------------------------------------------------
 local eg,fail,example={},0
 function example(k,      f,ok,msg)
@@ -485,6 +494,11 @@ function example(k,      f,ok,msg)
   ok,msg = pcall(f)
   if ok then print(green("PASS"),k) 
   else       print(red("FAIL"),  k,msg); fail=fail+1 end end
+
+function eg.shuffle(   t)
+  t={}
+  for i=1,32 do push(t,i) end
+  assert(#t == #shuffle(t) and t[1] ~= shuffle(t)[1]) end
 
 function eg.lap() 
   assert(3==lap({1,2},function(x) return x+1 end)[2]) end
@@ -523,7 +537,7 @@ function eg.num2(    n1,n2,n3,n4)
 function eg.sample(    s,tmp,d1,d2,n)
   s=Sample(the.file) 
   assert(2110 == last(s.egs)[s.all[3].col])
-  local sort1= betters(s.egs,s)
+  local sort1= s:betters(s.egs)
   local lo, hi = s:clone(), s:clone()
   for i=1,20                do lo:add(sort1[i]) end
   for i=#sort1,#sort1-30,-1 do hi:add(sort1[i]) end
@@ -531,31 +545,31 @@ function eg.sample(    s,tmp,d1,d2,n)
   shout(lo:stats())
   shout(hi:stats())
   for m,eg in pairs(sort1) do
-    n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
+    n = bchop(sort1, eg,function(a,b) return s:better(a,b) end)
     assert(m-n <=2) end end
 
 function eg.dists(    s,tmp,d1,d2,n)
   s=Sample(the.file) 
   tmp = sort(lap(shuffle(s.egs), 
-                     function(eg2) return {dist(eg2,s.egs[1],s), eg2} end),
+                     function(eg2) return {s:dist(eg2,s.egs[1]), eg2} end),
                firsts) 
-   d1=dist(tmp[1][2], tmp[10][2], s)
-   d2=dist(tmp[1][2], tmp[#tmp][2], s)
+   d1=s:dist(tmp[1][2], tmp[10][2])
+   d2=s:dist(tmp[1][2], tmp[#tmp][2])
    assert(d1*10<d2)
 end
 
--- function eg.hints(    s,_,__,evals,sort1)
---   s=Sample(the.file) 
---   sort1= betters(s.egs,s)
---   for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
---   -- assert(s.ys[4].lo==1613) 
---   -- evals, train,__ = hints.sort(s) 
---   -- print("=",evals) 
---   -- for m,eg in pairs(sort1) do
---   --   n = bchop(sort1, eg,function(a,b) return better(a,b,s) end)
---   --   print(m,n) end
---   end
---
+function eg.hints(    s,_,__,evals,sort1,train)
+  s=Sample(the.file) 
+  --for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
+  -- assert(s.ys[4].lo==1613) 
+  evals, train,test = hints.sort(s) 
+  print("=",evals) 
+  test.egs = test:betters()
+  for m,eg in pairs(test.egs) do
+     n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end)
+     print(m,n) end
+  end
+
 if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
 
 -------------------------------------------------------------------------------
@@ -566,7 +580,7 @@ os.exit(fail)
 
 
 --[[
-needs stats on samples
+--  seems to be  a revers that i  need to do .... but dont
 
 teaching:
 - sample is v.useful
