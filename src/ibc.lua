@@ -1,4 +1,4 @@
--- vim: ft=lua ts=2 sw=2 et:
+-- vim: filetype=lua ts=2 sw=2 et :
 --[[
     __                           ___                        
  __/\ \                         /\_ \                       

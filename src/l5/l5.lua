@@ -1,3 +1,5 @@
+#!/usr/bin/env lua
+-- vim: filetype=lua ts=2 sw=2 et:
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
            _  _  _    _    _           _  _  _                        
   __ _    | |(_)| |_ | |_ | |  ___    | |(_)| |_  ___                 
@@ -46,9 +48,9 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
 local fmt,help,cli,the
 fmt = string.format
 function help(opt)
-  print(fmt("lua %s [ARGS]\n%s\n%s\n\nARGS:",arg[0],opt.usage,opt.what))
-    for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
-      t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+  print(fmt("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],opt.usage,opt.what))
+  for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
+            t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
   print("\n"..opt.about); os.exit() end 
 
 function cli(opt,   u) 
