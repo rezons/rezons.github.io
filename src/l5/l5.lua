@@ -1,5 +1,3 @@
-#!/usr/bin/env lua
--- vim: filetype=lua ts=2 sw=2 et:
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end --[[
            _  _  _    _    _           _  _  _                        
   __ _    | |(_)| |_ | |_ | |  ___    | |(_)| |_  ___                 
@@ -47,15 +45,14 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
 
 local fmt,help,cli,the
 fmt = string.format
--- Pretty print 'options'.
+-- Pretty print help text.
 function help(opt)
   print(fmt("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],opt.usage,opt.what))
   for _,t in pairs(opt.how) do print(fmt("%4s %-9s%s\t%s %s",
             t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
   print("\n"..opt.about); os.exit() end 
 
--- If options has a flag '-x' and the command line has '-x',
--- then update opt with the command line value.
+-- Update any "-x" flag with "-x" arguments from the command line.
 function cli(opt,   u) 
   u={}
   for _,t in pairs(opt.how) do
@@ -66,26 +63,45 @@ function cli(opt,   u)
   math.randomseed(u.seed or 100019)
   return u end
 
--- Make a global with our options e.g. the = {seed=10019, help=false, p=2...}
-the = cli(options)  
+-- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
+the = cli(options)
 
--------------------------------------------------------------------------------
--- table tricks
+--[[     _   _ _ _ _   _           
+     _   _| |_(_) (_) |_(_) ___  ___ 
+    | | | | __| | | | __| |/ _ \/ __|
+    | |_| | |_| | | | |_| |  __/\__ \
+     \__,_|\__|_|_|_|\__|_|\___||___/   --]]
+                                 
+------------------------------------------------------------------------------
+-- ## Table Stuff
 local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bchop
+-- Table to string.
 cat     = table.concat
+-- Return a sorted table.
 sort    = function(t,f) table.sort(t,f); return t end
+
+-- Add to end, pull from end.
 push    = table.insert
 pop     = table.remove
+
+-- Return first,second, last  item.
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
 last    = function(t) return t[#t] end
+
+-- Function for sorting pairs of items.
 firsts  = function(a,b) return first(a) < first(b) end
 
+-- Random order of items in a list (sort in place).
 function shuffle(t,   j)
   for i=#t,2,-1 do j=math.random(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
+-- Collect values, passed through 'f'.
 function lap(t,f)  return map(t,f,1) end
 
+-- Collect key,values, passed through 'f'.    
+-- If `f` returns two values, store as key,value.     
+-- If `f` returns one values, store at index value.
 function map(t,f,one,     u) 
   u={}; for x,y in pairs(t) do 
     if one then x,y=f(y) else x,y=f(x,y) end
@@ -93,13 +109,14 @@ function map(t,f,one,     u)
       if y then u[x]=y else u[1+#u]=x end end end 
   return u end
 
+-- Return a table's keys (sorted).
 function keys(t,u)
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
   return sort(u) 
 end
 
--- binary chop (assumes sorted lists)
+-- Binary chop (assumes sorted lists)
 function bchop(t,val,lt,lo,hi,     mid)
   lt = lt or function(x,y) return x < y end
   lo,hi = lo or 1, hi or #t
@@ -109,30 +126,38 @@ function bchop(t,val,lt,lo,hi,     mid)
   return math.min(lo,#t)  end
 
 ------------------------------------------------------------------------------
--- maths tricks
+-- ## Maths Stuff
 local abs,norm,sum,rnd,rnds
 abs = math.abs
 
+-- Round `x` to `d` decimal places.
 function rnd(x,d,  n) 
   n=10^(d or 0); return math.floor(x*n+0.5) / n end
 
+-- Round list of items to  `d` decimal places.
 function rnds(t,d) 
-  return lap(t, function(x) return rnd(x,d) end ) end
+  return lap(t, function(x) return rnd(x,d or 2) end ) end
 
+-- Sum items, filtered through `f`.
 function sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
 -------------------------------------------------------------------------------
--- printing tricks
+-- ## Printing Stuff
 local out,shout,red,green,yellow,blue
+
+-- Print as red, green, yellow, blue.
 function red(s)    return "\27[1m\27[31m"..s.."\27[0m" end
 function green(s)  return "\27[1m\27[32m"..s.."\27[0m" end
 function yellow(s) return "\27[1m\27[33m"..s.."\27[0m" end
 function blue(s)   return "\27[1m\27[36m"..s.."\27[0m" end
 
+-- Printed string from a nested structure.
 shout= function(x) print(out(x)) end
 
+-- Generate string from a nested structures
+-- (and don't print any contents more than once).
 function out(t,seen,    u,key,value,public)
   function key(k)   return fmt(":%s %s",blue(k),out(t[k],seen)) end
   function value(v) return out(v,seen) end
@@ -144,7 +169,9 @@ function out(t,seen,    u,key,value,public)
   return red((t._is or"").."{")..cat(u," ")..red("}") end 
 
 -------------------------------------------------------------------------------
--- file i/o tricks
+-- ## File i/o Stuff
+
+-- Return one table per line, split on commans.
 local csv
 function csv(file,   line)
   file = io.input(file)
@@ -159,16 +186,22 @@ function csv(file,   line)
     else io.close(file) end end end
 
 -------------------------------------------------------------------------------
--- oo tricks
+-- ## OO Stuff
 local has,obj
+
+-- Create an instance
 function has(mt,x) return setmetatable(x,mt) end
+
+-- Create a clss
 function obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
 -------------------------------------------------------------------------------
--- tricks for Symbolic examples
+-- ## Stuff for tracking `Sym`bol Counts.
+
+-- `Sym`s track symbol counts and the `mode` (most frequent symbol).
 local Sym=obj"Sym"
 function Sym.new(inits,     self) 
   self= has(Sym,{has={}, n=0, mode=nil, most=0})
@@ -183,7 +216,9 @@ function Sym:add(x)
 function Sym:mid() return self.mode end 
 
 -------------------------------------------------------------------------------
--- tricks for numeric examples
+-- ## Stuff for tracking `Num`bers.
+
+-- `Num`s track a list of number, and can report  it sorted.
 local Num=obj"Num"
 function Num.new(inits,     self) 
   self= has(Num,{has={}, n=0, lo=1E32, hi =1E-32, ready=true})
@@ -195,36 +230,110 @@ function Num:add(x)
   elseif x<self.lo then self.lo = x end
   push(self.has,x); self.n=self.n+1; self.ready=false end
 
+-- Ensure that the returned list of numbers is sorted.
 function Num:all(x) 
   if not self.ready then table.sort(self.has) end
   self.ready = true
   return self.has end
 
+-- Combine two `num`s.
 function Num:merge(other,    new)
   new = Num.new(self.has)
   for _,x in pairs(other.has) do new:add(x) end
   return new end
 
+-- Return a merged item if that combination 
+-- is simpler than its parts.
 function Num:mergeable(other,    new,b4)
   new = self:merge(other)
   b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
   if b4 >= new:sd() then return new end end
 
+-- The `mid` is the 50th percentile.
 function Num:mid() return self:per(.5) end
 
+-- Return `x` normalized 0..1, lo..hi.
 function Num:norm(x,     lo,hi)
   if x=="?" then return x end
   lo,hi = self.lo, self.hi
   return abs(hi - lo) < 1E-32 and 0 or (x - lo)/(hi - lo) end
 
+-- Return the `p`-th percentile number.
 function Num:per(p,    t)
   t = self:all()
   p = p*#t//1
   return #t<2 and t[1] or t[p < 1 and 1 or p>#t and #t or p] end
 
+-- The 10th to 90th percentile is 2.56 times the standard deviation.
 function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -------------------------------------------------------------------------------
+-- Samples store examples. Samples know about 
+-- (a) lo,hi ranges on the numerics
+-- and (b) what  are independent `x` or dependent `y` columns.
+local Sample=obj"Sample"
+function Sample.new(     src,self)
+  self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
+  if src then
+    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
+    if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
+  return self end
+
+function Sample:clone(      inits,out) 
+  out = Sample.new():add(self.names) 
+  for _,eg in pairs(inits or {}) do out:add(eg) end
+  return out end
+
+function Sample:add(eg,     name,datum)
+  function name(col,new,    weight, where, what) 
+    if new:find":" then return end
+    weight= new:find"-" and -1 or 1
+    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
+    where = (new:find("+") or new:find("-")) and self.ys or self.xs
+    push(self.all, what)
+    push(where,    what)
+  end -----------------
+  function datum(one,new)
+    if new ~= "?" then one.seen:add(new) end 
+  end -----------------
+  if   not self.names
+  then self.names = eg
+       map(eg, function(col,x) name(col,x) end) 
+  else push(self.egs, eg)
+       map(self.all, function(_,col) datum(col,eg[col.col]) end)
+  end 
+  return self end
+
+function Sample:stats(cols)
+  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
+-- bins his
+-- bins sorts
+ 
+function Sample:tree(min,      node,min,sub)
+  node = {node=self, kids={}}
+  min = min  or (#self.egs)^the.small
+  if #self.egs >= 2*min then 
+    --- here
+    for _,span in pairs(splits.best(sample)) do
+      sub = self:clone()
+      for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
+      push(node.kids, span) 
+      span.has = sub:tree(min) end end 
+  return node end
+
+-- at node
+function Sample:where(tree,eg,    max,x,default)
+  if #kid.has==0 then return tree end
+  max = 0
+  for _,kid in pairs(tree.node) do
+    if #kid.has > max then default,max = kid,#kid.has end
+    x = eg[kid.col]
+    if x ~= "?" then
+      if x <= kid.hi and x >= kid.lo then 
+        return self:where(kid.has.eg) end end end
+  return self:where(default, eg) end
+
+-------------------------------------------------------------------------------
 -- doscretization tricks
 local splits={}
 function splits.best(sample,    best,tmp,xpect,out)
@@ -297,72 +406,6 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
 
 
 
-
--------------------------------------------------------------------------------
--- Samples store examples. Samples know about 
--- (a) lo,hi ranges on the numerics
--- and (b) what  are independent `x` or dependent `y` columns.
-local Sample=obj"Sample"
-function Sample.new(     src,self)
-  self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
-  if src then
-    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
-    if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
-  return self end
-
-function Sample:clone(      inits,out) 
-  out = Sample.new():add(self.names) 
-  for _,eg in pairs(inits or {}) do out:add(eg) end
-  return out end
-
-function Sample:add(eg,     name,datum)
-  function name(col,new,    weight, where, what) 
-    if new:find":" then return end
-    weight= new:find"-" and -1 or 1
-    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
-    where = (new:find("+") or new:find("-")) and self.ys or self.xs
-    push(self.all, what)
-    push(where,    what)
-  end -----------------
-  function datum(one,new)
-    if new ~= "?" then one.seen:add(new) end 
-  end -----------------
-  if   not self.names
-  then self.names = eg
-       map(eg, function(col,x) name(col,x) end) 
-  else push(self.egs, eg)
-       map(self.all, function(_,col) datum(col,eg[col.col]) end)
-  end 
-  return self end
-
-function Sample:stats(cols)
-  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
--- bins his
--- bins sorts
- 
-function Sample:tree(min,      node,min,sub)
-  node = {node=self, kids={}}
-  min = min  or (#self.egs)^the.small
-  if #self.egs >= 2*min then 
-    --- here
-    for _,span in pairs(splits.best(sample)) do
-      sub = self:clone()
-      for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
-      push(node.kids, span) 
-      span.has = sub:tree(min) end end 
-  return node end
-
--- at node
-function Sample:where(tree,eg,    max,x,default)
-  if #kid.has==0 then return tree end
-  max = 0
-  for _,kid in pairs(tree.node) do
-    if #kid.has > max then default,max = kid,#kid.has end
-    x = eg[kid.col]
-    if x ~= "?" then
-      if x <= kid.hi and x >= kid.lo then 
-        return self:where(kid.has.eg) end end end
-  return self:where(default, eg) end
 
 -- ordered object
 -- per sd add sort here. mergabe
