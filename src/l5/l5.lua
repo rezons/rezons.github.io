@@ -167,36 +167,57 @@ function obj(s, o,new)
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
-local Nums=obj"Nums"
-function Nums.new(inits,     self) 
-  self= has(Nums,{has={}, n=0, ready=true})
+-------------------------------------------------------------------------------
+-- tricks for Symbolic examples
+local Sym=obj"Sym"
+function Sym.new(inits,     self) 
+  self= has(Num,{has={}, n=0, mode=nil, most=0})
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
-function Nums:add(x) 
+function Sym:add(x) 
+  self.n = self.n + 1
+  self.has[x] = 1 + (self.has[x] or 0)
+  if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
+
+function Sym:mid() return self.mode end 
+
+-------------------------------------------------------------------------------
+-- tricks for numeric examples
+local Num=obj"Num"
+function Num.new(inits,     self) 
+  self= has(Num,{has={}, n=0, lo=1E32, hi =1E-32,ready=true})
+  for _,one in pairs(inits or {}) do self:add(one) end
+  return self end
+
+function Num:add(x) 
+  if     x>self.hi then self.hi = x 
+  elseif x<self.lo then self.lo = x end
   push(self.has,x); self.n=self.n+1; self.ready=false end
 
-function Nums:all(x) 
+function Num:all(x) 
   if not self.ready then table.sort(self.has) end
   self.ready = true
   return self.has end
 
-function Nums:per(p,    here,t)
-  function here(x) x=x*#t//1; return x < 1 and 1 or x>#t and #t or x end
-  t=self:all()
-  return #t <2 and  t[1] or t[ here(p or .5) ] end
-
-function Nums:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
-
-function Nums:merge(other,    new)
-  new = Nums.new(self.has)
+function Num:merge(other,    new)
+  new = Num.new(self.has)
   for _,x in pairs(other.has) do new:add(x) end
   return new end
 
-function Nums:mergeable(other,    new,b4)
+function Num:mergeable(other,    new,b4)
   new = self:merge(other)
   b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
   if b4 >= new:sd() then return new end end
+
+function Num:mid() return self:per(.5) end
+
+function Num:per(p,    t)
+  t = self:all()
+  p = p*#t//1
+  return #t<2 and t[1] or t[p < 1 and 1 or p>#t and #t or p] end
+
+function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -------------------------------------------------------------------------------
 -- doscretization tricks
@@ -216,7 +237,7 @@ function splits.whatif(col,sample,     out)
   return out, xpect end
 
 function splits.spans(col,sample,      xs,xys, symbolic,x)
-  xys,xs,  symbolic ={}, Nums(), sample.nums[col]
+  xys,xs,  symbolic ={}, Num(), sample.nums[col]
   for rank,eg in pairs(sample.egs) do
     x = eg[col]
     if x ~= "?" then 
@@ -229,7 +250,7 @@ function splits.spans(col,sample,      xs,xys, symbolic,x)
         push(xys, {x=x,y=rank}) end end 
   end
   if   symbolic 
-  then return map(xys, function(x,t) return {lo=x, hi=x, has=Nums(t)} end)
+  then return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end)
   else return splits.merge(
                 splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
 
@@ -243,12 +264,12 @@ function splits.spans(col,sample,      xs,xys, symbolic,x)
 --    is just as simple as the parts.
 function splits.div(xys, tiny, dull,           now,out,x,y)
   xys = sort(xys, function(a,b) return a.x < b.x end)
-  now = {lo=xys[1].x, hi=xys[1].x, has=Nums()}
+  now = {lo=xys[1].x, hi=xys[1].x, has=Num()}
   out = {now}
   for j,xy in pairs(xys) do
     x, y = xy.x, xy.y
     if   j<#xys-tiny and x~=xys[j+1].x and now.has.n>tiny and now.hi-now.lo>dull 
-    then now = {lo=x, hi=x, has=Nums()}
+    then now = {lo=x, hi=x, has=Num()}
          push(out, now) end 
     now.hi = x 
     now.has:add(y) end
@@ -273,7 +294,7 @@ function splits.merge(b4,       j,tmp,a,n,hasnew)
 -- and (b) what  are independent `x` or dependent `y` columns.
 local Sample=obj"Sample"
 function Sample.new(     src,self)
-  self = has(Sample,{names=nil, nums={}, ys={}, xs={}, egs={}})  
+  self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
   if src then
     if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
     if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
@@ -285,19 +306,16 @@ function Sample:clone(      inits,out)
   return out end
 
 function Sample:add(eg,     name,datum)
-  function name(col,new,    tmp) 
+  function name(col,new,    howmuch, where, what) 
     if new:find":" then return end
-    if not (new:find("+") or new:find("-")) then self.xs[col]=col end 
-    if new:match("^[A-Z]") then 
-      tmp = {col=col, w=0, lo=1E32, hi=-1E22} 
-      self.nums[col] = tmp
-      if new:find"-" then tmp.w=-1; self.ys[col] = tmp end
-      if new:find"+" then tmp.w= 1; self.ys[col] = tmp end end 
+    howmuch= new:find"-" and -1 or 1
+    where  = (new:find("+") or new:find("-")) and t.ys or t.xs
+    what   = {col=col, w=howmuch, seen=(new:match("^[A-Z]",x) and Num()  or Sym())}
+    self.all[col] = what
+    where[col]    = what
   end -----------------
   function datum(col,new)
-    if self.nums[col] and new ~= "?" then
-      self.nums[col].lo = math.min(new, self.nums[col].lo)
-      self.nums[col].hi = math.max(new, self.nums[col].hi) end  
+    if new ~= "?" then self.all[col]:add(new) end 
   end -----------------
   if   not self.names
   then self.names = eg
@@ -305,6 +323,7 @@ function Sample:add(eg,     name,datum)
   else push(self.egs, eg)
        map(eg, function(col,x) datum(col,x) end) end 
   return self end
+
 
 -- bins his
 -- bins sorts
@@ -430,15 +449,15 @@ function eg.csv(   n,z)
   assert(n==399 and z[#z]==50) end
 
 function eg.nums(    n)
-  n=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(15.625 == n:sd()) end
 
 function eg.nums(    n1,n2,n3,n4)
-  n1=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
-  n2=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n1=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n2=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(n1:mergeable(n2)~=nil) 
-  n3=Nums{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
-  n4=Nums{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
+  n3=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
+  n4=Num{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
   assert(n3:mergeable(n4)==nil) end
 
 function eg.sample(    s,tmp,d1,d2)
