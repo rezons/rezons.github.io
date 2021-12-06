@@ -69,6 +69,7 @@ function cli(opt,   u)
        os.exit() 
   end
   if u.seed then Seed = u.seed end
+  print(Seed)
   return u end 
 
 -- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
@@ -86,15 +87,15 @@ local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bcho
 cat     = table.concat
 -- Return a sorted table.
 sort    = function(t,f) table.sort(t,f); return t end
--- Add to end, pull from end.
-push    = table.insert
-pop     = table.remove
 -- Return first,second, last  item.
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
 last    = function(t) return t[#t] end
 -- Function for sorting pairs of items.
 firsts  = function(a,b) return first(a) < first(b) end
+-- Add to end, pull from end.
+pop     = table.remove
+push    = function(t,x) table.insert(t,x); return x end
 
 -- Random order of items in a list (sort in place).
 function shuffle(t,   j)
@@ -113,7 +114,10 @@ function map(t,f,one,     u)
       if y then u[x]=y else u[1+#u]=x end end end 
   return u end
 
--- Return a table's keys (sorted).
+-- Shallow copy
+function copy(t) return lap(t, function(x) return x end) end
+
+--- Return a table's keys (sorted).
 function keys(t,u)
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
@@ -440,37 +444,34 @@ function Sample:where(tree,eg,    max,x,default)
 local hints={}
 function hints.default(eg) return eg end
 
-function hints.sort(sample,score,    test,train,evals)
+function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   sample = Sample.new(the.file)
   train,test = {}, {}
   for i,eg in pairs(shuffle(sample.egs)) do
      push(i<= the.train*#sample.egs and train or test, eg) end
-  evals,train = hints.recurse(sample, train,0,
-                        score or hints.default, {}, (#train)^the.small)
-  return evals,sample:clone(train), sample:clone(test) end
-
-function hints.recurse(sample, egs, evals, scorefun, out, small, worker)
-  if #egs < small then 
-    for i=1, #egs do push(out, pop(egs)) end 
-    return evals,out 
+  egs = copy(train)
+  scored = {}
+  small = (#egs)^the.small
+  while #egs >= small do 
+    local tmp = {}   
+    for j=1,the.hints do
+      egs[j] = (scorefun or hints.default)(egs[j])
+      push(scored, push(tmp, egs[j])) 
+    end
+    egs = hints.ranked(tmp,egs,sample)
+    for i=1,the.cull*#egs//1 do pop(egs) end 
   end
-  local scoreds = {}   
-  function worker(eg) return hints.locate(scoreds,eg,sample) end
-  for j=1,the.hints do evals=evals+1; 
-                       push(scoreds, scorefun(pop(egs))) end
-  scoreds = sample:betters(scoreds)
-  egs     = lap(sort(lap(egs, worker),firsts),second)
-  print(the.cull*#egs)
-  for i=1,the.cull*#egs//1 do push(out, pop(egs)) end
-  return hints.recurse(sample, egs,evals, scorefun, out, small) end
+  train=hints.ranked(scored, train, sample)
+  return #scored, sample:clone(train), sample:clone(test) end
 
-function hints.locate(scoreds,eg,sample,        closest,rank,tmp)
-  closest, rank, tmp = 1E32, 1E32, nil
-  for rank0, scored in pairs(scoreds) do
-    tmp = sample:dist(eg, scored)
-    if tmp < closest then closest,rank = tmp,rank0 end end
-  return {rank, eg} end 
-  --return {rank+closest/10^6, eg} end 
+function hints.ranked(scored,egs,sample)
+  function worker(eg) return {hints.rankOfClosest(scored,eg,sample),eg} end
+  scoreds = sample:betters(scored)
+  return  lap(sort(lap(egs, worker),firsts),second) end
+
+function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
+  function worker(rank,eg2) return {sample:dist(eg1,eg2),rank} end
+  return  first(sort(map(scored, worker),firsts))[2] end
 
 
 --      _                          
@@ -489,7 +490,7 @@ function example(k,      f,ok,msg)
 
 function eg.shuffle(   t)
   t={}
-  for i=1,32 do push(t,i) end
+  for i=1,100 do push(t,i) end
   assert(#t == #shuffle(t) and t[1] ~= shuffle(t)[1]) end
 
 function eg.lap() 
@@ -573,6 +574,7 @@ os.exit(fail)
 
 --[[
 --  seems to be  a revers that i  need to do .... but dont
+-- check if shuffle is working
 
 teaching:
 - sample is v.useful
