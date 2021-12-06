@@ -116,6 +116,9 @@ function map(t,f,one,     u)
 -- Shallow copy
 function copy(t,  u) u={}; for k,v in pairs(t) do u[k]=v end; return u end
 
+function top(t,n,      u)
+  u={};for k,v in pairs(t) do if k>n then break end; push(u,v)end; return u; end
+
 --- Return a table's keys (sorted).
 function keys(t,u)
   u={}
@@ -448,21 +451,31 @@ function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   for i,eg in pairs(shuffle(sample.egs)) do
      push(i<= the.train*#sample.egs and train or test, eg) end
   egs = copy(train)
-  scored = {}
   small = (#egs)^the.small
+  local i=0
+  scored = {}
   while #egs >= small do 
-    local tmp = {}   
+    local tmp ={}
+    i = i + 1
+    io.stderr:write(fmt("%s",string.char(96+i)))
     for j=1,the.hints do
       egs[j] = (scorefun or hints.default)(egs[j])
-      push(scored, push(tmp, egs[j])) 
+      push(tmp, push(scored, egs[j]))
     end
-    egs = hints.ranked(tmp,egs,sample)
+    egs = hints.ranked(scored,egs,sample)
     for i=1,the.cull*#egs//1 do pop(egs) end 
   end
+  io.stderr:write("\n")
   train=hints.ranked(scored, train, sample)
   return #scored, sample:clone(train), sample:clone(test) end
 
-function hints.ranked(scored,egs,sample,worker)
+-- scoreing here is strange. ??? make test set same size
+function hints.ranked(scored,egs,sample,worker,  some)
+  -- some = {}
+  -- if   #scored > 10000512 then 
+  --      for k,v in pairs(shuffle(scored)) do push(some,v) end 
+  -- else some=scored 
+  -- end
   function worker(eg) return {hints.rankOfClosest(scored,eg,sample),eg} end
   scored = sample:betters(scored)
   return  lap(sort(lap(egs, worker),firsts),second) end
