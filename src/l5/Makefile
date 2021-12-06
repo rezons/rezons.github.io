@@ -4,6 +4,10 @@ f=l5
 small:
 	figlet  -W  -f small  "$$(read)"
 
+doc: pdf
+	docco l5.lua
+	cp ../../etc/docco.css docs
+
 pdf:
 	a2ps -jBR --line-numbers=1   -u tesst                            \
            --left-footer="" --right-footer="" --footer=""  \
