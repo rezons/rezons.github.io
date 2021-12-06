@@ -69,7 +69,6 @@ function cli(opt,   u)
        os.exit() 
   end
   if u.seed then Seed = u.seed end
-  print(Seed)
   return u end 
 
 -- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
@@ -115,7 +114,7 @@ function map(t,f,one,     u)
   return u end
 
 -- Shallow copy
-function copy(t) return lap(t, function(x) return x end) end
+function copy(t,  u) u={}; for k,v in pairs(t) do u[k]=v end; return u end
 
 --- Return a table's keys (sorted).
 function keys(t,u)
@@ -134,7 +133,7 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 ------------------------------------------------------------------------------
 -- ## Maths Stuff
-local abs,norm,sum,rnd,rnds,Seed,rand
+local abs,norm,sum,rnd,rnds,rand
 abs = math.abs
 -- Round `x` to `d` decimal places.
 function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
@@ -147,7 +146,6 @@ function sum(t,f)
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
 -- Pseudo-random number generator for integers (`randi`) or floats (`rand`).
-Seed=937162211
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi,     mult,mod)
   lo, hi = lo or 0, hi or 1
@@ -437,8 +435,8 @@ function Sample:where(tree,eg,    max,x,default)
         return self:where(kid.has.eg) end end end
   return self:where(default, eg) end
 
-
 
+
 ------------------------------------------------------------------------------
 -- sample sample sorting
 local hints={}
@@ -464,14 +462,15 @@ function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   train=hints.ranked(scored, train, sample)
   return #scored, sample:clone(train), sample:clone(test) end
 
-function hints.ranked(scored,egs,sample)
+function hints.ranked(scored,egs,sample,worker)
   function worker(eg) return {hints.rankOfClosest(scored,eg,sample),eg} end
-  scoreds = sample:betters(scored)
+  scored = sample:betters(scored)
   return  lap(sort(lap(egs, worker),firsts),second) end
 
 function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
   function worker(rank,eg2) return {sample:dist(eg1,eg2),rank} end
-  return  first(sort(map(scored, worker),firsts))[2] end
+  closest = first(sort(map(scored, worker),firsts)) 
+  return  closest[2] + closest[1]/10^8 end
 
 
 --      _                          
@@ -480,9 +479,11 @@ function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
 --  \__,_| \___| |_|_|_| \___/ /__/
 -------------------------------------------------------------------------------
 local eg,fail,example={},0
+local defaults = copy(the)
 function example(k,      f,ok,msg)
   f= eg[k]; assert(f,"unknown action "..k)
-  the=cli(options)
+  the=copy(defaults)
+  Seed=the.seed
   if the.wild then return f() end
   ok,msg = pcall(f)
   if ok then print(green("PASS"),k) 
@@ -548,20 +549,18 @@ function eg.dists(    s,tmp,d1,d2,n)
                firsts) 
    d1=s:dist(tmp[1][2], tmp[10][2])
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
-   assert(d1*10<d2)
-end
+   assert(d1*10<d2) end
 
-function eg.hints(    s,_,__,evals,sort1,train)
+function eg.hints(    s,_,__,evals,sort1,train,test,n)
   s=Sample(the.file) 
   --for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
   -- assert(s.ys[4].lo==1613) 
   evals, train,test = hints.sort(s) 
-  print("=",evals) 
   test.egs = test:betters()
   for m,eg in pairs(test.egs) do
      n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end)
-     print(m,n) end
-  end
+     print(n) end end
+
 
 if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
 
