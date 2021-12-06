@@ -5,7 +5,7 @@ small:
 	figlet  -W  -f small  "$$(read)"
 
 pdf:
-	a2ps -jR --line-numbers=1   -u tesst                            \
+	a2ps -jBR --line-numbers=1   -u tesst                            \
            --left-footer="" --right-footer="" --footer=""  \
            --borders=no --pro=color --columns 2 -L 150      \
            --pretty-print=lua.ssh -M letter -o $f.ps $f.lua

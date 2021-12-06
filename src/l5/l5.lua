@@ -56,14 +56,15 @@ function cli(opt,   u)
   for _,t in pairs(opt.how) do
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
-      u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
+         u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
   if   u.help 
   then print(string.format("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
              arg[0],opt.usage,opt.what))
        for _,t in pairs(opt.how) do print(string.format("%4s %-9s%s\t%s %s",
-         t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+              t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
        print("\n"..opt.about)
-       os.exit() end
+       os.exit() 
+  end
   if u.seed then Seed = u.seed end
   return u end 
 
@@ -82,16 +83,13 @@ local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bcho
 cat     = table.concat
 -- Return a sorted table.
 sort    = function(t,f) table.sort(t,f); return t end
-
 -- Add to end, pull from end.
 push    = table.insert
 pop     = table.remove
-
 -- Return first,second, last  item.
 first   = function(t) return t[1] end
 second  = function(t) return t[2] end
 last    = function(t) return t[#t] end
-
 -- Function for sorting pairs of items.
 firsts  = function(a,b) return first(a) < first(b) end
 
@@ -116,8 +114,7 @@ function map(t,f,one,     u)
 function keys(t,u)
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then push(u,k) end end
-  return sort(u) 
-end
+  return sort(u) end
 
 -- Binary chop (assumes sorted lists)
 function bchop(t,val,lt,lo,hi,     mid)
@@ -132,10 +129,8 @@ function bchop(t,val,lt,lo,hi,     mid)
 -- ## Maths Stuff
 local abs,norm,sum,rnd,rnds,Seed,rand
 abs = math.abs
-
 -- Round `x` to `d` decimal places.
 function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
-
 -- Round list of items to  `d` decimal places.
 function rnds(t,d) return lap(t, function(x) return rnd(x,d or 2) end) end
 
@@ -144,6 +139,7 @@ function sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
+-- Pseudo-random number generator for integers (`randi`) or floats (`rand`).
 Seed=937162211
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi,     mult,mod)
@@ -155,7 +151,6 @@ function rand(lo,hi,     mult,mod)
 -- ## Printing Stuff
 local out,shout,red,green,yellow,blue,color,fmt
 fmt = string.format
-
 -- Print as red, green, yellow, blue.
 function color(s,n) return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
 function red(s)     return color(s,31) end
@@ -164,8 +159,7 @@ function yellow(s)  return color(s,34) end
 function blue(s)    return color(s,36) end
 
 -- Printed string from a nested structure.
-shout= function(x) print(out(x)) end
-
+shout = function(x) print(out(x)) end
 -- Generate string from a nested structures
 -- (and don't print any contents more than once).
 function out(t,seen,    u,key,value,public)
@@ -180,7 +174,6 @@ function out(t,seen,    u,key,value,public)
 
 -------------------------------------------------------------------------------
 -- ## File i/o Stuff
-
 -- Return one table per line, split on commans.
 local csv
 function csv(file,   line)
@@ -198,7 +191,6 @@ function csv(file,   line)
 -------------------------------------------------------------------------------
 -- ## OO Stuff
 local has,obj
-
 -- Create an instance
 function has(mt,x) return setmetatable(x,mt) end
 
@@ -210,7 +202,6 @@ function obj(s, o,new)
 
 -------------------------------------------------------------------------------
 -- ## Stuff for tracking `Sym`bol Counts.
-
 -- `Sym`s track symbol counts and the `mode` (most frequent symbol).
 local Sym=obj"Sym"
 function Sym.new(inits,     self) 
@@ -224,12 +215,10 @@ function Sym:add(x)
   if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
 
 function Sym:dist(a,b) return a==b and 0 or 1 end
-
 function Sym:mid() return self.mode end 
 
 -------------------------------------------------------------------------------
 -- ## Stuff for tracking `Num`bers.
-
 -- `Num`s track a list of number, and can report  it sorted.
 local Num=obj"Num"
 function Num.new(inits,     self) 
