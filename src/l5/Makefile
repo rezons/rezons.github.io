@@ -21,4 +21,4 @@ d=/tmp/l5
 ex1:
 	mkdir -p $d
 	for((i=1;i<=20;i++)) do lua l5.lua -S $$RANDOM -W -T hints > $d/$$i.out ; done;
-	ls $d
+	paste $d/*  |  bat

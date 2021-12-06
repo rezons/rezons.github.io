@@ -470,7 +470,8 @@ function hints.ranked(scored,egs,sample,worker)
 function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
   function worker(rank,eg2) return {sample:dist(eg1,eg2),rank} end
   closest = first(sort(map(scored, worker),firsts)) 
-  return  closest[2] + closest[1]/10^8 end
+  return  closest[2] end --+ closest[1]/10^8 end
+  --return  closest[2] + closest[1]/10^8 end
 
 
 --      _                          
