@@ -62,13 +62,23 @@ if the.help then --  print help text
           t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
   print("\n"..options.about)
   os.exit() end
+
+--[[ 
+Spans
+ Little languages: 
+   - options
+   - data language
+
+Lesson plan
+-- w1: ssytems: github. github workplaces. unit tests. doco tools. 
+-- w2: num,sym
+-- W3: sample
+-- w4: eval, knn, unfarinessness
+-- W5: 
 
---               _                      _     _   _      
---       _ __   (_)  ___  __     _  _  | |_  (_) | |  ___
---      | '  \  | | (_-< / _|   | || | |  _| | | | | (_-<
---      |_|_|_| |_| /__/ \__|    \_,_|  \__| |_| |_| /__/    
---
-------------------------------------------------------------------------------
+--      _ _   .     _   _             _|_  .  |   _
+--     | | |  |    _\  (_        |_|   |   |  |  _\
+
 -- Random stuff
 local Seed,rand,randi
 Seed = the.seed or 10019
@@ -138,7 +148,7 @@ function bchop(t,val,lt,lo,hi,     mid)
 
 ------------------------------------------------------------------------------
 -- ## Maths Stuff
-local abs,norm,sum,rnd,rnds,rand
+local abs,sum,rnd,rnds
 abs = math.abs
 -- Round `x` to `d` decimal places.
 function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
@@ -203,24 +213,10 @@ function obj(s, o,new)
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
--------------------------------------------------------------------------------
--- ## Stuff for tracking `Sym`bol Counts.
--- `Sym`s track symbol counts and the `mode` (most frequent symbol).
-local Sym=obj"Sym"
-function Sym.new(inits,     self) 
-  self= has(Sym,{has={}, n=0, mode=nil, most=0})
-  for _,one in pairs(inits or {}) do self:add(one) end
-  return self end
+--      _         _ _          _       _ _ 
+--     | |  |_|  | | |        _\  \/  | | |
+--                                /        
 
-function Sym:add(x) 
-  self.n = self.n + 1
-  self.has[x] = 1 + (self.has[x] or 0)
-  if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
-
-function Sym:dist(a,b) return a==b and 0 or 1 end
-function Sym:mid() return self.mode end 
-
--------------------------------------------------------------------------------
 -- ## Stuff for tracking `Num`bers.
 -- `Num`s track a list of number, and can report  it sorted.
 local Num=obj"Num"
@@ -277,107 +273,61 @@ function Num:per(p,    t)
 -- The 10th to 90th percentile is 2.56 times the standard deviation.
 function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
--------------------------------------------------------------------------------
--- discretization tricks
-local splits={}
-function splits.best(sample,    best,tmp,xpect,out)
-  best = maths.huge
-  for _,x in pairs(sample.xs) do
-    tmp, xpect = splits.whatif(x.at,self)
-    if   xpect < best 
-    then out,best = tmp,xpect end end
-  return out end
-   
-function splits.whatif(col,sample,     out)
-  out   = splits.spans(col,sample)
-  xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.egs 
-  out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
-  return out, xpect end
-
--- function Sym:bins(col,egs,      xs, x)
---   x,xys = {},{}
---   for rank,eg in pairs(egs) do
---     x = eg[col]
---     if x ~= "?" then 
---         xys[x] = xys[x] or {}
---         push(xys[x], rank) 
---   return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end
---
--- function Num:bins(col,egs)
---   local x,xys = {},{}
---   for rank,eg in pairs(egs) do
---     x = eg[col]
---     if x ~= "?" then 
---       xs:add(x)
---       push(xys, {x=x,y=rank}) end end 
---   return merge(div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
-
---   function split.div(xys, tiny, dull,           now,out,x,y)
---     xys = sort(xys, function(a,b) return a.x < b.x end)
---     now = {lo=xys[1].x, hi=xys[1].x, has=Num()}
---     out = {now}
---     for j,xy in pairs(xys) do
---       x, y = xy.x, xy.y
---       if j<#xys-tiny and x~=xys[j+1].x and now.has.n>tiny and now.hi-now.lo>dull 
---       then now = push(out, {lo=x, hi=x, has=Num()}) 
---       end
---       now.hi = x 
---       now.has:add(y) end
---     return out 
---   end
---   function split.merge(b4,       j,tmp,a,n,simpler) 
---     j, n, tmp = 0, #b4, {}
---     while j<n do
---       j = j + 1
---       a = b4[j]
---       if j < n-1 then
---         simpler = a.has:mergeable(b4[j+1].has)
---         if simpler then 
---           j = j + 1 
---           a = {lo=a.lo, hi= b4[j+1].hi, has=simpler} end end
---       push(tmp,a) end 
---     return #tmp==#b4 and b4 or split.merge(tmp) 
---   end
-function splits.spans(col,sample,      xs, symbolic,x)
-  xys, xs, symbolic ={}, Num(), col.seen._is=="Sym"
-  for rank,eg in pairs(sample.egs) do
+-- Create one span holding  row indexes associated with each number 
+local div -- defined below
+function Num:spans(col,egs)
+  local xys,xs = {},  Num()
+  for pos,eg in pairs(egs) do
     x = eg[col]
     if x ~= "?" then 
       xs:add(x)
-      if   symbolic
-      then -- in symbolic columns, xys are the indexes seen with each symbol
-      else -- in numeric columns,  xys are each number paired with its row id
-        push(xys, {x=x,y=rank}) end end 
-  end
-  if   symbolic 
-  then return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end)
-  else return splits.merge(
-                splits.div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
+      push(xys, {x=x,y=pos}) end end 
+  return div(xys,                     -- split xys into spans...
+             #xs^the.small,           -- ..where spans are of size sqrt(#xs)..
+             xs:sd()*the.trivial) end -- ..and spans have (last-first)>trivial
 
--- Generate a new range when     
--- 1. there is enough left for at least one more range; and     
--- 2. the lo,hi delta in current range is not boringly small; and    
--- 3. there are enough x values in this range; and   
--- 4. there is natural split here
--- Fuse adjacent ranges when:
--- 5. the combined class distribution of two adjacent ranges 
---    is just as simple as the parts.
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-- ## Stuff for tracking `Sym`bol Counts.
+-- `Sym`s track symbol counts and the `mode` (most frequent symbol).
+local Sym=obj"Sym"
+function Sym.new(inits,     self) 
+  self= has(Sym,{has={}, n=0, mode=nil, most=0})
+  for _,one in pairs(inits or {}) do self:add(one) end
+  return self end
+
+function Sym:add(x) 
+  self.n = self.n + 1
+  self.has[x] = 1 + (self.has[x] or 0)
+  if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
+
+function Sym:dist(a,b) return a==b and 0 or 1 end
+function Sym:mid() return self.mode end 
+
+-- Create one span holding  row indexes associated with each symbol 
+function Sym:spans(col,egs,...)
+   local xys,x = {}
+   for pos,eg in pairs(egs) do
+     x = eg[col]
+     if x ~= "?" then 
+       xys[x] = xys[x] or {}
+       push(xys[x], pos)  end end
+  return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end 
+
+
+--      _   _    _ _    _   |   _ 
+--     _\  (_|  | | |  |_)  |  (/_
+--                     |          
+
 -- Samples store examples. Samples know about 
 -- (a) lo,hi ranges on the numerics
 -- and (b) what  are independent `x` or dependent `y` columns.
-local Sample=obj"Sample"
+local Sample = obj"Sample"
 function Sample.new(     src,self)
   self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
   if src then
     if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
     if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
   return self end
-
-function Sample:clone(      inits,out) 
-  out = Sample.new():add(self.names) 
-  for _,eg in pairs(inits or {}) do out:add(eg) end
-  return out end
 
 function Sample:add(eg,     name,datum)
   function name(col,new,    weight, where, what) 
@@ -387,17 +337,15 @@ function Sample:add(eg,     name,datum)
              seen=(new:match("^[A-Z]",x) and Num() or Sym())}
     where = (new:find("+") or new:find("-")) and self.ys or self.xs
     push(self.all, what)
-    push(where,    what)
-  end -----------------
-  function datum(one,new)
+    push(where,    what) end
+  function datum(one,new) 
     if new ~= "?" then one.seen:add(new) end 
-  end -----------------
+  end --------------- 
   if   not self.names
   then self.names = eg
        map(eg, function(col,x) name(col,x) end) 
   else push(self.egs, eg)
-       map(self.all, function(_,col) datum(col,eg[col.col]) end)
-  end 
+       map(self.all, function(_,col) datum(col,eg[col.col]) end) end
   return self end
 
 function Sample:better(eg1,eg2,     e,n,a,b,s1,s2)
@@ -412,6 +360,11 @@ function Sample:better(eg1,eg2,     e,n,a,b,s1,s2)
 function Sample:betters(egs) 
   return sort(egs or self.egs,function(a,b) return self:better(a,b) end) end
 
+function Sample:clone(      inits,out) 
+  out = Sample.new():add(self.names) 
+  for _,eg in pairs(inits or {}) do out:add(eg) end
+  return out end
+
 function Sample:dist(eg1,eg2,     a,b,d,n,inc)
   d,n = 0,0
   for _,x in pairs(self.xs) do
@@ -421,17 +374,24 @@ function Sample:dist(eg1,eg2,     a,b,d,n,inc)
     n   = n + 1 end
   return (d/n)^(1/the.p) end
 
-function Sample:stats(cols)
+-- Report mid of the columns
+function Sample:mid(cols)
   return lap(cols or self.ys,function(col) return col.seen:mid() end) end
--- bins his
--- bins sorts
- 
-function Sample:tree(min,      node,min,sub)
+
+local div -- defined below 
+function Sample:tree(min,      node,min,sub,splitter, splitter1)
+  function splitter1(_,col,     out,xpect) 
+    out   = col:spans(col,sample.eg, div)
+    xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.egs 
+    out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
+    return {xpect,out} end
+  function splitter() 
+    return first(sort(lap(sample.xs, splitter1), firsts))[2] 
+  end -----------------------
   node = {node=self, kids={}}
-  min = min  or (#self.egs)^the.small
+  min  = min  or (#self.egs)^the.small
   if #self.egs >= 2*min then 
-    --- here
-    for _,span in pairs(splits.best(sample)) do
+    for _,span in pairs(splitter()) do
       sub = self:clone()
       for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
       push(node.kids, span) 
@@ -450,10 +410,45 @@ function Sample:where(tree,eg,    max,x,default)
         return self:where(kid.has.eg) end end end
   return self:where(default, eg) end
 
-
+-------------------------------------------------------------------------------
+-- discretization tricks
+-- Input a list of {{x,y}..} values. Return spans that divide the `x` values
+-- to minimize variance on the `y` values.
+function div(xys, tiny, dull,           now,out,x,y)
+  function merge(b4) -- merge adjacent spans if whole is simpler than the parts
+    local j, tmp = 0, {}
+    while j < #b4 do
+      j = j + 1
+      local now, after, simpler = b4[j], b4[j+1]
+      if after then
+        simpler = now.has:mergeable(after.has)
+        if simpler then 
+          now = {lo=now.lo, hi= after.hi, has=simpler} 
+          j = j + 1 end end
+      push(tmp,now) end 
+    return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
+  end -------------------- 
+  local spans,span,out,x,y
+  xys   = sort(xys, function(a,b) return a.x < b.x end)
+  span  = {lo=xys[1].x, hi=xys[1].x, has=Num()}
+  spans = {span}
+  for j,xy in pairs(xys) do
+    x, y = xy.x, xy.y
+    if   j<#xys - tiny   and -- if enough items remaining after split
+         x~=xys[j+1].x   and -- if the next item is different (so we split here)
+         span.has.n>tiny and -- if span has enough items
+         span.hi - span.lo>dull -- if span is not trivially small  
+    then now = push(spans, {lo=x, hi=x, has=Num()})  -- then new span
+    end
+    span.hi = x 
+    span.has:add(y) end
+  return merge(spans) end
 
-------------------------------------------------------------------------------
--- sample sample sorting
+--     |_   .   _   _|_  .   _    _
+--     | |  |  | |   |   |  | |  (_|
+--                                _|
+
+-- Sorting on a few y values
 local hints={}
 function hints.default(eg) return eg end
 
@@ -481,13 +476,7 @@ function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   train=hints.ranked(scored, train, sample)
   return #scored, sample:clone(train), sample:clone(test) end
 
--- scoring here is strange. ??? make test set same size
 function hints.ranked(scored,egs,sample,worker,  some)
-  -- some = {}
-  -- if   #scored > 10000512 then 
-  --      for k,v in pairs(shuffle(scored)) do push(some,v) end 
-  -- else some=scored 
-  -- end
   function worker(eg) return {hints.rankOfClosest(scored,eg,sample),eg} end
   scored = sample:betters(scored)
   return  lap(sort(lap(egs, worker),firsts),second) end
@@ -496,25 +485,11 @@ function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
   function worker(rank,eg2) return {sample:dist(eg1,eg2),rank} end
   closest = first(sort(map(scored, worker),firsts)) 
   return  closest[2] end --+ closest[1]/10^8 end
-  --return  closest[2] + closest[1]/10^8 end
-
 
---      _                          
---   __| |  ___   _ __    ___   ___
---  / _` | / -_) | '  \  / _ \ (_-<
---  \__,_| \___| |_|_|_| \___/ /__/
--------------------------------------------------------------------------------
-local eg,fail,example={},0
-local defaults = copy(the)
-function example(k,      f,ok,msg)
-  f= eg[k]; assert(f,"unknown action "..k)
-  the=copy(defaults)
-  Seed=the.seed
-  if the.wild then return f() end
-  ok,msg = pcall(f)
-  if ok then print(green("PASS"),k) 
-  else       print(red("FAIL"),  k,msg); fail=fail+1 end end
+--  _|   _    _ _    _    _
+-- (_|  (/_  | | |  (_)  _\
 
+local eg={}
 function eg.shuffle(   t)
   t={}
   for i=1,100 do push(t,i) end
@@ -561,9 +536,9 @@ function eg.sample(    s,tmp,d1,d2,n)
   local lo, hi = s:clone(), s:clone()
   for i=1,20                do lo:add(sort1[i]) end
   for i=#sort1,#sort1-30,-1 do hi:add(sort1[i]) end
-  shout(s:stats())
-  shout(lo:stats())
-  shout(hi:stats())
+  shout(s:mid())
+  shout(lo:mid())
+  shout(hi:mid())
   for m,eg in pairs(sort1) do
     n = bchop(sort1, eg,function(a,b) return s:better(a,b) end)
     assert(m-n <=2) end end
@@ -592,22 +567,33 @@ function eg.hints(    s,_,__,evals,sort1,train,test,n)
      n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end)
      print(n) end end
 
+------------------------------------------------------------------------------
+-- startup
+local fails, defaults = 0, copy(the)
+local function example(k,      f,ok,msg)
+  f= eg[k]; assert(f,"unknown action "..k)
+  the=copy(defaults)
+  Seed=the.seed
+  if the.wild then return f() end
+  ok,msg = pcall(f)
+  if ok then print(green("PASS"),k) 
+  else       print(red("FAIL"),  k,msg); fail=fail+1 end end
 
+-- run one or more examples
 if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
-
--------------------------------------------------------------------------------
--- trick for checking for rogues.
+-- print any rogue global variables
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
+-- exit, return  our test failure count.
 os.exit(fail)
-
-
 
 --[[
+    _|_ _    _| _ 
+     | (_)  (_|(_)
+                     
+
 --  seems to be  a revers that i  need to do .... but dont
 -- check if shuffle is working
 
 teaching:
 - sample is v.useful
-
-
 --]]

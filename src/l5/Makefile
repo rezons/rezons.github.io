@@ -2,7 +2,7 @@
 f=l5
 
 small:
-	figlet  -W  -f small  "$$(read)"
+	figlet  -W  -f threepoint  "$$(read)"
 
 doc: pdf
 	docco l5.lua
