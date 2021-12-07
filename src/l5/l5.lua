@@ -37,7 +37,7 @@ tree reports what attribute ranges select for the better (or
 worse) examples.  ]],
 
 how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
-      {"cull",     "-c",  .5    ,"cuts per repeat"},
+      {"cull",     "-c",  .5    ,"cuts per generation"},
       {"help",     "-h",  false  ,"show help"                 },
       {"hints",    "-H",  4      ,"hints per generation"      },
       {"p",        "-p",  2      ,"distance calc exponent"    },
@@ -48,40 +48,42 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
       {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
       {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
-local Seed,cli,the
-Seed=10019
--- If `-x X` appears on command line and `-x default` is in `how`
--- then update default from the command  line (and if `default`)
--- is false, then set it to true. Also, maybe
--- set random number seed and maybe show help string.
-function cli(opt,   u) 
-  u={}
-  for _,t in pairs(opt.how) do
-    u[t[1]] = t[3]
-    for n,word in ipairs(arg) do if word==t[2] then
-         u[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
-  if   u.help 
-  then print(string.format("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
-             arg[0],opt.usage,opt.what))
-       for _,t in pairs(opt.how) do print(string.format("%4s %-9s%s\t%s %s",
-              t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
-       print("\n"..opt.about)
-       os.exit() 
-  end
-  if u.seed then Seed = u.seed end
-  return u end 
+local the={} -- a flat list of key=value options; e.g. {seed=10019,p=2,...}
+for _,t in pairs(options.how) do -- update defaults from command line
+  the[t[1]] = t[3]
+  for n,word in ipairs(arg) do if word==t[2] then
+    the[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
 
--- Make a global for our options e.g. the = {seed=10019, help=false, p=2...}
-the = cli(options)                                          
+if the.help then --  print help text
+  print(string.format("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
+                      arg[0], options.usage, options.what))
+  for _,t in pairs(options.how) do 
+    print(string.format("%4s %-9s%s\t%s %s",
+          t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+  print("\n"..options.about)
+  os.exit() end
 
 --               _                      _     _   _      
 --       _ __   (_)  ___  __     _  _  | |_  (_) | |  ___
 --      | '  \  | | (_-< / _|   | || | |  _| | | | | (_-<
 --      |_|_|_| |_| /__/ \__|    \_,_|  \__| |_| |_| /__/    
 --
+------------------------------------------------------------------------------
+-- Random stuff
+local Seed,rand,randi
+Seed = the.seed or 10019
+-- random integers
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+-- random floats
+function rand(lo,hi,     mult,mod) 
+  lo, hi = lo or 0, hi or 1
+  Seed = (16807 * Seed) % 2147483647
+  return lo + (hi-lo) * Seed / 2147483647 end
+
+------------------------------------------------------------------------------
 -- ## Table Stuff
-local randi -- defined later, needed now in "shuffle"
-local cat,map,lap,keys, last,copy,pop,push,sort,firsts,first,second,shuffle,bchop
+local cat,map,lap,top,keys,last,copy,pop,push
+local sort,firsts,first,second,shuffle,bchop
 -- Table to string.
 cat     = table.concat
 -- Return a sorted table.
@@ -117,7 +119,7 @@ function map(t,f,one,     u)
 function copy(t,  u) u={}; for k,v in pairs(t) do u[k]=v end; return u end
 
 function top(t,n,      u)
-  u={};for k,v in pairs(t) do if k>n then break end; push(u,v)end; return u; end
+  u={};for k,v in pairs(t) do if k>n then break end; push(u,v) end; return u;end
 
 --- Return a table's keys (sorted).
 function keys(t,u)
@@ -147,13 +149,6 @@ function rnds(t,d) return lap(t, function(x) return rnd(x,d or 2) end) end
 function sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
-
--- Pseudo-random number generator for integers (`randi`) or floats (`rand`).
-function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-function rand(lo,hi,     mult,mod)
-  lo, hi = lo or 0, hi or 1
-  Seed = (16807 * Seed) % 2147483647
-  return lo + (hi-lo) * Seed / 2147483647 end
 
 -------------------------------------------------------------------------------
 -- ## Printing Stuff
@@ -299,16 +294,58 @@ function splits.whatif(col,sample,     out)
   out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
   return out, xpect end
 
+-- function Sym:bins(col,egs,      xs, x)
+--   x,xys = {},{}
+--   for rank,eg in pairs(egs) do
+--     x = eg[col]
+--     if x ~= "?" then 
+--         xys[x] = xys[x] or {}
+--         push(xys[x], rank) 
+--   return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end
+--
+-- function Num:bins(col,egs)
+--   local x,xys = {},{}
+--   for rank,eg in pairs(egs) do
+--     x = eg[col]
+--     if x ~= "?" then 
+--       xs:add(x)
+--       push(xys, {x=x,y=rank}) end end 
+--   return merge(div(xys, #xs^the.small, sd(sort(xs))*the.trivial)) end end
+
+--   function split.div(xys, tiny, dull,           now,out,x,y)
+--     xys = sort(xys, function(a,b) return a.x < b.x end)
+--     now = {lo=xys[1].x, hi=xys[1].x, has=Num()}
+--     out = {now}
+--     for j,xy in pairs(xys) do
+--       x, y = xy.x, xy.y
+--       if j<#xys-tiny and x~=xys[j+1].x and now.has.n>tiny and now.hi-now.lo>dull 
+--       then now = push(out, {lo=x, hi=x, has=Num()}) 
+--       end
+--       now.hi = x 
+--       now.has:add(y) end
+--     return out 
+--   end
+--   function split.merge(b4,       j,tmp,a,n,simpler) 
+--     j, n, tmp = 0, #b4, {}
+--     while j<n do
+--       j = j + 1
+--       a = b4[j]
+--       if j < n-1 then
+--         simpler = a.has:mergeable(b4[j+1].has)
+--         if simpler then 
+--           j = j + 1 
+--           a = {lo=a.lo, hi= b4[j+1].hi, has=simpler} end end
+--       push(tmp,a) end 
+--     return #tmp==#b4 and b4 or split.merge(tmp) 
+--   end
 function splits.spans(col,sample,      xs, symbolic,x)
-  xys,xs,  symbolic ={}, Num(), sample.nums[col]
+  xys, xs, symbolic ={}, Num(), col.seen._is=="Sym"
   for rank,eg in pairs(sample.egs) do
     x = eg[col]
     if x ~= "?" then 
       xs:add(x)
       if   symbolic
       then -- in symbolic columns, xys are the indexes seen with each symbol
-        xys[x] = xys[x] or {}
-        push(xys[x], rank) 
       else -- in numeric columns,  xys are each number paired with its row id
         push(xys, {x=x,y=rank}) end end 
   end
@@ -325,32 +362,6 @@ function splits.spans(col,sample,      xs, symbolic,x)
 -- Fuse adjacent ranges when:
 -- 5. the combined class distribution of two adjacent ranges 
 --    is just as simple as the parts.
-function splits.div(xys, tiny, dull,           now,out,x,y)
-  xys = sort(xys, function(a,b) return a.x < b.x end)
-  now = {lo=xys[1].x, hi=xys[1].x, has=Num()}
-  out = {now}
-  for j,xy in pairs(xys) do
-    x, y = xy.x, xy.y
-    if   j<#xys-tiny and x~=xys[j+1].x and now.has.n>tiny and now.hi-now.lo>dull 
-    then now = {lo=x, hi=x, has=Num()}
-         push(out, now) end 
-    now.hi = x 
-    now.has:add(y) end
-  return out end
-
-function splits.merge(b4,       j,tmp,a,n,simpler) 
-  j, n, tmp = 0, #b4, {}
-  while j<n do
-    j = j + 1
-    a = b4[j]
-    if j < n-1 then
-      simpler = a.has:mergeable(b4[j+1].has)
-      if simpler then 
-        j = j + 1 
-        a = {lo=a.lo, hi= b4[j+1].hi, has=simpler} end end
-    push(tmp,a) end 
-  return #tmp==#b4 and b4 or merge(tmp) end
-
 -------------------------------------------------------------------------------
 -- Samples store examples. Samples know about 
 -- (a) lo,hi ranges on the numerics
@@ -372,7 +383,8 @@ function Sample:add(eg,     name,datum)
   function name(col,new,    weight, where, what) 
     if new:find":" then return end
     weight= new:find"-" and -1 or 1
-    what  = {col=col, w=weight, seen=(new:match("^[A-Z]",x) and Num() or Sym())}
+    what  = {col=col, w=weight, txt=new,
+             seen=(new:match("^[A-Z]",x) and Num() or Sym())}
     where = (new:find("+") or new:find("-")) and self.ys or self.xs
     push(self.all, what)
     push(where,    what)
@@ -469,7 +481,7 @@ function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   train=hints.ranked(scored, train, sample)
   return #scored, sample:clone(train), sample:clone(test) end
 
--- scoreing here is strange. ??? make test set same size
+-- scoring here is strange. ??? make test set same size
 function hints.ranked(scored,egs,sample,worker,  some)
   -- some = {}
   -- if   #scored > 10000512 then 
@@ -564,6 +576,11 @@ function eg.dists(    s,tmp,d1,d2,n)
    d1=s:dist(tmp[1][2], tmp[10][2])
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
    assert(d1*10<d2) end
+
+function eg.binsym(   s)
+  s=Sample(the.file) 
+  print(s.all[6].seen._is=="Sym") 
+  end
 
 function eg.hints(    s,_,__,evals,sort1,train,test,n)
   s=Sample(the.file) 
