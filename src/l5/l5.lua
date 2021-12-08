@@ -75,6 +75,7 @@ Lesson plan
 -- W3: sample
 -- w4: eval, knn, unfarinessness
 -- W5: 
+--]]
 
 --      _ _   .     _   _             _|_  .  |   _
 --     | | |  |    _\  (_        |_|   |   |  |  _\
@@ -270,7 +271,7 @@ function Num:per(p,    t)
   p = p*#t//1
   return #t<2 and t[1] or t[p < 1 and 1 or p>#t and #t or p] end
 
--- The 10th to 90th percentile is 2.56 times the standard deviation.
+-- The 10th to 90th percentile range is 2.56 times the standard deviation.
 function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -- Create one span holding  row indexes associated with each number 
@@ -304,15 +305,14 @@ function Sym:dist(a,b) return a==b and 0 or 1 end
 function Sym:mid() return self.mode end 
 
 -- Create one span holding  row indexes associated with each symbol 
-function Sym:spans(col,egs,...)
-   local xys,x = {}
+function Sym:spans(col,egs,    xys,x)
+   xys = {}
    for pos,eg in pairs(egs) do
      x = eg[col]
      if x ~= "?" then 
        xys[x] = xys[x] or {}
        push(xys[x], pos)  end end
   return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end 
-
 
 --      _   _    _ _    _   |   _ 
 --     _\  (_|  | | |  |_)  |  (/_
@@ -378,27 +378,31 @@ function Sample:dist(eg1,eg2,     a,b,d,n,inc)
 function Sample:mid(cols)
   return lap(cols or self.ys,function(col) return col.seen:mid() end) end
 
-local div -- defined below 
+-- Return spans of the column that most reduces variance 
+function Sample:splitter(cols)
+  function worker(col) return self:splitter1(col.col, col.seen) end
+  return first(sort(lap(cols or sample.xs, worker), firsts))[2]  end
+
+-- Return a column's spans, and the expected sd value of those spans.
+function Sample:splitter1(pos,col,     spans,xpect) 
+  spans= col.seen:spacs(pos, self.egs)
+  xpect= sum(spans, function(_,span) return span.seen.n*span:sd()/#self.egs end)
+  return {xpect/#self.egs, spans} end
+
+-- Split on column with best span, recurse on each split.
 function Sample:tree(min,      node,min,sub,splitter, splitter1)
-  function splitter1(_,col,     out,xpect) 
-    out   = col:spans(col,sample.eg, div)
-    xpect = sum(out, function(x) return x.has.n*x:sd() end)/#sample.egs 
-    out   = map(out, function(_,x) x.has=x.has:all(); x.col= col end)
-    return {xpect,out} end
-  function splitter() 
-    return first(sort(lap(sample.xs, splitter1), firsts))[2] 
-  end -----------------------
   node = {node=self, kids={}}
   min  = min  or (#self.egs)^the.small
   if #self.egs >= 2*min then 
-    for _,span in pairs(splitter()) do
+    for _,span in pairs(self:splitter()) do
       sub = self:clone()
       for _,at in pairs(span.has) do sub:add(self.egs[at]) end 
       push(node.kids, span) 
       span.has = sub:tree(min) end end 
   return node end
 
--- at node
+-- Find which leaf best matches an example `eg`.:w
+
 function Sample:where(tree,eg,    max,x,default)
   if #kid.has==0 then return tree end
   max = 0
@@ -411,33 +415,33 @@ function Sample:where(tree,eg,    max,x,default)
   return self:where(default, eg) end
 
 -------------------------------------------------------------------------------
--- discretization tricks
+-- Discretization tricks
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
-function div(xys, tiny, dull,           now,out,x,y)
-  function merge(b4) -- merge adjacent spans if whole is simpler than the parts
+function div(xys, tiny, dull)
+  function merge(b4) -- merge adjacent spans if combo simpler to he parts
     local j, tmp = 0, {}
     while j < #b4 do
       j = j + 1
-      local now, after, simpler = b4[j], b4[j+1]
+      local now, after = b4[j], b4[j+1]
       if after then
-        simpler = now.has:mergeable(after.has)
+        local simpler = now.has:mergeable(after.has)
         if simpler then 
           now = {lo=now.lo, hi= after.hi, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
   end -------------------- 
-  local spans,span,out,x,y
+  local spans,span
   xys   = sort(xys, function(a,b) return a.x < b.x end)
   span  = {lo=xys[1].x, hi=xys[1].x, has=Num()}
   spans = {span}
   for j,xy in pairs(xys) do
-    x, y = xy.x, xy.y
-    if   j<#xys - tiny   and -- if enough items remaining after split
-         x~=xys[j+1].x   and -- if the next item is different (so we split here)
-         span.has.n>tiny and -- if span has enough items
-         span.hi - span.lo>dull -- if span is not trivially small  
+    local x, y = xy.x, xy.y
+    if   j < #xys - tiny   and    -- enough items remaining after split
+         x ~= xys[j+1].x   and    -- next item is different (so can split here)
+         span.has.n > tiny and    -- span has enough items
+         span.hi - span.lo > dull -- span is not trivially small  
     then now = push(spans, {lo=x, hi=x, has=Num()})  -- then new span
     end
     span.hi = x 
@@ -555,6 +559,7 @@ function eg.dists(    s,tmp,d1,d2,n)
 function eg.binsym(   s)
   s=Sample(the.file) 
   print(s.all[6].seen._is=="Sym") 
+  s:splitter1(s.all[6].seen)
   end
 
 function eg.hints(    s,_,__,evals,sort1,train,test,n)
@@ -571,20 +576,21 @@ function eg.hints(    s,_,__,evals,sort1,train,test,n)
 -- startup
 local fails, defaults = 0, copy(the)
 local function example(k,      f,ok,msg)
-  f= eg[k]; assert(f,"unknown action "..k)
-  the=copy(defaults)
-  Seed=the.seed
+  f= eg[k]
+  assert(f,"unknown action "..k)
+  the  = copy(defaults)
+  Seed = the.seed
   if the.wild then return f() end
   ok,msg = pcall(f)
   if ok then print(green("PASS"),k) 
-  else       print(red("FAIL"),  k,msg); fail=fail+1 end end
+  else       print(red("FAIL"),  k,msg); fails=fails+1 end end
 
 -- run one or more examples
 if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
 -- print any rogue global variables
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
 -- exit, return  our test failure count.
-os.exit(fail)
+os.exit(fails)
 
 --[[
     _|_ _    _| _ 

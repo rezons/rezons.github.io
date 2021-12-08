@@ -1,34 +1,37 @@
 FROM=https://raw.githubusercontent.com/rezons/rezons.github.io/main
+#------------------------------------------------------------------------------
 ready: dirs files help  ## create files
 GET=echo $@; wget -q -O $@ $(FROM)/$@
-help:                ## show this help
+help: ## show this help
 	@echo "usage: make [OPTIONS]\n\nOPTIONS:"
 	@gawk -F: '/## / && !/@/ {x=$$1; sub(/.*##/,"\t",$$0); print "\t"x,$$0}' $(MAKEFILE_LIST)
-##########################################
-dirs:;   @mkdir -p etc
-files:   etc/vimrc etc/tmux-conf
-bye: ## save files
-	git add *;git commit -am save;git push;git status
-hi:  ## get files
-	git pull
 
+bye:;   git add *;git commit -am save;git push;git status ## save files
+hi:;    git pull ## get files
+
+#------------------------------------------------------------------------------
+dirs:;  @mkdir -p etc
+files:  etc/vimrc etc/tmux-conf
 
 etc/vimrc:;     @$(GET)
 etc/tmux-conf:; @$(GET)
+#------------------------------------------------------------------------------
 
 f=l5
 
 small:
 	figlet  -W  -f threepoint  "$$(read)"
 
-doc: pdf
+doc: pdf ## make pdf and html
 	docco l5.lua
 	cp ../../etc/docco.css docs
+           
+#--left-footer="" --right-footer="$$s" --footer=""  \
 
-pdf:
-	a2ps -jBR --line-numbers=1   -u tesst                            \
-           --left-footer="" --right-footer="" --footer=""  \
+pdf: 
+	a2ps -jBR --line-numbers=1   -u tesst                    \
            --borders=no --pro=color --columns 2 -L 150      \
+            --right-footer="$$q:$$l^-$$l."  \
            --pretty-print=lua.ssh -M letter -o $f.ps $f.lua
 	ps2pdf $f.ps $f.pdf
 	rm $f.ps
