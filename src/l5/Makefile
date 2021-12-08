@@ -1,4 +1,21 @@
-#  a2ps --line-numbers=5 --pro=color --columns 2 -f 5 -R --pretty-print=l0a.ssh -M letter -o $f.ps $f.lua
+FROM=https://raw.githubusercontent.com/rezons/rezons.github.io/main
+ready: dirs files help  ## create files
+GET=echo $@; wget -q -O $@ $(FROM)/$@
+help:                ## show this help
+	@echo "usage: make [OPTIONS]\n\nOPTIONS:"
+	@gawk -F: '/## / && !/@/ {x=$$1; sub(/.*##/,"\t",$$0); print "\t"x,$$0}' $(MAKEFILE_LIST)
+##########################################
+dirs:;   @mkdir -p etc
+files:   etc/vimrc etc/tmux-conf
+bye: ## save files
+	git add *;git commit -am save;git push;git status
+hi:  ## get files
+	git pull
+
+
+etc/vimrc:;     @$(GET)
+etc/tmux-conf:; @$(GET)
+
 f=l5
 
 small:
@@ -24,7 +41,7 @@ ex0:
 	
 s=auto93
 d=/tmp/l5
-#rnows 100s=4,1000=5,10000=6
+
 ex1:
 	mkdir -p $d
 	for((i=1;i<=20;i++)) do lua l5.lua -f "../../data/$s.csv" -H $h -S $$RANDOM -W -T hints > $d/$$i.out ; done;
