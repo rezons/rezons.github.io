@@ -19,7 +19,6 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end;
 --                                     |___/     
 
 local options={ 
-
 what = "Small sample multi-objective optimizer.",
 usage= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 about= [[
@@ -44,22 +43,23 @@ how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
       {"small",    "-s",  .5     ,"div list t into t^small"   },
       {"seed",     "-S",  10019  ,"random number seed"        },
       {"train",    "-t",  .5     ,"size of training set"      },
-      {"trivial",  "-T",  .35    ,"small delta=trivial*sd"    },
       {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
+      {"trivial",  "-v",  .35    ,"small delta=trivial*sd"    },
       {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
-local the={} -- a flat list of key=value options; e.g. {seed=10019,p=2,...}
+local the = {}
 for _,t in pairs(options.how) do -- update defaults from command line
   the[t[1]] = t[3]
   for n,word in ipairs(arg) do if word==t[2] then
-    the[t[1]] = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true end end end
+    local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
+    assert(type(new) == type(the[t[1]]), word.." expects a "..type(the[t[1]]))
+    the[t[1]] = new end end end
 
+local say = function(...) print(string.format(...)) end
 if the.help then --  print help text
-  print(string.format("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
-                      arg[0], options.usage, options.what))
+  say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],options.usage,options.what)
   for _,t in pairs(options.how) do 
-    print(string.format("%4s %-9s%s\t%s %s",
-          t[2], t[3] and t[1] or"", t[4], t[3] and"=" or"", t[3] or "")) end
+    say("%4s %-9s%-30s%s %s",t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"")end
   print("\n"..options.about)
   os.exit() end
 
@@ -221,8 +221,9 @@ function obj(s, o,new)
 -- ## Stuff for tracking `Num`bers.
 -- `Num`s track a list of number, and can report  it sorted.
 local Num=obj"Num"
-function Num.new(inits,     self) 
-  self= has(Num,{has={}, n=0, lo=1E32, hi =1E-32, ready=true})
+function Num.new(inits,at, txt,     self) 
+  self= has(Num,{at=at or 0, txt=txt or"", w=(txt or""):find"-" and -1 or 1,
+                has={}, n=0, lo=1E32, hi =1E-32, ready=true})
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
@@ -276,10 +277,10 @@ function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -- Create one span holding  row indexes associated with each number 
 local div -- defined below
-function Num:spans(col,egs)
+function Num:spans(egs)
   local xys,xs = {},  Num()
   for pos,eg in pairs(egs) do
-    x = eg[col]
+    x = eg[self.at]
     if x ~= "?" then 
       xs:add(x)
       push(xys, {x=x,y=pos}) end end 
@@ -291,8 +292,8 @@ function Num:spans(col,egs)
 -- ## Stuff for tracking `Sym`bol Counts.
 -- `Sym`s track symbol counts and the `mode` (most frequent symbol).
 local Sym=obj"Sym"
-function Sym.new(inits,     self) 
-  self= has(Sym,{has={}, n=0, mode=nil, most=0})
+function Sym.new(inits,at,txt,     self) 
+  self= has(Sym,{at=at or 0, txt=txt or "", has={}, n=0, mode=nil, most=0})
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
@@ -305,10 +306,10 @@ function Sym:dist(a,b) return a==b and 0 or 1 end
 function Sym:mid() return self.mode end 
 
 -- Create one span holding  row indexes associated with each symbol 
-function Sym:spans(col,egs,    xys,x)
+function Sym:spans(egs,    xys,x)
    xys = {}
    for pos,eg in pairs(egs) do
-     x = eg[col]
+     x = eg[self.at]
      if x ~= "?" then 
        xys[x] = xys[x] or {}
        push(xys[x], pos)  end end
@@ -330,29 +331,25 @@ function Sample.new(     src,self)
   return self end
 
 function Sample:add(eg,     name,datum)
-  function name(col,new,    weight, where, what) 
+  function name(at,new,    weight, where, what) 
     if new:find":" then return end
-    weight= new:find"-" and -1 or 1
-    what  = {col=col, w=weight, txt=new,
-             seen=(new:match("^[A-Z]",x) and Num() or Sym())}
+    what  = (new:match("^[A-Z]",x) and Num or Sym())({},at,new)
     where = (new:find("+") or new:find("-")) and self.ys or self.xs
     push(self.all, what)
-    push(where,    what) end
-  function datum(one,new) 
-    if new ~= "?" then one.seen:add(new) end 
-  end --------------- 
+    push(where,    what) 
+  end ---------------
   if   not self.names
   then self.names = eg
-       map(eg, function(col,x) name(col,x) end) 
+       map(eg, function(at,x) name(at,x) end) 
   else push(self.egs, eg)
-       map(self.all, function(_,col) datum(col,eg[col.col]) end) end
+       lap(self.all, function(col) if new~="?" then col:add(eg[col.at]) end end) end
   return self end
 
 function Sample:better(eg1,eg2,     e,n,a,b,s1,s2)
   n,s1,s2,e = #self.ys, 0, 0, 2.71828
   for _,num in pairs(self.ys) do
-    a  = num.seen:norm(eg1[num.col])
-    b  = num.seen:norm(eg2[num.col])
+    a  = num:norm(eg1[num.at])
+    b  = num:norm(eg2[num.at])
     s1 = s1 - e^(num.w * (a-b)/n) 
     s2 = s2 - e^(num.w * (b-a)/n) end
   return s1/n < s2/n end 
@@ -367,27 +364,27 @@ function Sample:clone(      inits,out)
 
 function Sample:dist(eg1,eg2,     a,b,d,n,inc)
   d,n = 0,0
-  for _,x in pairs(self.xs) do
-    a,b = eg1[x.col], eg2[x.col]
-    inc = a=="?" and b=="?" and 1 or x.seen:dist(a,b)
+  for _,col in pairs(self.xs) do
+    a,b = eg1[col.at], eg2[col.at]
+    inc = a=="?" and b=="?" and 1 or col:dist(a,b)
     d   = d + inc^the.p
     n   = n + 1 end
   return (d/n)^(1/the.p) end
 
 -- Report mid of the columns
 function Sample:mid(cols)
-  return lap(cols or self.ys,function(col) return col.seen:mid() end) end
+  return lap(cols or self.ys,function(col) return col:mid() end) end
 
 -- Return spans of the column that most reduces variance 
 function Sample:splitter(cols)
-  function worker(col) return self:splitter1(col.col, col.seen) end
+  function worker(col) return self:splitter1(col) end
   return first(sort(lap(cols or sample.xs, worker), firsts))[2]  end
 
 -- Return a column's spans, and the expected sd value of those spans.
-function Sample:splitter1(pos,col,     spans,xpect) 
-  spans= col.seen:spacs(pos, self.egs)
-  xpect= sum(spans, function(_,span) return span.seen.n*span:sd()/#self.egs end)
-  return {xpect/#self.egs, spans} end
+function Sample:splitter1(col,     spans,xpect) 
+  spans= col:spacs(self.egs)
+  xpect= sum(spans, function(_,span) return span.n*span:sd()/#self.egs end)
+  return {xpect, spans} end
 
 -- Split on column with best span, recurse on each split.
 function Sample:tree(min,      node,min,sub,splitter, splitter1)
@@ -408,7 +405,7 @@ function Sample:where(tree,eg,    max,x,default)
   max = 0
   for _,kid in pairs(tree.node) do
     if #kid.has > max then default,max = kid,#kid.has end
-    x = eg[kid.col]
+    x = eg[kid.at]
     if x ~= "?" then
       if x <= kid.hi and x >= kid.lo then 
         return self:where(kid.has.eg) end end end
@@ -535,7 +532,7 @@ function eg.num2(    n1,n2,n3,n4)
 
 function eg.sample(    s,tmp,d1,d2,n)
   s=Sample(the.file) 
-  assert(2110 == last(s.egs)[s.all[3].col])
+  assert(2110 == last(s.egs)[s.all[3].at])
   local sort1= s:betters(s.egs)
   local lo, hi = s:clone(), s:clone()
   for i=1,20                do lo:add(sort1[i]) end
@@ -558,14 +555,12 @@ function eg.dists(    s,tmp,d1,d2,n)
 
 function eg.binsym(   s)
   s=Sample(the.file) 
-  print(s.all[6].seen._is=="Sym") 
-  s:splitter1(s.all[6].seen)
+  print(s.all[6]._is=="Sym") 
+  s:splitter1(s.all[6])
   end
 
 function eg.hints(    s,_,__,evals,sort1,train,test,n)
   s=Sample(the.file) 
-  --for _,eg in pairs(sort1) do lap(s.ys, function(col) return eg[col.col] end ) end
-  -- assert(s.ys[4].lo==1613) 
   evals, train,test = hints.sort(s) 
   test.egs = test:betters()
   for m,eg in pairs(test.egs) do

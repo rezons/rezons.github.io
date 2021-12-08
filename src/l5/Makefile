@@ -29,7 +29,7 @@ doc: pdf ## make pdf and html
 #--left-footer="" --right-footer="$$s" --footer=""  \
 
 pdf: 
-	a2ps -jBR --line-numbers=1   -u tesst                    \
+	a2ps -jBR --line-numbers=1                       \
            --borders=no --pro=color --columns 2 -L 150      \
             --right-footer="$$q:$$l^-$$l."  \
            --pretty-print=lua.ssh -M letter -o $f.ps $f.lua
