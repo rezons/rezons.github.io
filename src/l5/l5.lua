@@ -214,9 +214,9 @@ function obj(s, o,new)
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
---      _         _ _          _       _ _ 
---     | |  |_|  | | |        _\  \/  | | |
---                                /        
+--        _         _ _        _       _ _        _  |   .   _
+--       | |  |_|  | | |      _\  \/  | | |      _\  |<  |  |_)
+--                                /                         |
 
 -- ## Stuff for tracking `Num`bers.
 -- `Num`s track a list of number, and can report  it sorted.
@@ -280,12 +280,12 @@ local div -- defined below
 function Num:spans(egs)
   local xys,xs = {},  Num()
   for pos,eg in pairs(egs) do
-    x = eg[self.at]
+    local x = eg[self.at]
     if x ~= "?" then 
       xs:add(x)
       push(xys, {x=x,y=pos}) end end 
   return div(xys,                     -- split xys into spans...
-             #xs^the.small,           -- ..where spans are of size sqrt(#xs)..
+             xs.n^the.small,           -- ..where spans are of size sqrt(#xs)..
              xs:sd()*the.trivial) end -- ..and spans have (last-first)>trivial
 
 -------------------------------------------------------------------------------
@@ -314,6 +314,12 @@ function Sym:spans(egs,    xys,x)
        xys[x] = xys[x] or {}
        push(xys[x], pos)  end end
   return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end 
+
+-------------------------------------------------------------------------------
+-- ## Stuff for skipping all things sent to a column
+local Skip=obj"Skip"
+function Skip.new(_,at,txt) return has(Skip,{at=at or 0, txt=txt or"", n=0}) end
+function Skip:add(x) self.n = self.n + 1; return  x end 
 
 --      _   _    _ _    _   |   _ 
 --     _\  (_|  | | |  |_)  |  (/_
@@ -326,23 +332,23 @@ local Sample = obj"Sample"
 function Sample.new(     src,self)
   self = has(Sample,{names=nil, all={}, ys={}, xs={}, egs={}})  
   if src then
-    if type(src)=="string" then for x   in csv(src) do self:add(x)   end end
+    if type(src)=="string" then for x   in csv(src) do self:add(x)  end end
     if type(src)=="table" then for _,x in pairs(src) do self:add(x) end end end
   return self end
 
-function Sample:add(eg,     name,datum)
-  function name(at,new,    weight, where, what) 
-    if new:find":" then return end
-    what  = (new:match("^[A-Z]",x) and Num or Sym())({},at,new)
-    where = (new:find("+") or new:find("-")) and self.ys or self.xs
-    push(self.all, what)
-    push(where,    what) 
-  end ---------------
-  if   not self.names
-  then self.names = eg
-       map(eg, function(at,x) name(at,x) end) 
-  else push(self.egs, eg)
-       lap(self.all, function(col) if new~="?" then col:add(eg[col.at]) end end) end
+function Sample:add(eg,      ako,what,where)
+  if not self.names 
+  then -- create the column headers 
+    self.names = eg
+    for at,x in pairs(eg) do
+      ako  = x:find":" and Skip or x:match"^[A-Z]" and Num or Sym
+      what = push(self.all, ako({}, at, x))
+      if not x:find":" then 
+        where = (x:find("+") or x:find("-")) and self.ys or self.xs
+        push(where, what) end end
+  else -- store another example; update column headers
+    push(self.egs, eg)
+    for at,x in pairs(eg) do if x ~= "?" then self.all[at]:add(x) end end end
   return self end
 
 function Sample:better(eg1,eg2,     e,n,a,b,s1,s2)
@@ -382,8 +388,9 @@ function Sample:splitter(cols)
 
 -- Return a column's spans, and the expected sd value of those spans.
 function Sample:splitter1(col,     spans,xpect) 
-  spans= col:spacs(self.egs)
-  xpect= sum(spans, function(_,span) return span.n*span:sd()/#self.egs end)
+  spans= col:spans(self.egs)
+  lap(spans,shout)
+  --:xpect= sum(spans, function(_,span) return span.has.n*span.has:sd()/#self.egs end)
   return {xpect, spans} end
 
 -- Split on column with best span, recurse on each split.
@@ -398,8 +405,7 @@ function Sample:tree(min,      node,min,sub,splitter, splitter1)
       span.has = sub:tree(min) end end 
   return node end
 
--- Find which leaf best matches an example `eg`.:w
-
+-- Find which leaf best matches an example `eg`.
 function Sample:where(tree,eg,    max,x,default)
   if #kid.has==0 then return tree end
   max = 0
@@ -415,7 +421,7 @@ function Sample:where(tree,eg,    max,x,default)
 -- Discretization tricks
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
-function div(xys, tiny, dull)
+function div(xys, tiny, dull,      merge)
   function merge(b4) -- merge adjacent spans if combo simpler to he parts
     local j, tmp = 0, {}
     while j < #b4 do
@@ -439,7 +445,7 @@ function div(xys, tiny, dull)
          x ~= xys[j+1].x   and    -- next item is different (so can split here)
          span.has.n > tiny and    -- span has enough items
          span.hi - span.lo > dull -- span is not trivially small  
-    then now = push(spans, {lo=x, hi=x, has=Num()})  -- then new span
+    then span = push(spans, {lo=x, hi=x, has=Num()})  -- then new span
     end
     span.hi = x 
     span.has:add(y) end
@@ -532,7 +538,7 @@ function eg.num2(    n1,n2,n3,n4)
 
 function eg.sample(    s,tmp,d1,d2,n)
   s=Sample(the.file) 
-  assert(2110 == last(s.egs)[s.all[3].at])
+  assert(2110 == last(s.egs)[s.all[4].at])
   local sort1= s:betters(s.egs)
   local lo, hi = s:clone(), s:clone()
   for i=1,20                do lo:add(sort1[i]) end
@@ -553,10 +559,11 @@ function eg.dists(    s,tmp,d1,d2,n)
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
    assert(d1*10<d2) end
 
-function eg.binsym(   s)
+function eg.binsym(   s,col)
   s=Sample(the.file) 
-  print(s.all[6]._is=="Sym") 
-  s:splitter1(s.all[6])
+  col = s.all[7]
+  print(col.txt)
+  s:splitter1(col)
   end
 
 function eg.hints(    s,_,__,evals,sort1,train,test,n)
@@ -564,8 +571,7 @@ function eg.hints(    s,_,__,evals,sort1,train,test,n)
   evals, train,test = hints.sort(s) 
   test.egs = test:betters()
   for m,eg in pairs(test.egs) do
-     n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end)
-     print(n) end end
+    n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end) end end
 
 ------------------------------------------------------------------------------
 -- startup
@@ -580,12 +586,19 @@ local function example(k,      f,ok,msg)
   if ok then print(green("PASS"),k) 
   else       print(red("FAIL"),  k,msg); fails=fails+1 end end
 
--- run one or more examples
-if the.todo=="all" then lap(keys(eg),example) else example(the.todo) end
--- print any rogue global variables
-for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
--- exit, return  our test failure count.
-os.exit(fails)
+local function main()
+  if     the.todo == "all" 
+  then   lap(keys(eg),example) 
+  elseif the.todo == "ls"
+  then   print("\nACTIONS:"); map(keys(eg),function(_,k) print("\t"..k) end)
+  else   example(the.todo) 
+  end
+  -- print any rogue global variables
+  for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
+  -- exit, return  our test failure count.
+  os.exit(fails) end
+
+main()
 
 --[[
     _|_ _    _| _ 
