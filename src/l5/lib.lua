@@ -1,32 +1,13 @@
 #!/usr/bin/env lua
 local lib={}
-lib.b4={}; for k,v in pairs(_ENV) do lib.b4[k]=v end; 
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; 
 
 function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not b4[k] then print("?rogue: ",k,type(v)) end end end
 
-function lib.cli(options,u)
-  u={}
-  for _,t in pairs(options.how) do -- update defaults from command line
-    u[t[1]] = t[3]
-    for n,word in ipairs(arg) do if word==t[2] then
-      local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
-      assert(type(new) == type(u[t[1]]), word.." expects a "..type(u[t[1]]))
-      u[t[1]] = new end end end
-  return u end
-
 lib.fmt = string.format
 lib.say = function(...) print(fmt(...)) end
-
-function lib.help(options)
-  lib.say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
-          arg[0],options.usage,options.what)
-  for _,t in pairs(options.how) do 
-    lib.say("%4s %-9s%-30s%s %s",
-            t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"") end
-  print("\n"..options.about)
-  os.exit() end 
 
 -- Random stuff
 lib.Seed = 10019
@@ -131,8 +112,7 @@ function lib.out(t,seen,    u,key,value,public)
 -------------------------------------------------------------------------------
 -- ## File i/o Stuff
 -- Return one table per line, split on commans.
-local lib.csv
-function csv(file,   line)
+function lib.csv(file,   line)
   file = io.input(file)
   line = io.read()
   return function(   t,tmp)
@@ -144,8 +124,7 @@ function csv(file,   line)
       if #t>0 then return t end 
     else io.close(file) end end end
 
--------------------------------------------------------------------------------
--- ## OO Stuff
+--| oo |-----------------------------------------------------------------------
 -- Create an instance
 function lib.has(mt,x) return setmetatable(x,mt) end
 
@@ -155,30 +134,49 @@ function lib.obj(s, o,new)
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
-local fails, defaults = 0, copy(the)
-local function example(the,eg,k,      f,ok,msg)
-  f= eg[k]
-  assert(f,"unknown action "..k)
-  the  = copy(defaults)
-  Seed = the.seed
-  if the.wild then return f() end
-  ok,msg = pcall(f)
-  if ok then print(green("PASS"),k) 
-  else       print(red("FAIL"),  k,msg); fails=fails+1 end end
+--| cli |-----------------------------------------------------------------------
+function lib.help(options)
+  lib.say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
+          arg[0],options.usage,options.what)
+  for _,t in pairs(options.how) do 
+    lib.say("%4s %-9s%-30s%s %s",
+            t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"") end
+  print("\n"..options.about) end
 
-local function main(the,eg)
-  local defaults=copy(the)
+function lib.cli(options,u)
+  u={}
+  for _,t in pairs(options.how) do -- update defaults from command line
+    u[t[1]] = t[3]
+    for n,word in ipairs(arg) do if word==t[2] then
+      local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
+      assert(type(new) == type(u[t[1]]), word.." expects a "..type(u[t[1]]))
+      u[t[1]] = new end end end
+  lib.Seed = u.seed or 10019
+  if u.help then lib.help(options); os.exit() end
+  return u end
+
+--  assumes the, options, eg
+function lib.theOptionsExamples()
+  the = lib.cli(options)
+  local fails, defaults = 0, copy(the)
+  local function example(k,      f,ok,msg)
+    f= eg[k]
+    assert(f,"unknown action "..k)
+    the = copy(defaults)
+    lib.Seed  = the.seed or 10019
+    if the.wild then return f() end
+    ok,msg = pcall(f)
+    if ok then print(lib.green("PASS"),k) 
+    else       print(lib.red("FAIL"),  k,msg); fails=fails+1 end 
+  end ---------------------
   if     the.todo == "all" 
-  then   -- XX [ass defaults in lap(keys(eg),example) 
+  then   lib.lap(lib.keys(eg),example) 
   elseif the.todo == "ls"
-  then   print("\nACTIONS:"); map(keys(eg),function(_,k) print("\t"..k) end)
+  then   print("\nACTIONS:")
+         lib.map(lib.keys(eg),function(_,k) print("\t"..k) end)
   else   example(the.todo) 
   end
-  -- print any rogue global variables
-  for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end
-  -- exit, return  our test failure count.
-  os.exit(fails) end
+  lib.rogues()
+  return os.exit(fails) end
 
-
-return function(s)
-  iXXX
+return lib
