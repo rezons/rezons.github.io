@@ -1,14 +1,11 @@
 local lib={}
 
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; 
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
 function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not b4[k] then print("?rogue: ",k,type(v)) end end end
 
-lib.fmt = string.format
-lib.say = function(...) print(fmt(...)) end
-
--- Random stuff
+---| random stuff |---------------------------------------------------------------
 lib.Seed = 10019
 -- random integers
 function lib.randi(lo,hi) return math.floor(0.5 + lib.rand(lo,hi)) end
@@ -18,8 +15,7 @@ function lib.rand(lo,hi,     mult,mod)
   lib.Seed = (16807 * lib.Seed) % 2147483647
   return lo + (hi-lo) * Seed / 2147483647 end
 
-------------------------------------------------------------------------------
--- ## Table Stuff
+---| table stuff |----------------------------------------------------------------
 -- Table to string.
 lib.cat     = table.concat
 -- Return a sorted table.
@@ -72,8 +68,7 @@ function lib.bchop(t,val,lt,lo,hi,     mid)
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
 
-------------------------------------------------------------------------------
--- ## Maths Stuff
+---| maths stuff |---------------------------------------------------------------
 lib.abs = math.abs
 -- Round `x` to `d` decimal places.
 function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
@@ -85,8 +80,10 @@ function lib.sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
--------------------------------------------------------------------------------
--- ## Printing Stuff
+---| printing stuff |------------------------------------------------------------------
+lib.fmt = string.format
+lib.say = function(...) print(fmt(...)) end
+
 -- Print as red, green, yellow, blue.
 function lib.color(s,n) return lib.fmt("\27[1m\27[%sm%s\27[0m",n,s) end
 function lib.red(s)     return lib.color(s,31) end
@@ -99,7 +96,7 @@ lib.shout = function(x) print(lib.out(x)) end
 -- Generate string from a nested structures
 -- (and don't print any contents more than once).
 function lib.out(t,seen,    u,key,value,public)
-  function key(k)   return lib.fmt(":%s %s",blue(k),out(t[k],seen)) end
+  function key(k)   return lib.fmt(":%s %s",lib.blue(k),olib.                      ut(t[k],seen)) end
   function value(v) return lib.out(v,seen) end
   if type(t) == "function" then return "(...)" end
   if type(t) ~= "table"    then return tostring(t) end
@@ -108,8 +105,7 @@ function lib.out(t,seen,    u,key,value,public)
   u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
   return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
 
--------------------------------------------------------------------------------
--- ## File i/o Stuff
+--| files |-----------------------------------------------------------------------------
 -- Return one table per line, split on commans.
 function lib.csv(file,   line)
   file = io.input(file)
@@ -154,29 +150,45 @@ function lib.cli(about,u)
   if u.help then lib.help(about); os.exit() end
   return u end
 
--- make verything  the. the.Eg, 
---  assumes the, about, eg
-function lib.main()
-  the = lib.cli(about)
-  local fails, defaults = 0, copy(the)
-  local function example(k,      f,ok,msg)
-    f= eg[k]
+-- make everything  the. the.Eg, 
+-- assumes the, about, eg
+function lib.theMain(settings,demos,    defaults,fails)
+  for k,v in pairs(lib.cli(settings)) do defaults[k]=v end
+  fails=0
+  function example(k,      f,ok,msg)
+    f= demos[k]
     assert(f,"unknown action "..k)
-    the = copy(defaults)
-    lib.Seed  = the.seed or 10019
-    if the.wild then return f() end
+    for k,v in pairs(defaults) do settings[k]=v end
+    lib.Seed  = settings.seed or 10019
+    if settings.wild then return f() end
     ok,msg = pcall(f)
     if ok then print(lib.green("PASS"),k) 
     else       print(lib.red("FAIL"),  k,msg); fails=fails+1 end 
   end ---------------------
-  if     the.todo == "all" 
-  then   lib.lap(lib.keys(eg),example) 
-  elseif the.todo == "ls"
+  if     settings.todo == "all" 
+  then   settings.lap(lib.keys(demos),example) 
+  elseif settings.todo == "ls"
   then   print("\nACTIONS:")
-         lib.map(lib.keys(eg),function(_,k) print("\t"..k) end)
-  else   example(the.todo) 
+         lib.map(lib.keys(demos),function(_,k) print("\t"..k) end)
+  else   example(settings.todo) 
   end
   lib.rogues()
   return os.exit(fails) end
 
-return lib
+--the{demos=the.eg, nervous=true}
+
+-- return all the above functions, augmented with   
+-- (1) any update on the constants from the command line;   
+-- (2) a call method that offer some extra services.   
+-- To avoid name classes (of config settings and functions),
+-- always use UPPER CASE for the variables and lower case for
+-- the first letter of the functions.
+return function(t) 
+  function main(settings,actions)
+    for flag,val in pairs(actions or {}) do
+       if flag=="nervous" and val then lib.rogues() end
+       if flag=="demos"           then lib.theMain(settings,val) end end 
+    return t end
+  t=lib.cli(t)
+  for k,v in pairs(lib) do print(k); t[k] = v end
+  return setmetatable(t, {__call=main}) end
