@@ -1,6 +1,5 @@
 #!/usr/bin/env lua
 local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; 
-
 --                _  _  _    _    _           _  _  _                        
 --       __ _    | |(_)| |_ | |_ | |  ___    | |(_)| |_  ___                 
 --      / _` |   | || || __|| __|| | / _ \   | || || __|/ _ \                
@@ -17,11 +16,10 @@ local b4={}; for k,v in pairs(_ENV) do b4[k]=v end;
 --     | || || |_) || |  | (_| || |   | |_| |                                
 --     |_||_||_.__/ |_|   \__,_||_|    \__, |                                
 --                                     |___/     
-
-local options={ 
-what = "Small sample multi-objective optimizer.",
-usage= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
-about= [[
+local the={ 
+What = "Small sample multi-objective optimizer.",
+Who= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
+Why= [[
 Sort N examples on multi-goals using a handful of 'hints'; i.e.
 
 - Evaluate and rank, a few examples (on their y-values);
@@ -35,20 +33,19 @@ reduce the variance of the index of those examples, this
 tree reports what attribute ranges select for the better (or
 worse) examples.  ]],
 
-how= {{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
-      {"cull",     "-c",  .5    ,"cuts per generation"},
-      {"help",     "-h",  false  ,"show help"                 },
-      {"hints",    "-H",  4      ,"hints per generation"      },
-      {"p",        "-p",  2      ,"distance calc exponent"    },
-      {"small",    "-s",  .5     ,"div list t into t^small"   },
-      {"seed",     "-S",  10019  ,"random number seed"        },
-      {"train",    "-t",  .5     ,"size of training set"      },
-      {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
-      {"trivial",  "-v",  .35    ,"small delta=trivial*sd"    },
-      {"wild",     "-W",  false  ,"run tests, no protection"  }}}
+How={{"file",     "-f",  "../../data/auto93.csv",  "read data from file"},
+     {"cull",     "-c",  .5    ,"cuts per generation"},
+     {"help",     "-h",  false  ,"show help"                 },
+     {"hints",    "-H",  4      ,"hints per generation"      },
+     {"p",        "-p",  2      ,"distance calc exponent"    },
+     {"small",    "-s",  .5     ,"div list t into t^small"   },
+     {"seed",     "-S",  10019  ,"random number seed"        },
+     {"train",    "-t",  .5     ,"size of training set"      },
+     {"todo",     "-T",  "all"  ,"run unit test, or 'all'"   },
+     {"trivial",  "-v",  .35    ,"small delta=trivial*sd"    },
+     {"wild",     "-W",  false  ,"run tests, no protection"  }}}
 
-local the = {}
-for _,t in pairs(options.how) do -- update defaults from command line
+for _,t in pairs(it.How) do -- update defaults from command line
   the[t[1]] = t[3]
   for n,word in ipairs(arg) do if word==t[2] then
     local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
@@ -57,12 +54,13 @@ for _,t in pairs(options.how) do -- update defaults from command line
 
 local say = function(...) print(string.format(...)) end
 if the.help then --  print help text
-  say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],options.usage,options.what)
-  for _,t in pairs(options.how) do 
+  say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",arg[0],the.What,the.Who)
+  for _,t in pairs(the.How) do 
     say("%4s %-9s%-30s%s %s",t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"")end
-  print("\n"..options.about)
+  print("\n"..the.Why)
   os.exit() end
 
+--the==>it
 --[[ 
 Spans
  Little languages: 

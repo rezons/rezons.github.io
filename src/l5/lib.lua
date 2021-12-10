@@ -1,7 +1,6 @@
-#!/usr/bin/env lua
 local lib={}
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; 
 
+local b4={}; for k,v in pairs(_ENV) do b4[k]=v end; 
 function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not b4[k] then print("?rogue: ",k,type(v)) end end end
@@ -135,29 +134,30 @@ function lib.obj(s, o,new)
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
 --| cli |-----------------------------------------------------------------------
-function lib.help(options)
-  lib.say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
-          arg[0],options.usage,options.what)
-  for _,t in pairs(options.how) do 
+function lib.help(about)
+  lib.say("\n%s [about]\n%s\n%s\n\nabout:\n",
+          arg[0],about.usage,about.what)
+  for _,t in pairs(about.how) do 
     lib.say("%4s %-9s%-30s%s %s",
             t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"") end
-  print("\n"..options.about) end
+  print("\n"..about.about) end
 
-function lib.cli(options,u)
+function lib.cli(about,u)
   u={}
-  for _,t in pairs(options.how) do -- update defaults from command line
+  for _,t in pairs(about.how) do -- update defaults from command line
     u[t[1]] = t[3]
     for n,word in ipairs(arg) do if word==t[2] then
       local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
       assert(type(new) == type(u[t[1]]), word.." expects a "..type(u[t[1]]))
       u[t[1]] = new end end end
   lib.Seed = u.seed or 10019
-  if u.help then lib.help(options); os.exit() end
+  if u.help then lib.help(about); os.exit() end
   return u end
 
---  assumes the, options, eg
-function lib.theOptionsExamples()
-  the = lib.cli(options)
+-- make verything  the. the.Eg, 
+--  assumes the, about, eg
+function lib.main()
+  the = lib.cli(about)
   local fails, defaults = 0, copy(the)
   local function example(k,      f,ok,msg)
     f= eg[k]
