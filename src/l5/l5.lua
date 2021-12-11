@@ -15,7 +15,7 @@
 --     | || || |_) || |  | (_| || |   | |_| |                                
 --     |_||_||_.__/ |_|   \__,_||_|    \__, |                                
 --                                     |___/     
-local the=require"z"{ 
+local the=require"lunatic"{ 
 what = "Small sample multi-objective optimizer.",
 who  = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 why  = [[

@@ -20,7 +20,7 @@ etc/tmux-conf:; @$(GET)
 f=l5
 
 small:
-	figlet  -W  -f threepoint  "$$(read)"
+	figlet -Wk -f Cybermedium "r a n d o m" | gawk '{print "-- " $0}'|pbcopy
 
 doc: pdf ## make pdf and html
 	docco l5.lua
