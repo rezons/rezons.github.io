@@ -34,7 +34,7 @@ pdf:
            --borders=no --pro=color --columns 2 -L 150      \
            --right-footer="" --left-footer="" \
             --footer="" \
-           --pretty-print=lua.ssh -M letter -o $f.ps $f.lua z.lua
+           --pretty-print=lua.ssh -M letter -o $f.ps $f.lua lunatic.lua
 	ps2pdf $f.ps $f.pdf
 	rm $f.ps
 	open $f.pdf

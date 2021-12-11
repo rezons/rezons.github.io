@@ -15,7 +15,7 @@
 --     | || || |_) || |  | (_| || |   | |_| |                                
 --     |_||_||_.__/ |_|   \__,_||_|    \__, |                                
 --                                     |___/     
-local the=require"lunatic"{ 
+local tic=require"lunatic"{ 
 what = "Small sample multi-objective optimizer.",
 who  = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 why  = [[
@@ -33,8 +33,8 @@ tree reports what attribute ranges select for the better (or
 worse) examples.  ]],
 
 how={{"FILE",     "-f",  "../../data/auto93.csv",  "read data from file"},
-     {"CULL",     "-c",  .5    ,"cuts per generation"},
-     {"HELP",     "-h",  false  ,"show help"                 },
+     {"CULL",     "-c",  .5     , "cuts per generation"      },
+     {"HELP",     "-h",  false  , "show help"                },
      {"HINTS",    "-H",  4      ,"hints per generation"      },
      {"P",        "-p",  2      ,"distance calc exponent"    },
      {"SMALL",    "-s",  .5     ,"div list t into t^small"   },
@@ -44,16 +44,15 @@ how={{"FILE",     "-f",  "../../data/auto93.csv",  "read data from file"},
      {"TRIVIAL",  "-v",  .35    ,"small delta=trivial*sd"    },
      {"WILD",     "-W",  false  ,"run tests, no protection"  }}}
 
-local pop,push,shuffle,lap,last = the.pop,the.push,the.shuffle,the.lap,the.last
-local first,second,firsts       = the.first, the.second, the.firsts
-local sort,bchop,copy           = the.sort, the.bchop, the.copy
-local abs,rand,randi            = the.abs, the.rand, the.randi
-local fmt,out,shout             = the.fmt,the.out,the.shout
-local rnd,rnds                  = the.rnd, the.rnds
-local lap,map                   = the.lap,the.map
-local obj,has                   = the.obj, the.has
-local csv                       = the.csv
---the==>itw
+local _=tic
+local top,first,last,second,firsts= _.top, _.first, _.last,_.second, _.firsts
+local lap,map,sum,pop,push,shuffle= _.lap, _.map, _.sum, _.pop, _.push, _.shuffle
+local sort,keys,bchop,copy        = _.sort, _.keys, _.bchop, _.copy
+local abs,rand,randi,rnd,rnds     = _.abs, _.rand, _.randi, _.rnd, _.rnds
+local blue,green,red,yellow       = _.blue, _.green, _.red, _.yellow
+local say,fmt,out,shout           = _.say,_.fmt,_.out,_.shout
+local obj,has                     = _.obj, _.has
+local csv                         = _.csv
 
 --[[ 
 Spans
@@ -110,8 +109,7 @@ function Num:merge(other,    new)
 function Num:mergeable(other,    new,b4)
   new = self:merge(other)
   b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
-  print("??",b4, new:sd(), new.n, self.n, other.n)
-  if b4 >= new:sd() then print("!"); return new end end
+  if b4 >= new:sd() then return new end end
 
 -- The `mid` is the 50th percentile.
 function Num:mid() return self:per(.5) end
@@ -140,13 +138,9 @@ function Num:spans(egs,   lo,spans,fin)
     if x ~= "?" then 
       xs:add(x)
       push(xys, {x=x,y=pos}) end end 
-  lo = -math.huge
-  spans= lap(div(xys,                  -- split xys into spans...
-                 math.min(10,xs.n^the.SMALL),-- ..where spans are of size sqrt(#xs)..
-                 xs:sd()*the.TRIVIAL), -- ..and spans have (last-first)>trivial
-             function (span) fin=span; span.lo=lo; lo=span.hi; return span end) 
-  fin.hi = math.huge
-  return spans end
+  return div(xys                        -- split xys into spans...
+            ,math.min(10,xs.n^tic.SMALL)-- ..where spans are of size sqrt(#xs)..
+            ,xs:sd()*tic.TRIVIAL) end   -- ..and spans have (last-first)>trivial
 
 -------------------------------------------------------------------------------
 -- ## Stuff for tracking `Sym`bol Counts.
@@ -180,6 +174,7 @@ function Sym:spans(egs,    xys,x)
 local Skip=obj"Skip"
 function Skip.new(_,at,txt) return has(Skip,{at=at or 0, txt=txt or"", n=0}) end
 function Skip:add(x) self.n = self.n + 1; return  x end 
+function Skip:mid() return "?" end
 
 --      _   _    _ _    _   |   _ 
 --     _\  (_|  | | |  |_)  |  (/_
@@ -233,9 +228,9 @@ function Sample:dist(eg1,eg2,     a,b,d,n,inc)
   for _,col in pairs(self.xs) do
     a,b = eg1[col.at], eg2[col.at]
     inc = a=="?" and b=="?" and 1 or col:dist(a,b)
-    d   = d + inc^the.P
+    d   = d + inc^tic.P
     n   = n + 1 end
-  return (d/n)^(1/the.P) end
+  return (d/n)^(1/tic.P) end
 
 -- Report mid of the columns
 function Sample:mid(cols)
@@ -244,19 +239,20 @@ function Sample:mid(cols)
 -- Return spans of the column that most reduces variance 
 function Sample:splitter(cols)
   function worker(col) return self:splitter1(col) end
-  return first(sort(lap(cols or sample.xs, worker), firsts))[2]  end
+  return first(sort(lap(cols or self.xs, worker), firsts))[2]  end
 
 -- Return a column's spans, and the expected sd value of those spans.
 function Sample:splitter1(col,     spans,xpect) 
   spans= col:spans(self.egs)
   --spans = lap(spans,shout)
-  --:xpect= sum(spans, function(_,span) return span.has.n*span.has:sd()/#self.egs end)
-  return {xpect, spans} end
+  xpect= sum(spans, 
+             function(span) span.col=col; return span.has.n*span.has:sd() end)
+  return {xpect/#self.egs, spans} end
 
 -- Split on column with best span, recurse on each split.
 function Sample:tree(min,      node,min,sub,splitter, splitter1)
   node = {node=self, kids={}}
-  min  = min  or (#self.egs)^the.SMALL
+  min  = min  or (#self.egs)^tic.SMALL
   if #self.egs >= 2*min then 
     for _,span in pairs(self:splitter()) do
       sub = self:clone()
@@ -281,7 +277,7 @@ function Sample:where(tree,eg,    max,x,default)
 -- Discretization tricks
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
-function div(xys, tiny, dull,      merge)
+function div(xys, tiny, dull,         merge,coverGaps)
   function merge(b4) -- merge adjacent spans if combo simpler to he parts
     local j, tmp = 0, {}
     while j < #b4 do
@@ -290,12 +286,18 @@ function div(xys, tiny, dull,      merge)
       if after then
         local simpler = now.has:mergeable(after.has)
         if simpler then 
-          print("??",now.lo,after.hi)
           now = {lo=now.lo, hi= after.hi, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
-  end -------------------- 
+  end ----------------------------
+  function coverGaps(spans,     b4) -- cover gaps in number line
+    spans[1].lo      = -math.huge
+    spans[#spans].hi = math.hugh
+    b4 = spans[1].hi
+    for _,span in  pairs(spans) do span.lo = b4; b4 = span.hi  end  
+    return spans
+  end ------------
   local spans,span
   xys   = sort(xys, function(a,b) return a.x < b.x end)
   span  = {lo=xys[1].x, hi=xys[1].x, has=Num()}
@@ -310,7 +312,7 @@ function div(xys, tiny, dull,      merge)
     end
     span.hi = x 
     span.has:add(y) end
-  return merge(spans) end
+  return coverGaps(merge(spans)) end
 
 --     |_   .   _   _|_  .   _    _
 --     | |  |  | |   |   |  | |  (_|
@@ -321,24 +323,24 @@ local hints={}
 function hints.default(eg) return eg end
 
 function hints.sort(sample,scorefun,    test,train,egs,scored,small)
-  sample = Sample.new(the.FILE)
+  sample = Sample.new(tic.FILE)
   train,test = {}, {}
   for i,eg in pairs(shuffle(sample.egs)) do
-     push(i<= the.TRAIN*#sample.egs and train or test, eg) end
+     push(i<= tic.TRAIN*#sample.egs and train or test, eg) end
   egs = copy(train)
-  small = (#egs)^the.SMALL
+  small = (#egs)^tic.SMALL
   local i=0
   scored = {}
   while #egs >= small do 
     local tmp ={}
     i = i + 1
     io.stderr:write(fmt("%s",string.char(96+i)))
-    for j=1,the.HINTS do
+    for j=1,tic.HINTS do
       egs[j] = (scorefun or hints.default)(egs[j])
       push(tmp, push(scored, egs[j]))
     end
     egs = hints.ranked(scored,egs,sample)
-    for i=1,the.CULL*#egs//1 do pop(egs) end 
+    for i=1,tic.CULL*#egs//1 do pop(egs) end 
   end
   io.stderr:write("\n")
   train=hints.ranked(scored, train, sample)
@@ -357,41 +359,41 @@ function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
 --  _|   _    _ _    _    _
 -- (_|  (/_  | | |  (_)  _\
 
-the.eg={}
-function the.eg.shuffle(   t,u,v)
+tic.eg={}
+function tic.eg.shuffle(   t,u,v)
   t={}
   for i=1,32 do push(t,i) end
   u = shuffle(copy(t))
   v = shuffle(copy(t))
   assert(#t == #u and u[1] ~= v[1]) end
 
-function the.eg.lap() 
+function tic.eg.lap() 
   assert(3==lap({1,2},function(x) return x+1 end)[2]) end
 
-function the.eg.map() 
+function tic.eg.map() 
   assert(3==map({1,2},function(_,x) return x+1 end)[2]) end
 
-function the.eg.tables() 
+function tic.eg.tables() 
   assert(20==sort(shuffle({{10,20},{30,40},{40,50}}),firsts)[1][2]) end
 
-function the.eg.csv(   n,z)
+function tic.eg.csv(   n,z)
   n=0
-  for eg in the.csv(the.FILE) do n=n+1; z=eg end
+  for eg in tic.csv(tic.FILE) do n=n+1; z=eg end
   assert(n==399 and z[#z]==50) end
 
-function the.eg.rnds(    t)
+function tic.eg.rnds(    t)
   assert(10.2 == first(rnds({10.22,81.22,22.33},1))) end
 
-function the.eg.sym(    s)
+function tic.eg.sym(    s)
   s=Sym{"a","a","a","a","b","b","c"}
   assert("a"==s.mode) end
 
-function the.eg.num1(    n)
+function tic.eg.num1(    n)
   n=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(.375 == n:norm(25))
   assert(15.625 == n:sd()) end
 
-function the.eg.num2(    n1,n2,n3,n4)
+function tic.eg.num2(    n1,n2,n3,n4)
   n1=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   n2=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(n1:mergeable(n2)~=nil) 
@@ -399,13 +401,13 @@ function the.eg.num2(    n1,n2,n3,n4)
   n4=Num{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
   assert(n3:mergeable(n4)==nil) end
 
-function the.eg.sample(    s,tmp,d1,d2,n)
-  s=Sample(the.FILE) 
+function tic.eg.sample(    s,tmp,d1,d2,n)
+  s=Sample(tic.FILE) 
   assert(2110 == last(s.egs)[s.all[4].at])
   local sort1= s:betters(s.egs)
   local lo, hi = s:clone(), s:clone()
   for i=1,20                do lo:add(sort1[i]) end
-  for i=#sort1,#sort1-30,-1 do hi:add(sort1[i]) end
+  for i=#sort1,#sort1-20,-1 do hi:add(sort1[i]) end
   shout(s:mid())
   shout(lo:mid())
   shout(hi:mid())
@@ -413,8 +415,8 @@ function the.eg.sample(    s,tmp,d1,d2,n)
     n = bchop(sort1, eg,function(a,b) return s:better(a,b) end)
     assert(m-n <=2) end end
 
-function the.eg.dists(    s,tmp,d1,d2,n)
-  s=Sample(the.FILE) 
+function tic.eg.dists(    s,tmp,d1,d2,n)
+  s=Sample(tic.FILE) 
   tmp = sort(lap(shuffle(s.egs), 
                      function(eg2) return {s:dist(eg2,s.egs[1]), eg2} end),
                firsts) 
@@ -422,30 +424,30 @@ function the.eg.dists(    s,tmp,d1,d2,n)
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
    assert(d1*10 < d2) end
 
-function the.eg.binsym(   s,col,tmp)
-  s=Sample(the.FILE) 
+function tic.eg.binsym(   s,col,tmp)
+  s=Sample(tic.FILE) 
   col = s.all[4]
   local function show(v) return out(rnds({v.n, v:mid(), v:sd()},0)) end
   print(show(col))
-  tmp = s:splitter1(col)
+  tmp = s:splitter()
+  print(100,tmp[1])
   for k,v in pairs(tmp[2]) do print(k,v.lo,v.hi,v.has.n, show(v.has)) end
   end 
 
-function the.eg.hints(    s,_,__,evals,sort1,train,test,n)
-  s=Sample(the.FILE) 
+function tic.eg.hints(    s,_,__,evals,sort1,train,test,n)
+  s = Sample(tic.FILE) 
   evals, train,test = hints.sort(s) 
   test.egs = test:betters()
   for m,eg in pairs(test.egs) do
     n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end) end end
 
 ---| start-up | ----------------------------------------------------------------------
-the{demos=the.eg, nervous=true}
+tic{demos=tic.eg, nervous=true}
 
 --[[
     _|_ _    _| _ 
      | (_)  (_|(_)
                      
-the==>it
 
 Spans
  Little languages: 

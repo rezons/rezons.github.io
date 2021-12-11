@@ -9,6 +9,17 @@ function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not lib._b4[k] then print("?rogue: ",k,type(v)) end end end
 
+-- ____   ___     _   ____   ____   ___   ____ 
+-- |  |   |__]    |   |___   |       |    [__  
+-- |__|   |__]   _|   |___   |___    |    ___] 
+-- Create an instance
+function lib.has(mt,x) return setmetatable(x,mt) end
+-- Create a clss
+function lib.obj(s, o,new)
+   o = {_is=s, __tostring=out}
+   o.__index = o
+   return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
+
 -- ____   ____   _  _   ___    ____   _  _ 
 -- |__/   |__|   |\ |   |  \   |  |   |\/| 
 -- |  \   |  |   | \|   |__/   |__|   |  | 
@@ -20,6 +31,64 @@ function lib.rand(lo,hi,     mult,mod)
   lo, hi = lo or 0, hi or 1
   lib.Seed = (16807 * lib.Seed) % 2147483647
   return lo + (hi-lo) * lib.Seed / 2147483647 end
+
+-- _  _   ____   ___   _  _   ____ 
+-- |\/|   |__|    |    |__|   [__  
+-- |  |   |  |    |    |  |   ___] 
+lib.abs = math.abs
+-- Round `x` to `d` decimal places.
+function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
+-- Round list of items to  `d` decimal places.
+function lib.rnds(t,d) 
+  return lib.lap(t, function(x) return lib.rnd(x,d or 2) end) end
+
+-- Sum items, filtered through `f`.
+function lib.sum(t,f)
+  f= f or function(x) return x end
+  out=0; for _,x in pairs(t) do out = out + f(x) end; return out end
+
+-- ____   _   _      ____   ____ 
+-- |___   |   |      |___   [__  
+-- |      |   |___   |___   ___] 
+-- Return one table per line, split on commas.
+function lib.csv(file,   line)
+  file = io.input(file)
+  line = io.read()
+  return function(   t,tmp)
+    if line then
+      t={}
+      for cell in line:gsub("[\t\r ]*",""):gsub("#.*",""):gmatch("([^,]+)") do
+        lib.push(t, tonumber(cell) or cell) end 
+      line = io.read()
+      if #t>0 then return t end 
+    else io.close(file) end end end
+
+-- ___    ____   _      _  _   ___   _   _  _   ____ 
+-- |__]   |__/   |      |\ |    |    |   |\ |   | __ 
+-- |      |  \   |      | \|    |    |   | \|   |__] 
+lib.fmt = string.format
+lib.say = function(...) print(lib.fmt(...)) end
+
+-- Print as red, green, yellow, blue.
+function lib.color(s,n) return lib.fmt("\27[1m\27[%sm%s\27[0m",n,s) end
+function lib.red(s)     return lib.color(s,31) end
+function lib.green(s)   return lib.color(s,32) end
+function lib.yellow(s)  return lib.color(s,34) end
+function lib.blue(s)    return lib.color(s,36) end
+
+-- Printed string from a nested structure.
+lib.shout = function(x) print(lib.out(x)) end
+-- Generate string from a nested structures
+-- (and don't print any contents more than once).
+function lib.out(t,seen,    u,key,value,public)
+  function key(k) return lib.fmt(":%s %s", lib.blue(k), lib.out(t[k],seen)) end
+  function value(v) return lib.out(v,seen) end
+  if type(t) == "function" then return "(...)" end
+  if type(t) ~= "table"    then return tostring(t) end
+  seen = seen or {}
+  if seen[t] then return "..." else seen[t] = t end
+  u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
+  return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
 
 -- ___   ____   ___    _      ____ 
 --  |    |__|   |__]   |      |___ 
@@ -75,76 +144,7 @@ function lib.bchop(t,val,lt,lo,hi,     mid)
     mid =(lo+hi) // 2
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
-
--- _  _   ____   ___   _  _   ____ 
--- |\/|   |__|    |    |__|   [__  
--- |  |   |  |    |    |  |   ___] 
-lib.abs = math.abs
--- Round `x` to `d` decimal places.
-function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
--- Round list of items to  `d` decimal places.
-function lib.rnds(t,d) 
-  return lib.lap(t, function(x) return lib.rnd(x,d or 2) end) end
-
--- Sum items, filtered through `f`.
-function lib.sum(t,f)
-  f= f or function(x) return x end
-  out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
-
--- ___    ____   _      _  _   ___   _   _  _   ____ 
--- |__]   |__/   |      |\ |    |    |   |\ |   | __ 
--- |      |  \   |      | \|    |    |   | \|   |__] 
-lib.fmt = string.format
-lib.say = function(...) print(lib.fmt(...)) end
-
--- Print as red, green, yellow, blue.
-function lib.color(s,n) return lib.fmt("\27[1m\27[%sm%s\27[0m",n,s) end
-function lib.red(s)     return lib.color(s,31) end
-function lib.green(s)   return lib.color(s,32) end
-function lib.yellow(s)  return lib.color(s,34) end
-function lib.blue(s)    return lib.color(s,36) end
-
--- Printed string from a nested structure.
-lib.shout = function(x) print(lib.out(x)) end
--- Generate string from a nested structures
--- (and don't print any contents more than once).
-function lib.out(t,seen,    u,key,value,public)
-  function key(k) return lib.fmt(":%s %s", lib.blue(k), lib.out(t[k],seen)) end
-  function value(v) return lib.out(v,seen) end
-  if type(t) == "function" then return "(...)" end
-  if type(t) ~= "table"    then return tostring(t) end
-  seen = seen or {}
-  if seen[t] then return "..." else seen[t] = t end
-  u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
-  return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
-
--- ____   _   _      ____   ____ 
--- |___   |   |      |___   [__  
--- |      |   |___   |___   ___] 
--- Return one table per line, split on commas.
-function lib.csv(file,   line)
-  file = io.input(file)
-  line = io.read()
-  return function(   t,tmp)
-    if line then
-      t={}
-      for cell in line:gsub("[\t\r ]*",""):gsub("#.*",""):gmatch("([^,]+)") do
-        lib.push(t, tonumber(cell) or cell) end 
-      line = io.read()
-      if #t>0 then return t end 
-    else io.close(file) end end end
 
--- ____   ___     _   ____   ____   ___   ____ 
--- |  |   |__]    |   |___   |       |    [__  
--- |__|   |__]   _|   |___   |___    |    ___] 
--- Create an instance
-function lib.has(mt,x) return setmetatable(x,mt) end
--- Create a clss
-function lib.obj(s, o,new)
-   o = {_is=s, __tostring=out}
-   o.__index = o
-   return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
-
 -- ____   _      ____   ____   ____ 
 -- |___   |      |__|   | __   [__  
 -- |      |___   |  |   |__]   ___] 
