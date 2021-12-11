@@ -1,11 +1,23 @@
+--  _    _                                  _     _          _        _         
+-- | |_ (_) _ __   ___     __ _  _ __    __| |   | |_  _ __ (_)  ___ | | __ ___ 
+-- | __|| || '_ \ / __|   / _` || '_ \  / _` |   | __|| '__|| | / __|| |/ // __|
+-- | |_ | || |_) |\__ \  | (_| || | | || (_| |   | |_ | |   | || (__ |   < \__ \
+--  \__||_|| .__/ |___/   \__,_||_| |_| \__,_|    \__||_|   |_| \___||_|\_\|___/
+--         |_|                                                                  
+
 local lib={}
 
-local b4={}; for k,v in pairs(_ENV) do b4[k]=v end
+--   _ _  _     _  _
+--  | (_)(_||_|(/__\
+--        _|        
+lib._b4={}; for k,v in pairs(_ENV) do lib._b4[k]=k end
 function lib.rogues()
   for k,v in pairs(_ENV) do 
-    if not b4[k] then print("?rogue: ",k,type(v)) end end end
+    if not lib._b4[k] then print("?rogue: ",k,type(v)) end end end
 
----| random stuff |---------------------------------------------------------------
+--   _ _  _  _| _  _ _  _
+--  | (_|| |(_|(_)| | |_\
+--
 lib.Seed = 10019
 -- random integers
 function lib.randi(lo,hi) return math.floor(0.5 + lib.rand(lo,hi)) end
@@ -13,11 +25,13 @@ function lib.randi(lo,hi) return math.floor(0.5 + lib.rand(lo,hi)) end
 function lib.rand(lo,hi,     mult,mod) 
   lo, hi = lo or 0, hi or 1
   lib.Seed = (16807 * lib.Seed) % 2147483647
-  return lo + (hi-lo) * Seed / 2147483647 end
+  return lo + (hi-lo) * lib.Seed / 2147483647 end
 
----| table stuff |----------------------------------------------------------------
+-- _|_ _ |_ | _ 
+--  | (_||_)|(/_
+--
 -- Table to string.
-lib.cat     = table.concat
+lib.cat     = table.concat 
 -- Return a sorted table.
 lib.sort    = function(t,f) table.sort(t,f); return t end
 -- Return first,second, last  item.
@@ -25,7 +39,7 @@ lib.first   = function(t) return t[1] end
 lib.second  = function(t) return t[2] end
 lib.last    = function(t) return t[#t] end
 -- Function for sorting pairs of items.
-lib.firsts  = function(a,b) return first(a) < first(b) end
+lib.firsts  = function(a,b) return a[1] < b[1] end
 -- Add to end, pull from end.
 lib.pop     = table.remove
 lib.push    = function(t,x) table.insert(t,x); return x end
@@ -68,21 +82,26 @@ function lib.bchop(t,val,lt,lo,hi,     mid)
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
 
----| maths stuff |---------------------------------------------------------------
+--   _ _  _ _|_|_  _
+--  | | |(_| | | |_\
+--
 lib.abs = math.abs
 -- Round `x` to `d` decimal places.
 function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
 -- Round list of items to  `d` decimal places.
-function lib.rnds(t,d) return lap(t, function(x) return rnd(x,d or 2) end) end
+function lib.rnds(t,d) 
+  return lib.lap(t, function(x) return lib.rnd(x,d or 2) end) end
 
 -- Sum items, filtered through `f`.
 function lib.sum(t,f)
   f= f or function(x) return x end
   out=0; for _,x in pairs(f) do out = out + f(x) end; return out end
 
----| printing stuff |------------------------------------------------------------------
+--   _  _. _ _|_. _  _ 
+--  |_)| || | | || |(_|
+--  |                _|
 lib.fmt = string.format
-lib.say = function(...) print(fmt(...)) end
+lib.say = function(...) print(lib.fmt(...)) end
 
 -- Print as red, green, yellow, blue.
 function lib.color(s,n) return lib.fmt("\27[1m\27[%sm%s\27[0m",n,s) end
@@ -96,7 +115,7 @@ lib.shout = function(x) print(lib.out(x)) end
 -- Generate string from a nested structures
 -- (and don't print any contents more than once).
 function lib.out(t,seen,    u,key,value,public)
-  function key(k)   return lib.fmt(":%s %s",lib.blue(k),olib.                      ut(t[k],seen)) end
+  function key(k) return lib.fmt(":%s %s", lib.blue(k), lib.out(t[k],seen)) end
   function value(v) return lib.out(v,seen) end
   if type(t) == "function" then return "(...)" end
   if type(t) ~= "table"    then return tostring(t) end
@@ -105,8 +124,10 @@ function lib.out(t,seen,    u,key,value,public)
   u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
   return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
 
---| files |-----------------------------------------------------------------------------
--- Return one table per line, split on commans.
+--   |`.| _  _
+--  ~|~||(/__\
+--
+-- Return one table per line, split on commas.
 function lib.csv(file,   line)
   file = io.input(file)
   line = io.read()
@@ -118,25 +139,28 @@ function lib.csv(file,   line)
       line = io.read()
       if #t>0 then return t end 
     else io.close(file) end end end
-
---| oo |-----------------------------------------------------------------------
+
+--   _ |_ . _  __|_ _
+--  (_)|_)|(/_(_ | _\
+--       L|          
 -- Create an instance
 function lib.has(mt,x) return setmetatable(x,mt) end
-
 -- Create a clss
 function lib.obj(s, o,new)
    o = {_is=s, __tostring=out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
---| cli |-----------------------------------------------------------------------
+--   _ _  _ _  _ _  _  _  _|  |. _  _ 
+--  (_(_)| | || | |(_|| |(_|  ||| |(/_
+--
 function lib.help(about)
-  lib.say("\n%s [about]\n%s\n%s\n\nabout:\n",
-          arg[0],about.usage,about.what)
+  lib.say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
+          arg[0], about.who, about.what)
   for _,t in pairs(about.how) do 
     lib.say("%4s %-9s%-30s%s %s",
             t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"") end
-  print("\n"..about.about) end
+  print("\n"..about.why) end
 
 function lib.cli(about,u)
   u={}
@@ -147,36 +171,41 @@ function lib.cli(about,u)
       assert(type(new) == type(u[t[1]]), word.." expects a "..type(u[t[1]]))
       u[t[1]] = new end end end
   lib.Seed = u.seed or 10019
-  if u.help then lib.help(about); os.exit() end
+  if u.HELP then lib.help(about); os.exit() end
   return u end
 
+--   __|_ _  __|_      _ 
+--  _\ | (_||  |   |_||_)
+--                    |  
 -- make everything  the. the.Eg, 
 -- assumes the, about, eg
 function lib.theMain(settings,demos,    defaults,fails)
-  for k,v in pairs(lib.cli(settings)) do defaults[k]=v end
+  defaults={}
+  for k,v in pairs(settings) do defaults[k]=v end
   fails=0
-  function example(k,      f,ok,msg)
+  local function example(k,      f,ok,msg)
     f= demos[k]
     assert(f,"unknown action "..k)
     for k,v in pairs(defaults) do settings[k]=v end
-    lib.Seed  = settings.seed or 10019
-    if settings.wild then return f() end
+    lib.Seed  = settings.SEED or 10019
+    if settings.WILD then return f() end
     ok,msg = pcall(f)
     if ok then print(lib.green("PASS"),k) 
     else       print(lib.red("FAIL"),  k,msg); fails=fails+1 end 
   end ---------------------
-  if     settings.todo == "all" 
+  if     settings.TODO == "all" 
   then   settings.lap(lib.keys(demos),example) 
-  elseif settings.todo == "ls"
+  elseif settings.TODO == "ls"
   then   print("\nACTIONS:")
          lib.map(lib.keys(demos),function(_,k) print("\t"..k) end)
-  else   example(settings.todo) 
+  else   example(settings.TODO) 
   end
   lib.rogues()
   return os.exit(fails) end
 
---the{demos=the.eg, nervous=true}
-
+--   _ _ _|__|_. _  _       _ 
+--  _\(/_ |  | || |(_|  |_||_)
+--                  _|     |  
 -- return all the above functions, augmented with   
 -- (1) any update on the constants from the command line;   
 -- (2) a call method that offer some extra services.   
@@ -184,11 +213,11 @@ function lib.theMain(settings,demos,    defaults,fails)
 -- always use UPPER CASE for the variables and lower case for
 -- the first letter of the functions.
 return function(t) 
-  function main(settings,actions)
+  local function main(settings,actions)
     for flag,val in pairs(actions or {}) do
-       if flag=="nervous" and val then lib.rogues() end
-       if flag=="demos"           then lib.theMain(settings,val) end end 
+      if flag=="nervous" and val then lib.rogues() end
+      if flag=="demos"           then lib.theMain(settings,val) end end 
     return t end
   t=lib.cli(t)
-  for k,v in pairs(lib) do print(k); t[k] = v end
+  for k,v in pairs(lib) do t[k] = v end
   return setmetatable(t, {__call=main}) end

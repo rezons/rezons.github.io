@@ -17,8 +17,8 @@
 --                                     |___/     
 local the=require"z"{ 
 what = "Small sample multi-objective optimizer.",
-who= "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
-why= [[
+who  = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
+why  = [[
 Sort N examples on multi-goals using a handful of 'hints'; i.e.
 
 - Evaluate and rank, a few examples (on their y-values);
@@ -44,11 +44,17 @@ how={{"FILE",     "-f",  "../../data/auto93.csv",  "read data from file"},
      {"TRIVIAL",  "-v",  .35    ,"small delta=trivial*sd"    },
      {"WILD",     "-W",  false  ,"run tests, no protection"  }}}
 
-for k,v in pairs(the) do print(k,v) end
-local obj,has=the.obj, the.has
-print(obj)
-local abs,out,shout=the.abs,the.out,the.shout
---the==>it
+local pop,push,shuffle,lap,last = the.pop,the.push,the.shuffle,the.lap,the.last
+local first,second,firsts       = the.first, the.second, the.firsts
+local sort,bchop,copy           = the.sort, the.bchop, the.copy
+local abs,rand,randi            = the.abs, the.rand, the.randi
+local fmt,out,shout             = the.fmt,the.out,the.shout
+local rnd,rnds                  = the.rnd, the.rnds
+local lap,map                   = the.lap,the.map
+local obj,has                   = the.obj, the.has
+local csv                       = the.csv
+--the==>itw
+
 --[[ 
 Spans
  Little languages: 
@@ -104,7 +110,8 @@ function Num:merge(other,    new)
 function Num:mergeable(other,    new,b4)
   new = self:merge(other)
   b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
-  if b4 >= new:sd() then return new end end
+  print("??",b4, new:sd(), new.n, self.n, other.n)
+  if b4 >= new:sd() then print("!"); return new end end
 
 -- The `mid` is the 50th percentile.
 function Num:mid() return self:per(.5) end
@@ -126,16 +133,20 @@ function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
 
 -- Create one span holding  row indexes associated with each number 
 local div -- defined below
-function Num:spans(egs)
+function Num:spans(egs,   lo,spans,fin)
   local xys,xs = {},  Num()
   for pos,eg in pairs(egs) do
     local x = eg[self.at]
     if x ~= "?" then 
       xs:add(x)
       push(xys, {x=x,y=pos}) end end 
-  return div(xys,                     -- split xys into spans...
-             xs.n^the.SMALL,           -- ..where spans are of size sqrt(#xs)..
-             xs:sd()*the.TRIVIAL) end -- ..and spans have (last-first)>trivial
+  lo = -math.huge
+  spans= lap(div(xys,                  -- split xys into spans...
+                 math.min(10,xs.n^the.SMALL),-- ..where spans are of size sqrt(#xs)..
+                 xs:sd()*the.TRIVIAL), -- ..and spans have (last-first)>trivial
+             function (span) fin=span; span.lo=lo; lo=span.hi; return span end) 
+  fin.hi = math.huge
+  return spans end
 
 -------------------------------------------------------------------------------
 -- ## Stuff for tracking `Sym`bol Counts.
@@ -238,7 +249,7 @@ function Sample:splitter(cols)
 -- Return a column's spans, and the expected sd value of those spans.
 function Sample:splitter1(col,     spans,xpect) 
   spans= col:spans(self.egs)
-  lap(spans,shout)
+  --spans = lap(spans,shout)
   --:xpect= sum(spans, function(_,span) return span.has.n*span.has:sd()/#self.egs end)
   return {xpect, spans} end
 
@@ -279,6 +290,7 @@ function div(xys, tiny, dull,      merge)
       if after then
         local simpler = now.has:mergeable(after.has)
         if simpler then 
+          print("??",now.lo,after.hi)
           now = {lo=now.lo, hi= after.hi, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
@@ -306,9 +318,6 @@ function div(xys, tiny, dull,      merge)
 
 -- Sorting on a few y values
 local hints={}
-local copy,push,lap,sort=the.copy, the.push,the.lap,the.sort
-local map,first,second,firsts=the.map, the.first, the.second, the.firsts
-
 function hints.default(eg) return eg end
 
 function hints.sort(sample,scorefun,    test,train,egs,scored,small)
@@ -349,10 +358,12 @@ function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
 -- (_|  (/_  | | |  (_)  _\
 
 the.eg={}
-function the.eg.shuffle(   t)
+function the.eg.shuffle(   t,u,v)
   t={}
-  for i=1,100 do push(t,i) end
-  assert(#t == #shuffle(t) and t[1] ~= shuffle(t)[1]) end
+  for i=1,32 do push(t,i) end
+  u = shuffle(copy(t))
+  v = shuffle(copy(t))
+  assert(#t == #u and u[1] ~= v[1]) end
 
 function the.eg.lap() 
   assert(3==lap({1,2},function(x) return x+1 end)[2]) end
@@ -368,7 +379,6 @@ function the.eg.csv(   n,z)
   for eg in the.csv(the.FILE) do n=n+1; z=eg end
   assert(n==399 and z[#z]==50) end
 
-first,rnds = the.first, the.rnds
 function the.eg.rnds(    t)
   assert(10.2 == first(rnds({10.22,81.22,22.33},1))) end
 
@@ -410,14 +420,16 @@ function the.eg.dists(    s,tmp,d1,d2,n)
                firsts) 
    d1=s:dist(tmp[1][2], tmp[10][2])
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
-   assert(d1*10<d2) end
+   assert(d1*10 < d2) end
 
-function the.eg.binsym(   s,col)
-  s=Sample(the.file) 
-  col = s.all[7]
-  print(col.txt)
-  s:splitter1(col)
-  end
+function the.eg.binsym(   s,col,tmp)
+  s=Sample(the.FILE) 
+  col = s.all[4]
+  local function show(v) return out(rnds({v.n, v:mid(), v:sd()},0)) end
+  print(show(col))
+  tmp = s:splitter1(col)
+  for k,v in pairs(tmp[2]) do print(k,v.lo,v.hi,v.has.n, show(v.has)) end
+  end 
 
 function the.eg.hints(    s,_,__,evals,sort1,train,test,n)
   s=Sample(the.FILE) 
@@ -427,15 +439,29 @@ function the.eg.hints(    s,_,__,evals,sort1,train,test,n)
     n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end) end end
 
 ---| start-up | ----------------------------------------------------------------------
-the{demos=the.eg,nervous=true}
+the{demos=the.eg, nervous=true}
 
 --[[
     _|_ _    _| _ 
      | (_)  (_|(_)
                      
+the==>it
 
---  seems to be  a revers that i  need to do .... but dont
--- check if shuffle is working
+Spans
+ Little languages: 
+   - options
+   - data language
+
+Lesson plan
+- w1: ssytems: github. github workplaces. unit tests. doco tools. 
+
+- w2: num,sym
+- W3: sample
+- w4: eval, knn, unfarinessness
+- W5: 
+
+-  seems to be  a revers that i  need to do .... but dont
+- check if shuffle is working
 
 teaching:
 - sample is v.useful
