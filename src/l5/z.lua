@@ -16,7 +16,7 @@ function lib.rogues()
 function lib.has(mt,x) return setmetatable(x,mt) end
 -- Create a clss
 function lib.obj(s, o,new)
-   o = {_is=s, __tostring=out}
+   o = {_is=s, __tostring=lib.out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
@@ -43,7 +43,7 @@ function lib.rnds(t,d)
   return lib.lap(t, function(x) return lib.rnd(x,d or 2) end) end
 
 -- Sum items, filtered through `f`.
-function lib.sum(t,f)
+function lib.sum(t,f,     out)
   f= f or function(x) return x end
   out=0; for _,x in pairs(t) do out = out + f(x) end; return out end
 
@@ -174,7 +174,7 @@ function lib.help(about)
 -- ___]    |    |  |   |  \    |         |__|   |    
 -- make everything  the. the.Eg, 
 -- assumes the, about, eg
-function lib.theMain(settings,demos,    defaults,fails)
+function lib.main(settings,demos,    defaults,fails)
   defaults={}
   for k,v in pairs(settings) do defaults[k]=v end
   fails=0
@@ -211,7 +211,7 @@ return function(t)
   local function main(settings,actions)
     for flag,val in pairs(actions or {}) do
       if flag=="nervous" and val then lib.rogues() end
-      if flag=="demos"           then lib.theMain(settings,val) end end 
+      if flag=="demos"           then lib.main(settings,val) end end 
     return t end
   t=lib.cli(t)
   for k,v in pairs(lib) do t[k] = v end

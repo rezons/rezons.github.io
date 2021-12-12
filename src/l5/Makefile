@@ -22,6 +22,13 @@ f=l5
 small:
 	figlet -Wk -f Cybermedium "r a n d o m" | gawk '{print "-- " $0}'|pbcopy
 
+names:
+	@egrep '^(lib|function)' z.lua \
+	| sed 's/^.*lib.//' \
+	| sed 's/[ \(].*//' \
+	| sort | uniq | fmt -24 \
+	| gawk '{gsub(/ /,","); b=$$0;gsub(/,/,", _.",b); print "local " $$0 " = _."b }'
+
 doc: pdf ## make pdf and html
 	docco l5.lua
 	cp ../../etc/docco.css docs
