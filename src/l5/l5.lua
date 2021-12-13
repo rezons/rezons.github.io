@@ -294,7 +294,7 @@ function Sample:where(tree,eg,    max,x,default)
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
 -- local div -- do not uncomment. `div` was declared local above for `Num:spans`.
-local mergeable,merge,coverGaps
+local mergeable,merge
 
 -- Return a list of `spans` {lo=,hi=,col=col}.
 -- Sort the list of pairs `xys` then split it into `spans` of cardinally at
@@ -314,14 +314,15 @@ function div(xys, tiny, trivial,col,yklass)
          x ~= xys[j+1].x   and     -- next item is different (so can split here)
          span.has.n > tiny and     -- span has enough items
          span.hi - span.lo > trivial -- span is not trivially small  
-    then span = push(spans, {col=col, lo=x, hi=x, has=yklass()})  -- then new span
+    then span = push(spans, {col=col, lo=span.hi, hi=x, has=yklass()})  -- then new span
     end
     span.hi = x 
     span.has:add(y) end
+  first(spans).lo = -math.huge
+  last(spans).hi  =  math.huge
   return merge(spans) end
-  --return coverGaps(merge(spans)) end
-
-function mergeable(a,b)
+
+function mergeable(a,b,   new,b4)
   new = a:merge(b)
   b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
   if new:spread() <= b4 then return new end 
@@ -342,17 +343,7 @@ function merge(b4)
   return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
 end 
 
--- Ensure that whole number ine from -in to +inf is coverted
-function coverGaps(spans,     b4) 
-  b4 = first(spans).hi
-  for _,span in  pairs(spans) do span.lo=b4; b4=span.hi end  
-  first(spans).lo = -math.huge
-  last(spans).hi  =  math.huge
-  return spans
-end ------------
-
-  ----------------------------
--- HINTING ---------------------------------------------------------------------
+-- HINTING ---------------------------------------------------------------------
 -- 
 -- Sorting on a few y values
 local hints={}
