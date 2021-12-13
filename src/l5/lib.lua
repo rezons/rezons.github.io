@@ -1,17 +1,15 @@
 local lib={}
 
--- ____   ____   ____   _  _   ____   ____ 
--- |__/   |  |   | __   |  |   |___   [__  
--- |  \   |__|   |__]   |__|   |___   ___] 
+-- ROGUES ----------------------------------------------------------------------
+-- 
 -- Call `rogues`, last thing, to find escaped locals.
 lib._b4={}; for k,v in pairs(_ENV) do lib._b4[k]=k end
 function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not lib._b4[k] then print("?rogue: ",k,type(v)) end end end
 
--- ____   ___     _   ____   ____   ___   ____ 
--- |  |   |__]    |   |___   |       |    [__  
--- |__|   |__]   _|   |___   |___    |    ___] 
+-- OBJECTS ---------------------------------------------------------------------
+--
 -- Create an instance
 function lib.has(mt,x) return setmetatable(x,mt) end
 -- Create a clss
@@ -20,9 +18,8 @@ function lib.obj(s, o,new)
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
 
--- ____   ____   _  _   ___    ____   _  _ 
--- |__/   |__|   |\ |   |  \   |  |   |\/| 
--- |  \   |  |   | \|   |__/   |__|   |  | 
+-- RANDOM ----------------------------------------------------------------------
+-- 
 lib.Seed = 10019
 -- random integers
 function lib.randi(lo,hi) return math.floor(0.5 + lib.rand(lo,hi)) end
@@ -32,9 +29,8 @@ function lib.rand(lo,hi,     mult,mod)
   lib.Seed = (16807 * lib.Seed) % 2147483647
   return lo + (hi-lo) * lib.Seed / 2147483647 end
 
--- _  _   ____   ___   _  _   ____ 
--- |\/|   |__|    |    |__|   [__  
--- |  |   |  |    |    |  |   ___] 
+-- MATHS -----------------------------------------------------------------------
+-- 
 lib.abs = math.abs
 -- Round `x` to `d` decimal places.
 function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
@@ -47,9 +43,8 @@ function lib.sum(t,f,     out)
   f= f or function(x) return x end
   out=0; for _,x in pairs(t) do out = out + f(x) end; return out end
 
--- ____   _   _      ____   ____ 
--- |___   |   |      |___   [__  
--- |      |   |___   |___   ___] 
+-- FILES -----------------------------------------------------------------------
+--
 -- Return one table per line, split on commas.
 function lib.csv(file,   line)
   file = io.input(file)
@@ -63,9 +58,8 @@ function lib.csv(file,   line)
       if #t>0 then return t end 
     else io.close(file) end end end
 
--- ___    ____   _      _  _   ___   _   _  _   ____ 
--- |__]   |__/   |      |\ |    |    |   |\ |   | __ 
--- |      |  \   |      | \|    |    |   | \|   |__] 
+-- PRINTING --------------------------------------------------------------------
+-- 
 lib.fmt = string.format
 lib.say = function(...) print(lib.fmt(...)) end
 
@@ -90,9 +84,8 @@ function lib.out(t,seen,    u,key,value,public)
   u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
   return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
 
--- ___   ____   ___    _      ____ 
---  |    |__|   |__]   |      |___ 
---  |    |  |   |__]   |___   |___ 
+-- TABLE -----------------------------------------------------------------------
+--
 -- Table to string.
 lib.cat     = table.concat 
 -- Return a sorted table.
@@ -144,75 +137,6 @@ function lib.bchop(t,val,lt,lo,hi,     mid)
     mid =(lo+hi) // 2
     if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
-
--- ____   _      ____   ____   ____ 
--- |___   |      |__|   | __   [__  
--- |      |___   |  |   |__]   ___] 
--- Update fields from the command  line.
-function lib.cli(about,u)
-  u={}
-  for _,t in pairs(about.how) do -- update defaults from command line
-    u[t[1]] = t[3]
-    for n,word in ipairs(arg) do if word==t[2] then
-      local new = t[3] and (tonumber(arg[n+1]) or arg[n+1]) or true 
-      assert(type(new) == type(u[t[1]]), word.." expects a "..type(u[t[1]]))
-      u[t[1]] = new end end end
-  lib.Seed = u.seed or 10019
-  if u.HELP then lib.help(about); os.exit() end
-  return u end
 
-function lib.help(about)
-  lib.say("\n%s [OPTIONS]\n%s\n%s\n\nOPTIONS:\n",
-          arg[0], about.who, about.what)
-  for _,t in pairs(about.how) do 
-    lib.say("%4s %-9s%-30s%s %s",
-            t[2],t[3] and t[1] or"", t[4],t[3] and"=" or"",t[3] or"") end
-  print("\n"..about.why) end
-
--- ____   ___   ____   ____   ___        _  _   ___  
--- [__     |    |__|   |__/    |    __   |  |   |__] 
--- ___]    |    |  |   |  \    |         |__|   |    
--- make everything  the. the.Eg, 
--- assumes the, about, eg
-function lib.main(settings,demos,    defaults,fails)
-  defaults={}
-  for k,v in pairs(settings) do defaults[k]=v end
-  fails=0
-  local function example(k,      f,ok,msg)
-    f= demos[k]
-    assert(f,"unknown action "..k)
-    for k,v in pairs(defaults) do settings[k]=v end
-    lib.Seed  = settings.SEED or 10019
-    if settings.WILD then return f() end
-    ok,msg = pcall(f)
-    if ok then print(lib.green("PASS"),k) 
-    else       print(lib.red("FAIL"),  k,msg); fails=fails+1 end 
-  end ---------------------
-  if     settings.TODO == "all" 
-  then   settings.lap(lib.keys(demos),example) 
-  elseif settings.TODO == "ls"
-  then   print("\nACTIONS:")
-         lib.map(lib.keys(demos),function(_,k) print("\t"..k) end)
-  else   example(settings.TODO) 
-  end
-  lib.rogues()
-  return os.exit(fails) end
-
--- _   _  _   _   ___ 
--- |   |\ |   |    |  
--- |   | \|   |    |  
--- return all the above functions, augmented with   
--- (1) any update on the constants from the command line;   
--- (2) a call method that offer some extra services.   
--- To avoid name classes (of config settings and functions),
--- always use UPPER CASE for the variables and lower case for
--- the first letter of the functions.
-return function(t) 
-  local function main(settings,actions)
-    for flag,val in pairs(actions or {}) do
-      if flag=="nervous" and val then lib.rogues() end
-      if flag=="demos"           then lib.main(settings,val) end end 
-    return t end
-  t=lib.cli(t)
-  for k,v in pairs(lib) do t[k] = v end
-  return setmetatable(t, {__call=main}) end
+-------------------------------------------------------------------------------`
+return lib

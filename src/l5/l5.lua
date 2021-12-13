@@ -15,7 +15,7 @@
 --     | || || |_) || |  | (_| || |   | |_| |                                
 --     |_||_||_.__/ |_|   \__,_||_|    \__, |                                
 --                                     |___/     
-local it=require"z"{ 
+local it=require"options"{ 
 what = "Small sample multi-objective optimizer.",
 who  = "(c) 2021 Tim Menzies <timm@ieee.org> unlicense.org",
 why  = [[
@@ -37,14 +37,14 @@ how={{"FILE",     "-f",  "../../data/auto93.csv",  "read data from file"},
      {"HELP",     "-h",  false  , "show help"                },
      {"HINTS",    "-H",   4     ,"hints per generation"      },
      {"P",        "-p",   2     ,"distance calc exponent"    },
-     {"SMALL",    "-s",  .5     ,"div list t into t^small"   },
+     {"TINY",     "-s",  .5     ,"div list t into t^small"   },
      {"SEED",     "-S",  10019  ,"random number seed"        },
      {"TRAIN",    "-t",  .5     ,"size of training set"      },
      {"TODO",     "-T",  "all"  ,"run unit test, or 'all'"   },
      {"TRIVIAL",  "-v",  .35    ,"small delta=trivial*sd"    },
      {"WILD",     "-W",  false  ,"run tests, no protection"  }}}
 
-local _=it
+local _=require"lib"
 local abs,bchop,cat,copy       = _.abs,     _.bchop, _.cat,    _.copy
 local csv,first,firsts,fmt,has = _.csv,     _.first, _.firsts, _.fmt,   _.has
 local keys,last,lap,map,obj    = _.keys,    _.last,  _.lap,    _.map,   _.obj
@@ -66,10 +66,8 @@ Lesson plan
 -- W5: 
 --]]
 
---        _         _ _        _       _ _        _  |   .   _
---       | |  |_|  | | |      _\  \/  | | |      _\  |<  |  |_)
---                                /                         |
-
+-- NUM -------------------------------------------------------------------------
+--
 -- ## Stuff for tracking `Num`bers.
 -- `Num`s track a list of number, and can report  it sorted.
 local Num=obj"Num"
@@ -98,16 +96,11 @@ function Num:dist(a,b)
   
 -- Combine two `num`s.
 function Num:merge(other,    new)
-  new = Num.new(self.has)
+  new = Num()
+  new.at, new.txt = self.at, self.txt
+  for _,x in pairs(self.has)  do new:add(x) end
   for _,x in pairs(other.has) do new:add(x) end
   return new end
-
--- Return a merged item if that combination 
--- is simpler than its parts.
-function Num:mergeable(other,    new,b4)
-  new = self:merge(other)
-  b4  = (self.n*self:sd() + other.n*other:sd()) / new.n
-  if b4 >= new:sd() then return new end end
 
 -- The `mid` is the 50th percentile.
 function Num:mid() return self:per(.5) end
@@ -126,23 +119,22 @@ function Num:per(p,    t)
 
 -- The 10th to 90th percentile range is 2.56 times the standard deviation.
 function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
+function Num:spread() return self:sd() end
 
 -- Create one span (each has the  row indexes of the rows)
--- where each span has at least `tiny` items and not span is `tirvial`ly small.
+-- where each span has at least `tiny` items and  span is more than
+-- `tirvial`ly small.
 local div -- defined below
-function Num:spans(sample,tiny)
-  local xys,xs,trivial = {},  Num()
+function Num:spans(sample,tiny,trivial)
+  local xys = {}
   for _,eg in pairs(sample.egs) do
     local x = eg[self.at]
-    local y = eg[sample.klass.at]
-    if x ~= "?" then 
-      xs:add(x)
-      push(xys, {x=x,y=y}) end end 
-  trivial = xs:sd()*it.TRIVIAL
-  return div(xys, tiny, trivial) end
+    if x ~= "?" then push(xys, {col=col, x=x, y=eg[sample.klass.at]}) end end 
+  return div(xys, tiny, trivial,  self, getmetatable(sample.klass)) end
 
--------------------------------------------------------------------------------
--- ## Stuff for tracking `Sym`bol Counts.
+-- SYM -------------------------------------------------------------------------
+--
+-- Stuff for tracking `Sym`bol Counts.
 -- `Sym`s track symbol counts and the `mode` (most frequent symbol).
 local Sym=obj"Sym"
 function Sym.new(inits,at,txt,     self) 
@@ -150,36 +142,47 @@ function Sym.new(inits,at,txt,     self)
   for _,one in pairs(inits or {}) do self:add(one) end
   return self end
 
-function Sym:add(x) 
-  self.n = self.n + 1
-  self.has[x] = 1 + (self.has[x] or 0)
+function Sym:add(x,n) 
+  n = n or 1
+  self.n = self.n + n
+  self.has[x] = n + (self.has[x] or 0)
   if self.has[x] > self.most then self.most, self.mode = self.has[x], x end end
 
 function Sym:dist(a,b) return a==b and 0 or 1 end
+
+function Sym:merge(other)
+  new=Sym()
+  new.at, new,txt = self.at, self.txt
+  for k,n in pairs(self.has)  do new:add(k,n) end
+  for k,n in pairs(other.has) do new:add(k,n) end
+  return new end
+  
 function Sym:mid() return self.mode end 
 
 -- Create one span holding  row indexes associated with each symbol 
-function Sym:spans(sample,tiny)
-  local xys = {}
+function Sym:spans(sample,...)
+  local xys,yklass = {}, getmetatable(sample.klass)
   for pos,eg in pairs(sample.egs) do
     local x = eg[self.at]
-    local y = eg[sample.klass.at]
     if x ~= "?" then 
-      xys[x] = xys[x] or {}
-      push(xys[x], y)  end end
-  return map(xys, function(x,t) return {lo=x, hi=x, has=Num(t)} end) end 
+      xys[x] = xys[x] or yklass()
+      xys[x]:add( eg[sample.klass.at] )  end end
+  return map(xys, function(x,ys) return {col=self, lo=x, hi=x, has=ys} end) end 
 
--------------------------------------------------------------------------------
+function Sym:spread()
+  return sum(self.has,
+             function(n1) return  -n1/self.n * math.log(n1/self.n,2) end) end
+
+-- SKIP ------------------------------------------------------------------------
+--
 -- ## Stuff for skipping all things sent to a column
 local Skip=obj"Skip"
 function Skip.new(_,at,txt) return has(Skip,{at=at or 0, txt=txt or"", n=0}) end
 function Skip:add(x) self.n = self.n + 1; return  x end 
 function Skip:mid() return "?" end
 
---      _   _    _ _    _   |   _ 
---     _\  (_|  | | |  |_)  |  (/_
---                     |          
-
+-- SAMPLE ----------------------------------------------------------------------
+--
 -- Samples store examples. Samples know about 
 -- (a) lo,hi ranges on the numerics
 -- and (b) what  are independent `x` or dependent `y` columns.
@@ -240,30 +243,45 @@ function Sample:mid(cols)
   return lap(cols or self.ys,function(col) return col:mid() end) end
 
 -- Return spans of the column that most reduces variance 
-function Sample:splitter(tiny,   worker)
-  function worker(col) return self:splitter1(tiny,col) end
-  return first(sort(lap(self.xs, worker), firsts))[2]  end
-
--- Return a column's spans, and the expected sd value of those spans.
-function Sample:splitter1(tiny,col,     spans,xpect,worker) 
-  function worker(span) span.col=col; return span.has.n*span.has:sd() end
-  spans = col:spans(self, tiny)
-  return {sum(spans, worker)/#self.egs, spans} end
+function Sample:bestSplits(tiny, trivials)
+  local function column1(col,   total,xpect,spans,total,xpect) 
+    local function xpect1(span) return span.has.n/total * span.has:spread() end 
+    spans = col:spans(self, tiny,trivials[col.at])
+    total = sum(spans,function(span) return span.has.n end)
+    xpect = sum(spans, xpect1)
+    return {xpect, spans} 
+  end -------------------------------
+  return first(sort(lap(self.xs, column1), firsts))[2]  end
 
 -- Split on column with best span, recurse on each split.
-function Sample:tree(min,      node,min,sub,splitter, splitter1)
-  node = {node=self, kids={}}
-  min  = min  or (#self.egs)^it.SMALL
-  if #self.egs >= 2*min then 
-    for _,span in pairs(self:splitter(min)) do
-      t1 = self:clone()
-      for _,eg in pairs(self.egs) do
-        x = eg[span.col.at]
-        if x=="?" or (span.lo <= x and x <= span.hi) then t1:add(eg) end end
-     push(node.kids, {col=span.col.at, lo=span.lo, hi=span.hi, kid=t1}) end end
+function Sample:tree(tiny,trivials,pre,      node,new,x)
+  pre=pre or ""
+  print(pre ..": "..#self.egs)
+  tiny     = tiny     or (#self.egs)^it.TINY
+  trivials = trivials or map(self.xs, 
+                          function(_,x) 
+                            return x.at,it.TRIVIAL*x:spread() end)
+  node     = {node=self, kids={}}
+  shout{egs=#self.egs, tiny=2*tinyx,}
+  if #self.egs <= 2*tiny then print(333333);return node end
+  print("---")
+  for _,span in pairs(self:bestSplits(tiny,trivials)) do
+    new = self:clone()
+    for _,eg in pairs(self.egs) do
+      x = eg[span.col.at]
+      --print(span.col.at, x, span.lo, span.hi)
+      if x=="?" or (span.lo <= x and x <= span.hi) then new:add(eg) end end
+    --os.exit()
+    print(#new.egs)
+    push(node.kids, {txt = span.col.txt, txt= span.col.at, 
+                     lo  = span.lo,      hi = span.hi, 
+                     sub = new:tree(tiny,trivials,pre.."|.. ")}) end 
+    --os.exit() 
+    --end end
   return node end
 
--- Find which leaf best matches an example `eg`.
+-- Find which leaf best matches an example `eg`.:w
+
 function Sample:where(tree,eg,    max,x,default)
   if #kid.has==0 then return tree end
   max = 0
@@ -275,25 +293,35 @@ function Sample:where(tree,eg,    max,x,default)
         return self:where(kid.has.eg) end end end
   return self:where(default, eg) end
 
--------------------------------------------------------------------------------
--- Discretization tricks
+-- Discrimination --------------------------------------------------------------
+--
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
-function div(xys, tiny, dull,         merge,coverGaps)
-  function merge(b4) -- merge adjacent spans if combo simpler to he parts
+function div(xys, tiny, trivial,col,yklass)
+  xys    = sort(xys, function(a,b) return a.x < b.x end)
+  local tenth=#xys//10
+  trvial = trivial or it.TRIVIAL*(xys[9*tenth][1] - xys[tenth][1])/2.56
+  tiny   = tiny    or it.TINY*#xys
+  yklass = yklass  or Num
+  local function mergeable(a,b)
+    new = a:merge(b)
+    b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
+    if new:spread() <= b4 then return new end 
+  end --------------
+  local function merge(b4) -- merge adjacent spans if combo simpler to he parts
     local j, tmp = 0, {}
     while j < #b4 do
       j = j + 1
       local now, after = b4[j], b4[j+1]
       if after then
-        local simpler = now.has:mergeable(after.has)
+        local simpler = mergeable(now.has, after.has)
         if simpler then 
-          now = {lo=now.lo, hi= after.hi, has=simpler} 
+          now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
   end ----------------------------
-  function coverGaps(spans,     b4) -- cover gaps in number line
+  local function coverGaps(spans,     b4) -- cover gaps in number line
     b4 = first(spans).hi
     for _,span in  pairs(spans) do span.lo=b4; b4=span.hi end  
     first(spans).lo = -math.huge
@@ -301,25 +329,23 @@ function div(xys, tiny, dull,         merge,coverGaps)
     return spans
   end ------------
   local spans,span
-  xys   = sort(xys, function(a,b) return a.x < b.x end)
-  span  = {lo=xys[1].x, hi=xys[1].x, has=Num()}
+  span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
   spans = {span}
   for j,xy in pairs(xys) do
     local x, y = xy.x, xy.y
-    if   j < #xys - tiny   and    -- enough items remaining after split
-         x ~= xys[j+1].x   and    -- next item is different (so can split here)
-         span.has.n > tiny and    -- span has enough items
-         span.hi - span.lo > dull -- span is not trivially small  
-    then span = push(spans, {lo=x, hi=x, has=Num()})  -- then new span
+    if   j < #xys - tiny   and     -- enough items remaining after split
+         x ~= xys[j+1].x   and     -- next item is different (so can split here)
+         span.has.n > tiny and     -- span has enough items
+         span.hi - span.lo > trivial -- span is not trivially small  
+    then span = push(spans, {col=col, lo=x, hi=x, has=yklass()})  -- then new span
     end
     span.hi = x 
     span.has:add(y) end
-  return coverGaps(merge(spans)) end
+  return merge(spans) end
+  --return coverGaps(merge(spans)) end
 
---     |_   .   _   _|_  .   _    _
---     | |  |  | |   |   |  | |  (_|
---                                _|
-
+-- HINTING ---------------------------------------------------------------------
+-- 
 -- Sorting on a few y values
 local hints={}
 function hints.default(eg) return eg end
@@ -330,7 +356,7 @@ function hints.sort(sample,scorefun,    test,train,egs,scored,small)
   for i,eg in pairs(shuffle(sample.egs)) do
      push(i<= it.TRAIN*#sample.egs and train or test, eg) end
   egs = copy(train)
-  small = (#egs)^it.SMALL
+  small = (#egs)^it.TINY
   local i=0
   scored = {}
   while #egs >= small do 
@@ -358,53 +384,44 @@ function hints.rankOfClosest(scored,eg1,sample,        worker,closest)
   closest = first(sort(map(scored, worker),firsts)) 
   return  closest[2] end --+ closest[1]/10^8 end
 
---  _|   _    _ _    _    _
--- (_|  (/_  | | |  (_)  _\
-
-it.eg={}
-it.no={}
-function it.eg.shuffle(   t,u,v)
+-- demos -----------------------------------------------------------------------
+-- 
+it._eg={}
+it._no={}
+function it._eg.shuffle(   t,u,v)
   t={}
   for i=1,32 do push(t,i) end
   u = shuffle(copy(t))
   v = shuffle(copy(t))
   assert(#t == #u and u[1] ~= v[1]) end
 
-function it.eg.lap() 
+function it._eg.lap() 
   assert(3==lap({1,2},function(x) return x+1 end)[2]) end
 
-function it.eg.map() 
+function it._eg.map() 
   assert(3==map({1,2},function(_,x) return x+1 end)[2]) end
 
-function it.eg.tables() 
+function it._eg.tables() 
   assert(20==sort(shuffle({{10,20},{30,40},{40,50}}),firsts)[1][2]) end
 
-function it.eg.csv(   n,z)
+function it._eg.csv(   n,z)
   n=0
-  for eg in it.csv(it.FILE) do n=n+1; z=eg end
+  for eg in csv(it.FILE) do n=n+1; z=eg end
   assert(n==399 and z[#z]==50) end
 
-function it.eg.rnds(    t)
+function it._eg.rnds(    t)
   assert(10.2 == first(rnds({10.22,81.22,22.33},1))) end
 
-function it.eg.sym(    s)
+function it._eg.sym(    s)
   s=Sym{"a","a","a","a","b","b","c"}
   assert("a"==s.mode) end
 
-function it.eg.num1(    n)
+function it._eg.num1(    n)
   n=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
   assert(.375 == n:norm(25))
   assert(15.625 == n:sd()) end
 
-function it.eg.num2(    n1,n2,n3,n4)
-  n1=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
-  n2=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
-  assert(n1:mergeable(n2)~=nil) 
-  n3=Num{10,20,30,40,50,10,20,30,40,50,10,20,30,40,50}
-  n4=Num{100,200,300,400,500,100,200,300,400,500,100,200,300,400,500}
-  assert(n3:mergeable(n4)==nil) end
-
-function it.eg.sample(    s,tmp,d1,d2,n)
+function it._eg.sample(    s,tmp,d1,d2,n)
   s=Sample(it.FILE) 
   assert(2110 == last(s.egs)[s.all[4].at])
   local sort1= s:betters(s.egs)
@@ -418,7 +435,7 @@ function it.eg.sample(    s,tmp,d1,d2,n)
     n = bchop(sort1, eg,function(a,b) return s:better(a,b) end)
     assert(m-n <=2) end end
 
-function it.eg.dists(    s,tmp,d1,d2,n)
+function it._eg.dists(    s,tmp,d1,d2,n)
   s=Sample(it.FILE) 
   tmp = sort(lap(shuffle(s.egs), 
                      function(eg2) return {s:dist(eg2,s.egs[1]), eg2} end),
@@ -427,14 +444,16 @@ function it.eg.dists(    s,tmp,d1,d2,n)
    d2=s:dist(tmp[1][2], tmp[#tmp][2])
    assert(d1*10 < d2) end
 
-function it.eg.hints(    s,_,__,evals,sort1,train,test,n)
+function it._eg.hints(    s,_,__,evals,sort1,train,test,n)
   s = Sample(it.FILE) 
   evals, train,test = hints.sort(s) 
   test.egs = test:betters()
   for m,eg in pairs(test.egs) do
     n = bchop(train.egs, eg,function(a,b) return s:better(a,b) end); end end
 
-function it.eg.tree(    s,t,u,eg1,evals,ordered,rest)
+function it._eg.dump()
+  shout(it) end
+function it._eg.tree(    s,t,u,eg1,evals,ordered,rest)
   s = Sample(it.FILE) 
   t = copy(s.names)
   push(t,"Rank!")
@@ -444,13 +463,12 @@ function it.eg.tree(    s,t,u,eg1,evals,ordered,rest)
     eg1 = copy(eg)
     push(eg1,m)
     u:add(eg1) end 
-  for _,col in pairs(u.xs) do
-    print("")
-    for _,span in pairs(u:splitter1(20, col)[2]) do
-      print(span.col.at, span.lo, span.hi, span.col.txt) end end end
+  print(1)
+  u:tree() end 
 
----| start-up | ----------------------------------------------------------------------
-it{demos=it.eg, nervous=true}
+-- START-UP --------------------------------------------------------------------
+--
+it{demos=it._eg, nervous=true}
 
 --[[
     _|_ _    _| _ 
