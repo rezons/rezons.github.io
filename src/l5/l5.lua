@@ -262,20 +262,16 @@ function Sample:tree(tiny,trivials,pre,      node,new,x)
                           function(_,x) 
                             return x.at,it.TRIVIAL*x:spread() end)
   node     = {node=self, kids={}}
-  shout{egs=#self.egs, tiny=2*tinyx,}
   if #self.egs <= 2*tiny then print(333333);return node end
-  print("---")
   for _,span in pairs(self:bestSplits(tiny,trivials)) do
     new = self:clone()
     for _,eg in pairs(self.egs) do
       x = eg[span.col.at]
-      --print(span.col.at, x, span.lo, span.hi)
       if x=="?" or (span.lo <= x and x <= span.hi) then new:add(eg) end end
-    --os.exit()
-    print(#new.egs)
-    push(node.kids, {txt = span.col.txt, txt= span.col.at, 
-                     lo  = span.lo,      hi = span.hi, 
-                     sub = new:tree(tiny,trivials,pre.."|.. ")}) end 
+    if #new.egs < #self.egs then
+      push(node.kids, {txt = span.col.txt, txt= span.col.at, 
+                       lo  = span.lo,      hi = span.hi, 
+                       sub = new:tree(tiny,trivials,pre.."|.. ")}) end end
     --os.exit() 
     --end end
   return node end
@@ -292,42 +288,23 @@ function Sample:where(tree,eg,    max,x,default)
       if x <= kid.hi and x >= kid.lo then 
         return self:where(kid.has.eg) end end end
   return self:where(default, eg) end
-
--- Discrimination --------------------------------------------------------------
+
+-- DISCRIMINATION --------------------------------------------------------------
 --
 -- Input a list of {{x,y}..} values. Return spans that divide the `x` values
 -- to minimize variance on the `y` values.
+-- local div -- do not uncomment. `div` was declared local above for `Num:spans`.
+local mergeable,merge,coverGaps
+
+-- Return a list of `spans` {lo=,hi=,col=col}.
+-- Sort the list of pairs `xys` then split it into `spans` of cardinally at
+-- least `tiny`. Ensure that the max-min of each span is more that `trivial`.
 function div(xys, tiny, trivial,col,yklass)
   xys    = sort(xys, function(a,b) return a.x < b.x end)
   local tenth=#xys//10
   trvial = trivial or it.TRIVIAL*(xys[9*tenth][1] - xys[tenth][1])/2.56
   tiny   = tiny    or it.TINY*#xys
   yklass = yklass  or Num
-  local function mergeable(a,b)
-    new = a:merge(b)
-    b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
-    if new:spread() <= b4 then return new end 
-  end --------------
-  local function merge(b4) -- merge adjacent spans if combo simpler to he parts
-    local j, tmp = 0, {}
-    while j < #b4 do
-      j = j + 1
-      local now, after = b4[j], b4[j+1]
-      if after then
-        local simpler = mergeable(now.has, after.has)
-        if simpler then 
-          now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
-          j = j + 1 end end
-      push(tmp,now) end 
-    return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
-  end ----------------------------
-  local function coverGaps(spans,     b4) -- cover gaps in number line
-    b4 = first(spans).hi
-    for _,span in  pairs(spans) do span.lo=b4; b4=span.hi end  
-    first(spans).lo = -math.huge
-    last(spans).hi  =  math.huge
-    return spans
-  end ------------
   local spans,span
   span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
   spans = {span}
@@ -344,6 +321,37 @@ function div(xys, tiny, trivial,col,yklass)
   return merge(spans) end
   --return coverGaps(merge(spans)) end
 
+function mergeable(a,b)
+  new = a:merge(b)
+  b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
+  if new:spread() <= b4 then return new end 
+end 
+
+--  Merge adjacent spans if the combo is simpler than the parts.
+function merge(b4) 
+  local j, tmp = 0, {}
+  while j < #b4 do
+    j = j + 1
+    local now, after = b4[j], b4[j+1]
+    if after then
+      local simpler = mergeable(now.has, after.has)
+      if simpler then 
+        now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
+        j = j + 1 end end
+    push(tmp,now) end 
+  return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
+end 
+
+-- Ensure that whole number ine from -in to +inf is coverted
+function coverGaps(spans,     b4) 
+  b4 = first(spans).hi
+  for _,span in  pairs(spans) do span.lo=b4; b4=span.hi end  
+  first(spans).lo = -math.huge
+  last(spans).hi  =  math.huge
+  return spans
+end ------------
+
+  ----------------------------
 -- HINTING ---------------------------------------------------------------------
 -- 
 -- Sorting on a few y values
