@@ -7,17 +7,19 @@ local function cli(flag,x)
 local the= {BEST=  cli("-b", .1),
             FILE=  cli("-f","../../data/auto93.csv"),
             SEED=  cli("-s",  10119),
+            STOP = cli("-S", 4),
             TINY = cli("-t", .1),
             TRIVIAL = cli("-T", .35)}
 
 ------------------------------------
 local same,push,sort,map,csv,norm,ent,copy
-function same(x)    return x end
-function push(t,x)  t[1+#t]=x; return x end
-function sort(t,f)  table.sort(t,f);   return t end
-function map(t,f,u) u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
+function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
+function firsts(x,y)   return x[1] < y[1] end
+function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
 function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function copy(t,  u) u={}; for k,v in pairs(t) do u[k]=v end; return u end
+function push(t,x)     t[1+#t]=x; return x end
+function same(x)       return x end
+function sort(t,f)     table.sort(t,f);   return t end
 
 function csv(file,   x)
   file = io.input(file)
@@ -42,18 +44,6 @@ function out(t,    u,key,keys,value)
   u = #t>0 and map(t, value) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
 
-function inc3(t, x, y, z, n)
-    if not t[x] then t[x] = {} end; t = t[x] 
-    if not t[y] then t[y] = {} end; t = t[y]
-    t[z] = (t[z] or 0) + (n or 10)
-end
-
-function get3(t, x, y, z, n)
-    if not t[x] then t[x] = {} end; t = t[x] 
-    if not t[y] then t[y] = {} end; t = t[y]
-    return t[z] or 0
-end
-
 local Seed,randi,rand,ent
 Seed = the.SEED
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
@@ -65,7 +55,12 @@ function rand(lo,hi)
 function ent(t,    n,e)
   n=0; for _,n1 in pairs(t) do n = n + n1 end
   e=0; for _,n1 in pairs(t) do e = e - n1/n*math.log(n1/n,2) end
-  return e end
+  return e,n  end
+
+function mode(t,     most,out)
+  most = 0
+  for x,n in pairs(t) do if n > most then most,out = n,x end
+  return out end
 
 --------------------------
 local slurp,sample,ordered,clone
@@ -121,7 +116,8 @@ local discretize,div
 function discretize(i,          bin,xys,p,bins,divs)
   function bin(z,divs) 
     if z=="?" then return "?" end
-    for n,x in pairs(divs) do if x.lo<= z and z<= x.hi then return string.char(96+n) end end 
+    for n,x in pairs(divs) do 
+      if x.lo<= z and z<= x.hi then return string.char(96+n) end end 
   end ------------------------ 
   for col,_ in pairs(i.xs) do
     if i.lo[col] then
@@ -131,7 +127,8 @@ function discretize(i,          bin,xys,p,bins,divs)
         if x~="?" then push(xys, {x=x,  y=eg.klass}) end end
       xys  = sort(xys, function(a,b) return a.x < b.x end)
       p    = function (z) return xys[z*#xys//10].x end
-      divs = div(xys, the.TINY*#xys, the.TRIVIAL*math.abs(p(.9) - p(.1))/2.56)
+      divs = div(xys, the.TINY*#xys, 
+                      the.TRIVIAL*math.abs(p(.9) - p(.1))/2.56)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], divs) end end end 
   return i end
@@ -161,12 +158,40 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
   for j,xy in pairs(xys) do
     local x,y = xy.x, xy.y
     if  j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo> trivial
-    then  one = push(all, {lo=one.hi, hi=x, n=0, has={}}) 
+    then one = push(all, {lo=one.hi, hi=x, n=0, has={}}) 
     end
     one.n  = 1 + one.n
     one.hi = x
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
+
+function splitter(egs) 
+  function worth(at,_)
+    for _,eg in pairs(egs) do
+      local x,y = eg.cooked[at], eg.klass
+      if x ~= "?" then
+        xy[x] = xys[x] or {}
+        xy[x][y] = 1 + (xy[x][y] or 0) end end 
+    local n, xpect = #i.egs, 0
+    for _,t in pairs(xys) do
+       e,n1 = ent(t)
+       xpect = xpect+n1/n*e end
+    return {xpect,at} end
+  return first(sort(map(i.xs, worth),firsts))[2] end
+
+function tree(egs)
+  if #egs > 2*the.STOP then 
+    local kid,kids,at = {},0,splitter(egs)
+    for _,eg in pairs(egs) do
+      local x= eg.cooked[at]
+      if not kid[x] then kid[x]={}; kids=kids+1 end
+      push(kid[x], eg) end
+    if kids> 1 then
+      return map(kid, function(x,t) return {at=at,val=x,sub=tree(t)} end) end end
+  for _,eg in pair(egs) do t[eg.klass] = 1+(t[eg.klass] or 0) end
+  return {mode=mode(t), has=t,egs=egs} end
+
+
 
 local s=discretize(ordered(slurp()))
 
