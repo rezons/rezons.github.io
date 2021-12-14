@@ -130,12 +130,12 @@ function lib.keys(t,u)
   return lib.sort(u) end
 
 -- Binary chop (assumes sorted lists)
-function lib.bchop(t,val,lt,lo,hi,     mid)
+function lib.bchop(t,val,policy,lo,hi,     mid)
   lt = lt or function(x,y) return x < y end
   lo,hi = lo or 1, hi or #t
   while lo <= hi do
     mid =(lo+hi) // 2
-    if lt(t[mid],val) then lo=mid+1 else hi= mid-1 end end
+    if policy(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
 
 -------------------------------------------------------------------------------`
