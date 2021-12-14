@@ -4,15 +4,18 @@ local function cli(flag,x)
     x = x and (tonumber(arg[n+1]) or arg[n+1]) or true end end 
   return x end
 
-local the= {SEED= cli("-S",2000),
-            FILE= cli("-F","../../data/auto93.csv")}
+local the= {BEST= cli("-b" , .5),
+            TRAIN= cli("-t", .5),
+            SEED= cli("-s",2000),
+            FILE= cli("-f","../../data/auto93.csv")}
 
 ---------------------------------------
-local same, push,sort, map,csv,out,shout
+local same, push,sort, map,csv,norm
 function same(x)    return x end
 function push(t,x)  table.insert(t,x); return x end
 function sort(t,f)  table.sort(t,f);   return t end
 function map(t,f,u) u={}; for k,v in pairs(t) do push(u,f(k,v)) end; return u end
+function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
 
 function csv(file,   x)
   file = io.input(file)
@@ -25,6 +28,7 @@ function csv(file,   x)
       if #t>0 then return t end 
     else io.close(file) end end end
 
+local shout,out
 function shout(x) print(out(x)) end
 function out(t,    u,key,keys,value)
   function keys(t,u)
@@ -36,22 +40,27 @@ function out(t,    u,key,keys,value)
   u = #t>0 and map(t, value) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
 
----------------------------------------
-local slurp,sample
+--------------------------
+local slurp,sample,ordered
 function slurp(out)
   for eg in csv(the.FILE) do out=sample(eg,out) end
   return out end
 
 function sample(eg,i)
-  i = i or {n=0,xs={},ys={},lo={},hi={},w={},egs={},heads={}} 
-  local function head(n,x)
+  local numeric, independent,dependent,head,datum
+  i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={}} 
+  function head(n,x)
+    function numeric()     i.lo[n]= math.huge; i.hi[n]= -i.lo[n] end 
+    function independent() i.xs[n]= x end
+    function dependent()
+      i.w[n] = x:find"-" and -1 or 1
+      i.ys[n]= x
+      i.nys  = i.nys+1 end
     if not x:find":" then
-      if x:find"<" or x:find">" then i.ys[n]=x; i.xs[n]=x end
-      if x:match"^[A-Z]" then 
-        i.w[n] = x:find"<" and -1 or 1
-        i.lo[n]= math.huge; i.hi[n]= -i.lo[n] end end 
+      if x:match"^[A-Z]"        then numeric() end 
+      ((x:find"-" or x:find"+") and dependent or independent)() end
     return x end
-  local function datum(n,x)
+  function datum(n,x)
     if x ~= "?" then
       if i.lo[n] then 
         i.lo[n]= math.min(i.lo[n],x)
@@ -62,22 +71,20 @@ function sample(eg,i)
   return i end
 
 function ordered(i)
-  local all, norm, better
-  all = 0
-  for _ in pairs(i.ys) do all = all + 1 end
-  function norm(n,x)
-    lo,hi = i.lo[n], i.hi[n]
-    return math.abs(lo - hi) < 1E-32 and 0 or (x-lo)/(hi-lo) end
-  function better(eg1,eg2,     e,n,a,b,s1,s2)
+  local function better(eg1,eg2,     e,n,a,b,s1,s2)
     s1,s2,e = 0, 0, 2.71828
     for n,_ in pairs(i.ys) do
       a  = norm(i.lo[n], i.hi[n], eg1[n])
       b  = norm(i.lo[n], i.hi[n], eg2[n])
-      s1 = s1 - e^(i.w[n] * (a-b)/all) 
-      s2 = s2 - e^(i.w[n] * (b-a)/all) end
-    return s1/all < s2/all end 
+      s1 = s1 - e^(i.w[n] * (a-b)/i.nys) 
+      s2 = s2 - e^(i.w[n] * (b-a)/i.nys) end
+    return s1/i.nys < s2/i.nys end 
   i.egs = sort(i.egs, better)
   return i end
 
-shout(ordered(slurp()))
+local s= slurp()
+for i =1,20 do shout(s.egs[i]) end
+print("")
+for i =#s.egs,#s.egs-20,-1 do shout(s.egs[i]) end
+
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end 
