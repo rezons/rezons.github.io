@@ -11,12 +11,13 @@ local the= {BEST=  cli("-b", .1),
             TRIVIAL = cli("-T", .35)}
 
 ------------------------------------
-local same,push,sort,map,csv,norm,ent
+local same,push,sort,map,csv,norm,ent,copy
 function same(x)    return x end
 function push(t,x)  t[1+#t]=x; return x end
 function sort(t,f)  table.sort(t,f);   return t end
 function map(t,f,u) u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
 function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
+function copy(t,  u) u={}; for k,v in pairs(t) do u[k]=v end; return u end
 
 function csv(file,   x)
   file = io.input(file)
@@ -33,14 +34,25 @@ local shout,out
 function shout(x) print(out(x)) end
 function out(t,    u,key,keys,value)
   function keys(t,u)
-    u={}; for k,_ in pairs(t) do 
-      k=tostring(k); if k:sub(1,1)~="_" then push(u,k) end end
+    u={}; for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then u[k]=k end end
     return sort(u) end
   function key(_,k)   return string.format(":%s %s", k, out(t[k])) end
   function value(_,v) return out(v) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t, value) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
+
+function inc3(t, x, y, z, n)
+    if not t[x] then t[x] = {} end; t = t[x] 
+    if not t[y] then t[y] = {} end; t = t[y]
+    t[z] = (t[z] or 0) + (n or 10)
+end
+
+function get3(t, x, y, z, n)
+    if not t[x] then t[x] = {} end; t = t[x] 
+    if not t[y] then t[y] = {} end; t = t[y]
+    return t[z] or 0
+end
 
 local Seed,randi,rand,ent
 Seed = the.SEED
@@ -56,13 +68,18 @@ function ent(t,    n,e)
   return e end
 
 --------------------------
-local slurp,sample,ordered
+local slurp,sample,ordered,clone
 function slurp(out)
   for eg in csv(the.FILE) do out=sample(eg,out) end
   return out end
 
+function clone(i, inits,     out)
+  out = sample(i.heads)
+  for _,eg in pairs(inits or {}) do out = sample(eg,out) end
+  return out end
+
 function sample(eg,i)
-  local numeric, independent,dependent,head,data,datum
+  local numeric,independent,dependent,head,data,datum
   i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={}} 
   function head(n,x)
     function numeric()     i.lo[n]= math.huge; i.hi[n]= -i.lo[n] end 
@@ -75,13 +92,14 @@ function sample(eg,i)
       if x:match"^[A-Z]" then numeric() end 
       if x:find"-" or x:find"+" then dependent() else independent() end end
     return x end
-  function data(eg) return {raw=eg, cooked=eg} end
+  function data(eg) return {raw=eg, cooked=copy(eg)} end
   function datum(n,x)
     if x ~= "?" then
       if i.lo[n] then 
         i.lo[n] = math.min(i.lo[n],x)
         i.hi[n] = math.max(i.hi[n],x) end end
     return x end
+  eg = eg.raw and eg.raw or eg 
   if #i.heads==0 then i.heads=map(eg,head) else push(i.egs,data(map(eg,datum))) end 
   i.n = i.n + 1
   return i end
@@ -103,10 +121,10 @@ local discretize,div
 function discretize(i,          bin,xys,p,bins,divs)
   function bin(z,divs) 
     if z=="?" then return "?" end
-    for n,x in pairs(divs) do if x.lo<= z and z<= x.hi then return n end end 
+    for n,x in pairs(divs) do if x.lo<= z and z<= x.hi then return string.char(96+n) end end 
   end ------------------------ 
   for col,_ in pairs(i.xs) do
-    if i.lo[col] and col==2 then
+    if i.lo[col] then
       xys={}
       for _,eg in pairs(i.egs) do 
         local x=eg.raw[col]
@@ -114,17 +132,16 @@ function discretize(i,          bin,xys,p,bins,divs)
       xys  = sort(xys, function(a,b) return a.x < b.x end)
       p    = function (z) return xys[z*#xys//10].x end
       divs = div(xys, the.TINY*#xys, the.TRIVIAL*math.abs(p(.9) - p(.1))/2.56)
-      shout(divs)
-      os.exit();
       for _,eg in pairs(i.egs) do 
-        eg.cooked[col]= bin(eg.raw[col], divs) end end end end
+        eg.cooked[col]= bin(eg.raw[col], divs) end end end 
+  return i end
 
 function div(xys,tiny,trivial,     one,all,merged,merge)
   function merged(a,b,an,bn,      c)
     c={}
     for x,v in pairs(a) do c[x] = v end
-    for x,v in pairs(b) do c[x] = v+(c[x] or 0) end
-    if ent(c) <= (an*ent(a) + bn*ent(b))/(an+bn) then return c end 
+    for x,v in pairs(b) do c[x] = v + (c[x] or 0) end
+    if ent(c)*.99 <= (an*ent(a) + bn*ent(b))/(an+bn) then return c end 
   end ------------------------ 
   function merge(b4)
     local j,tmp = 0,{}
@@ -133,7 +150,7 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
       local now, after = b4[j], b4[j+1]
       if after then
         local simpler = merged(now.has,after.has, now.n,after.n)
-        if simpler then 
+        if simpler then   
           now = {lo=now.lo, hi=after.hi, n=now.n+after.n, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
@@ -141,7 +158,6 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
   end ------------------------ 
   one = {lo=xys[1].x, hi=xys[1].x, n=0, has={}}
   all = {one}
-  print("tiny",tiny)
   for j,xy in pairs(xys) do
     local x,y = xy.x, xy.y
     if  j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo> trivial
@@ -149,10 +165,9 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
     end
     one.n  = 1 + one.n
     one.hi = x
-    one.has[y] = 1 + (one.has[y] or 0); print(x,y,one.has[true] or 0, one.has[false] or 0) end
-  --for k,v in pairs(all) do print(k,v.lo,v.hi,out(v.has)) end
-  return all end 
+    one.has[y] = 1 + (one.has[y] or 0); end
+  return merge(all) end 
 
-discretize(ordered(slurp()))
+local s=discretize(ordered(slurp()))
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end 
