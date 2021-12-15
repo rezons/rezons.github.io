@@ -1,26 +1,30 @@
-local b4={}; for k,v in pairs(_ENV) do b4[k]=k end
-local function cli(flag,x)
-  for n,word in ipairs(arg) do if word==flag then 
-    return x and (tonumber(arg[n+1]) or arg[n+1]) or true end end
-  return x end
+local the, help = {}, [[
+lua tiny.lua [OPTIONS]
 
-local the= {BEST =    cli("-b", .1),
-            FILE =    cli("-f","../../data/auto93.csv"),
-            SEED =    cli("-s",  10119),
-            STOP =    cli("-S", 4),
-            TINY =    cli("-t", .1),
-            TRIVIAL = cli("-T", .35)}
+A small sample multi-objective optimizer
+(c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
-------------------------------------
-local say,fmt,csv,ent,map,copy,mode,norm,push,sort,firsts
-function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
-function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
-function sort(t,f)     table.sort(t,f); return t end
-function push(t,x)     t[ 1+#t ]=x; return x end
-function firsts(x,y)   return x[1] < y[1] end
-function say(...) print(fmt(...)) end
+OPTIONS:
+  -best     X   best examples are in 1..best*size(all)    = .05
+  -file     X   where to read data                        = ../../data/auto93.csv
+  -h            show help                                 = false
+  -seed     X   random number seed;                       = 10019
+  -stop     X   create subtrees while at least 2*stop egs =  4
+  -tiny     X   min range size = size(egs)^tiny           = .5
+  -trivial  X   ignore differences under trivial*sddev    = .35 ]]
+
+local b4={};for k,v in pairs(_ENV) do b4[k]=k end
+
+---------------------------------------------------------
+local say,fmt,csv,map,copy,mode,norm,push,sort,firsts
 fmt = string.format
+function say(...)      print(fmt(...)) end
+function firsts(x,y)   return x[1] < y[1] end
+function push(t,x)     t[ 1+#t ]=x; return x end
+function sort(t,f)     table.sort(t,f); return t end
+function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
+function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
+function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
 
 function csv(file,   x)
   file = io.input(file)
@@ -45,13 +49,14 @@ function out(t,     u,keys,key1,val1)
   return "{"..table.concat(u," ").."}" end 
 
 local Seed,randi,rand,ent
-Seed = the.SEED
+Seed = the.seed
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
   lo, hi = lo or 0, hi or 1
   Seed = (16807 * Seed) % 2147483647
   return lo + (hi-lo) * Seed / 2147483647 end
 
+local ent,mode
 function ent(t,    n,e)
   n=0; for _,n1 in pairs(t) do n = n + n1 end
   e=0; for _,n1 in pairs(t) do e = e - n1/n*math.log(n1/n,2) end
@@ -65,7 +70,7 @@ function mode(t,     most,out)
 --------------------------
 local slurp,sample,ordered,clone
 function slurp(out)
-  for eg in csv(the.FILE) do out=sample(eg,out) end
+  for eg in csv(the.file) do out=sample(eg,out) end
   return out end
 
 function clone(i, inits,     out)
@@ -100,7 +105,7 @@ function sample(eg,i)
   return i end
 
 function ordered(i)
-  local function best(eg1,eg2,     a,b,s1,s2)
+  local function better(eg1,eg2,     a,b,s1,s2)
     s1,s2=0,0
     for n,_ in pairs(i.ys) do
       a  = norm(i.lo[n], i.hi[n], eg1.raw[n])
@@ -108,8 +113,8 @@ function ordered(i)
       s1 = s1 - 2.71828^(i.w[n] * (a-b)/i.nys) 
       s2 = s2 - 2.71828^(i.w[n] * (b-a)/i.nys) end
     return s1/i.nys < s2/i.nys end 
-  for j,eg in pairs(sort(i.egs,best)) do 
-    if j < the.BEST*#i.egs then eg.klass="best" else eg.klass="rest" end end
+  for j,eg in pairs(sort(i.egs,better)) do 
+    if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
   return i end
 
 local discretize, xys_sd, bin, div
@@ -122,7 +127,7 @@ function discretize(i)
   for col,_ in pairs(i.xs) do
     if i.lo[col] then
       local xys,sd = xys_sd(col, i.egs)
-      i.divs[col]  = div(xys, the.TINY*#xys, the.TRIVIAL*sd)
+      i.divs[col]  = div(xys, the.tiny*#xys, the.trivial*sd)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
@@ -185,7 +190,7 @@ function splitter(xs, egs)
   return sort(map(xs, worth),firsts)[1][2] end
 
 function tree(xs, egs)
-  if #egs > 2*the.STOP then 
+  if #egs > 2*the.stop then 
     local kid,kids,at = {},0,splitter(xs,egs)
     for _,eg in pairs(egs) do
       local x= eg.cooked[at]
@@ -206,12 +211,23 @@ function tree(xs, egs)
 --       show(one.sub,pre.."|.. ") end end
 --   else x end end
 --
-local s=discretize(ordered(slurp()))
 
-for col,divs in pairs(s.divs) do
-   print("")
-   for _,div in pairs(divs) do
-     print(col,out(div)) end end
+local function main(s)
+  local s=discretize(ordered(slurp()))
+  for col,divs in pairs(s.divs) do
+     print("")
+     for _,div in pairs(divs) do
+       print(col,out(div)) end end end
 
--- shout(tree(s.xs, s.egs))
+-------------------------------------------------------------------------------
+-- Make 'the' options array from help string and any updates from command line.
+(help or ""):gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)",
+   function(flag,x) 
+     for n,word in ipairs(arg) do if word==("-"..flag) then 
+       x = x=="false" and "true" or tonumber(arg[n+1]) or arg[n+1] end end 
+     if x=="false" then x=false elseif x=="true" then x=true end
+     the[flag]=x end)
+
+Seed=the.seed or 10019
+if the.h then print(help) else main() end
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end 
