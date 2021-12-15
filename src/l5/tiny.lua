@@ -1,25 +1,26 @@
 local b4={}; for k,v in pairs(_ENV) do b4[k]=k end
 local function cli(flag,x)
   for n,word in ipairs(arg) do if word==flag then 
-    x = x and (tonumber(arg[n+1]) or arg[n+1]) or true end end 
+    return x and (tonumber(arg[n+1]) or arg[n+1]) or true end end
   return x end
 
-local the= {BEST=  cli("-b", .1),
-            FILE=  cli("-f","../../data/auto93.csv"),
-            SEED=  cli("-s",  10119),
-            STOP = cli("-S", 4),
-            TINY = cli("-t", .1),
+local the= {BEST =    cli("-b", .1),
+            FILE =    cli("-f","../../data/auto93.csv"),
+            SEED =    cli("-s",  10119),
+            STOP =    cli("-S", 4),
+            TINY =    cli("-t", .1),
             TRIVIAL = cli("-T", .35)}
 
 ------------------------------------
-local same,push,sort,map,csv,norm,ent,copy
-function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
-function firsts(x,y)   return x[1] < y[1] end
+local say,fmt,csv,ent,map,copy,mode,norm,push,sort,firsts
 function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
 function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function push(t,x)     t[1+#t]=x; return x end
-function same(x)       return x end
-function sort(t,f)     table.sort(t,f);   return t end
+function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
+function sort(t,f)     table.sort(t,f); return t end
+function push(t,x)     t[ 1+#t ]=x; return x end
+function firsts(x,y)   return x[1] < y[1] end
+function say(...) print(fmt(...)) end
+fmt = string.format
 
 function csv(file,   x)
   file = io.input(file)
@@ -34,14 +35,13 @@ function csv(file,   x)
 
 local shout,out
 function shout(x) print(out(x)) end
-function out(t,    u,key,keys,value)
-  function keys(t,u)
-    u={}; for k,_ in pairs(t) do if tostring(k):sub(1,1)~="_" then u[k]=k end end
-    return sort(u) end
-  function key(_,k)   return string.format(":%s %s", k, out(t[k])) end
-  function value(_,v) return out(v) end
+function out(t,     u,keys,key1,val1)
+  function keys(t,u)  
+    u={}; for k,_ in pairs(t) do u[1+#u]=k end; return sort(u); end
+  function key1(_,k)  return string.format(":%s %s", k, out(t[k])) end
+  function val1(_,v)  return out(v) end
   if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t, value) or map(keys(t), key) 
+  u = #t>0 and map(t, val1) or map(keys(t), key1) 
   return "{"..table.concat(u," ").."}" end 
 
 local Seed,randi,rand,ent
@@ -59,7 +59,7 @@ function ent(t,    n,e)
 
 function mode(t,     most,out)
   most = 0
-  for x,n in pairs(t) do if n > most then most,out = n,x end
+  for x,n in pairs(t) do if n > most then most,out = n,x end end
   return out end
 
 --------------------------
@@ -75,7 +75,7 @@ function clone(i, inits,     out)
 
 function sample(eg,i)
   local numeric,independent,dependent,head,data,datum
-  i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={}} 
+  i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={},divs={}} 
   function head(n,x)
     function numeric()     i.lo[n]= math.huge; i.hi[n]= -i.lo[n] end 
     function independent() i.xs[n]= x end
@@ -109,29 +109,32 @@ function ordered(i)
       s2 = s2 - 2.71828^(i.w[n] * (b-a)/i.nys) end
     return s1/i.nys < s2/i.nys end 
   for j,eg in pairs(sort(i.egs,best)) do 
-    if j < the.BEST*#i.egs then eg.klass=true else eg.klass=false end end
+    if j < the.BEST*#i.egs then eg.klass="best" else eg.klass="rest" end end
   return i end
 
-local discretize,div
-function discretize(i,          bin,xys,p,bins,divs)
-  function bin(z,divs) 
-    if z=="?" then return "?" end
-    for n,x in pairs(divs) do 
-      if x.lo<= z and z<= x.hi then return string.char(96+n) end end 
-  end ------------------------ 
+local discretize, xys_sd, bin, div
+function bin(z,divs) 
+  if z=="?" then return "?" end
+  for n,x in pairs(divs) do 
+    if x.lo<= z and z<= x.hi then return string.char(96+n) end end end 
+
+function discretize(i)       
   for col,_ in pairs(i.xs) do
     if i.lo[col] then
-      xys={}
+      local xys,sd = xys_sd(col, i.egs)
+      i.divs[col]  = div(xys, the.TINY*#xys, the.TRIVIAL*sd)
       for _,eg in pairs(i.egs) do 
-        local x=eg.raw[col]
-        if x~="?" then push(xys, {x=x,  y=eg.klass}) end end
-      xys  = sort(xys, function(a,b) return a.x < b.x end)
-      p    = function (z) return xys[z*#xys//10].x end
-      divs = div(xys, the.TINY*#xys, 
-                      the.TRIVIAL*math.abs(p(.9) - p(.1))/2.56)
-      for _,eg in pairs(i.egs) do 
-        eg.cooked[col]= bin(eg.raw[col], divs) end end end 
+        eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
+
+function xys_sd(col,egs,    xys,p)
+  xys={}
+  for _,eg in pairs(egs) do 
+    local x=eg.raw[col]
+    if x~="?" then push(xys, {x=x,  y=eg.klass}) end end
+  xys = sort(xys, function(a,b) return a.x < b.x end) 
+  p   = function(z) return xys[z*#xys//10].x end
+  return xys, math.abs(p(.9) - p(.1))/2.56 end
 
 function div(xys,tiny,trivial,     one,all,merged,merge)
   function merged(a,b,an,bn,      c)
@@ -157,7 +160,7 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
   all = {one}
   for j,xy in pairs(xys) do
     local x,y = xy.x, xy.y
-    if  j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo> trivial
+    if   j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo>trivial
     then one = push(all, {lo=one.hi, hi=x, n=0, has={}}) 
     end
     one.n  = 1 + one.n
@@ -165,34 +168,50 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
 
-function splitter(egs) 
+local splitter,worth,tree
+function splitter(xs, egs) 
   function worth(at,_)
+    local xy = {}
     for _,eg in pairs(egs) do
       local x,y = eg.cooked[at], eg.klass
       if x ~= "?" then
-        xy[x] = xys[x] or {}
+        xy[x] = xy[x] or {}
         xy[x][y] = 1 + (xy[x][y] or 0) end end 
-    local n, xpect = #i.egs, 0
-    for _,t in pairs(xys) do
-       e,n1 = ent(t)
+    local n, xpect = #egs, 0
+    for _,t in pairs(xy) do
+       local e,n1 = ent(t)
        xpect = xpect+n1/n*e end
     return {xpect,at} end
-  return first(sort(map(i.xs, worth),firsts))[2] end
+  return sort(map(xs, worth),firsts)[1][2] end
 
-function tree(egs)
+function tree(xs, egs)
   if #egs > 2*the.STOP then 
-    local kid,kids,at = {},0,splitter(egs)
+    local kid,kids,at = {},0,splitter(xs,egs)
     for _,eg in pairs(egs) do
       local x= eg.cooked[at]
       if not kid[x] then kid[x]={}; kids=kids+1 end
       push(kid[x], eg) end
     if kids> 1 then
-      return map(kid, function(x,t) return {at=at,val=x,sub=tree(t)} end) end end
-  for _,eg in pair(egs) do t[eg.klass] = 1+(t[eg.klass] or 0) end
-  return {mode=mode(t), has=t,egs=egs} end
+      return map(kid, function(x,t) return {at=at,val=x,sub=tree(xs,t)} end) end end
+  local t = {}
+  for _,eg in pairs(egs) do t[eg.klass] = 1 + (t[eg.klass] or 0) end
+  return {mode=mode(t),  has=t} end --egs=egs} end
 
-
-
+-- function show(tree,pre)
+--   pre = pre or ""
+--   if tree.sub then
+--     say("%s %s ",pre)
+--     for _,one in  pairs(tree.sub) do
+--       say("%s %s=%s", pre, one.at or "", one.val or "")
+--       show(one.sub,pre.."|.. ") end end
+--   else x end end
+--
 local s=discretize(ordered(slurp()))
 
+for col,divs in pairs(s.divs) do
+   print("")
+   for _,div in pairs(divs) do
+     print(col,out(div)) end end
+
+-- shout(tree(s.xs, s.egs))
 for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end 
