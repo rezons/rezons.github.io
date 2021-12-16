@@ -1,5 +1,5 @@
 local the, help = {}, [[
-lua hint.lua [OPTIONS]
+lua bchop.lua [OPTIONS]
 
 A small sample multi-objective optimizer / data miner.
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
@@ -9,54 +9,20 @@ OPTIONS:
   -debug    X   run one test, show stackdumps on fail     = none
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
+  -max      X   max sample size                           = 256
   -seed     X   Random number seed;                       = 10019
   -stop     X   Create subtrees while at least 2*stop egs =  4
   -tiny     X   Min range size = size(egs)^tiny           = .5
   -todo     X   Pass/fail tests to run at start time      = nome
                 If "all" then run all.
+  -top      X   top range                                 = 20
   -trivial  X   ignore differences under trivial*stdev    = .35  ]]
 
 local b4={};for k,v in pairs(_ENV) do b4[k]=k end
 local function rogues() 
   for k,v in pairs(_ENV) do if not b4[k] then print("?: ",k) end end end
---------------------------------------------------------------------------------
-local say,fmt,csv,map,keys,same,copy,mode,norm,push,sort,color,firsts,seconds,sum
-fmt = string.format
-function say(...)      print(fmt(...)) end
-function same(x,...)   return x end
-function firsts(x,y)   return x[1] < y[1] end
-function seconds(x,y)  return x[2] < y[2] end
-function color(n,s)    return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
-function push(t,x)     t[ 1+#t ]=x; return x end
-function sort(t,f)     table.sort(t,f); return t end
-function keys(t,u)     u={};for k,_ in pairs(t) do u[1+#u]=k end;return sort(u);end
-function copy(t,  u)   u={};for k,v in pairs(t) do u[k]=v end; return u end
-function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function map(t,f,   u)    
-  u,f = {},f or same; for k,v in pairs(t) do push(u, f(k,v)) end; return u end
-function sum(t,f,   n) 
-  n,f = 0,f or samex;; for _,v in pairs(t) do n = n + f(v)    end; return n end
 
-function csv(file,   x)
-  file = io.input(file)
-  x    = io.read()
-  return function(   t,tmp)
-    if x then
-      t={}
-      for y in x:gsub("[\t ]*",""):gmatch"([^,]+)" do push(t,tonumber(y) or y) end
-      x = io.read()
-      if #t>0 then return t end 
-    else io.close(file) end end end
-
-local shout,out
-function shout(x) print(out(x)) end
-function out(t,     u,key,val)
-  function key(_,k) return string.format(":%s %s", k, out(t[k])) end
-  function val(_,v) return out(v) end
-  if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t, val) or map(keys(t), key) 
-  return "{"..table.concat(u," ").."}" end 
-
+-------------------------------------------------------------------------------
 local randi,rand,Seed -- remember to set seed before using this
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
@@ -64,28 +30,14 @@ function rand(lo,hi)
   Seed = (16807 * Seed) % 2147483647
   return lo + (hi-lo) * Seed / 2147483647 end
 
-local ent,mode
-function ent(t,    n,e)
-  n=0; for _,n1 in pairs(t) do n = n + n1 end
-  e=0; for _,n1 in pairs(t) do e = e - n1/n*math.log(n1/n,2) end
-  return e,n  end
+local norm,shuffle,push,pop
+pop = function(t) return table.remove(t) end
+push= function(t,x) table.insert(t,x); return x end
+norm= function(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
 
-function mode(t,     most,out)
-  most = 0
-  for x,n in pairs(t) do if n > most then most,out = n,x end end
-  return out end
-
---------------------------
-local slurp,sample,ordered,clone
-function slurp(out)
-  for eg in csv(the.file) do out=sample(eg,out) end
-  return out end
-
-function clone(i, inits,     out)
-  out = sample(i.heads)
-  for _,eg in pairs(inits or {}) do out = sample(eg,out) end
-  return out end
-
+function shuffle(t,   j)
+  for i=#t,2,-1 do j=lib.randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
+-------------------------------------------------------------------------------
 function sample(eg,i)
   local numeric,independent,dependent,head,data,datum
   i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={},divs={}} 
@@ -100,31 +52,79 @@ function sample(eg,i)
       if x:match"^[A-Z]" then numeric() end 
       if x:find"-" or x:find"+" then dependent() else independent() end end
     return x end
-  function data(eg) return {raw=eg, cooked=copy(eg)} end
   function datum(n,x)
     if x ~= "?" then
       if i.lo[n] then 
         i.lo[n] = math.min(i.lo[n],x)
         i.hi[n] = math.max(i.hi[n],x) end end
     return x end
-  eg = eg.raw and eg.raw or eg 
-  if #i.heads==0 then i.heads=map(eg,head) else push(i.egs,data(map(eg,datum))) end 
+  if #i.heads==0 then i.heads=map(eg,head) else push(i.egs,map(eg,datum)) end 
   i.n = i.n + 1
   return i end
 
-function ordered(i)
-  local function better(eg1,eg2,     a,b,s1,s2)
-    s1,s2=0,0
+function ordered(i,egs)
+  local function left_is_best(left,right,     a,b,lefts,rights)
+    lefts,rights=0,0
     for n,_ in pairs(i.ys) do
-      a  = norm(i.lo[n], i.hi[n], eg1.raw[n])
-      b  = norm(i.lo[n], i.hi[n], eg2.raw[n])
-      s1 = s1 - 2.71828^(i.w[n] * (a-b)/i.nys) 
-      s2 = s2 - 2.71828^(i.w[n] * (b-a)/i.nys) end
-    return s1/i.nys < s2/i.nys end 
-  for j,eg in pairs(sort(i.egs,better)) do 
-    if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
-  return i end
-
+      a  = norm(i.lo[n], i.hi[n], left[n])
+      b  = norm(i.lo[n], i.hi[n], right[n])
+      lefts  = lefts  - 2.71828^(i.w[n] * (a-b)/i.nys) 
+      rights = rights - 2.71828^(i.w[n] * (b-a)/i.nys) end
+    return lefts/i.nys < rights/i.nys end 
+  return sort(egs or i.egs, left_is_best) end
+
+function dist(i,eg1,eg2)
+  function dist1(lo,hi,a,b)
+    if lo then 
+      if     a=="?" then b=norm(lo,hi,b); a = b>.5 and 0 or 1
+      elseif b=="?" then a=norm(lo,hi,a); b = a>.5 and 0 or 1
+      else   a,b = norm(lo,hi,a), norm(lo,hi,b) end
+      return abs(a-b) 
+    else 
+      return a==b and 0 or 1 end end
+  d,n = 0,0
+  for col,_ in pairs(i.xs) do
+    a,b = eg1[col], eg2[col]
+    inc = a=="?" and b=="?" and 1 or dist1(i.lo[col],i.hi[col],a,b)
+    d   = d + inc^it.P
+    n   = n + 1 end
+  return (d/n)^(1/it.P) end
+
+function hint(i,egs,rest,min)
+  local function nearest(eg) 
+    return sort(map(scoreds,function(rank,scored) 
+             return {rank+dist(i,eg,scored)/10^6,eg} end),firsts)[1] end
+  rest= rest or {}
+  egs = egs or shuffle(i.egs)
+  min = min or (#egs)^0.5
+  if #egs <= 2*min then
+    return egs,rest
+  else
+    scoreds={} -- the.hints=4
+    for i=1,the.hints do push(scoreds, pop(egs)) end -- grab four things
+    scroreds = ordered(i,scroreds) -- sorting them on y
+    for pos,rank_eg in pairs(sort(map(egs,nearest,firsts))) do
+      if pos <#scored/2 then push(best, rank_eg[2]) else push(rest, rank_eg[2]) end end
+    hint(i,best,rest,min) end end 
+  
+  
+function pick(i)
+  local r   = rand()
+  for j=#i.egs, #i.egs-the.top, -1  do
+    r  = r - (the.top + 1 - j)/(the.top*(the.top + 1)/2)
+    if r <=0 then return i.egs[j] end end 
+  return i.egs[#i.egs] end
+ 
+function generate(i) 
+  local out,a,b,c = {}, pick(i), pick(i), pick(i) 
+  for n,_ in pairs(i.xs) do
+    out[n] = a[n]
+    if rand() < the.cf then
+      if   i.lo[n] 
+      then out[n] = out[n] + the.f*(b[n] - c[n])
+      else out[n] = rand()<0.5 and b[n] or c[n] end end end
+  return out end
+
 local discretize, xys_sd, bin, div
 function bin(z,divs) 
   if z=="?" then return "?" end
@@ -245,7 +245,7 @@ local function main(it)
     if ok 
     then print(color(32,"PASS"),it) 
     else fails=fails+1; print(color(31,"FAIL"),it,msg) end end 
-  rogues()
+  for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k) end end 
   os.exit(fails) end
 
   -- local s=discretize(ordered(slurp()))
