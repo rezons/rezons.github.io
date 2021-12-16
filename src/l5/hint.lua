@@ -1,7 +1,7 @@
 local the, help = {}, [[
 lua hint.lua [OPTIONS]
 
-A small sample multi-objective optimizer.
+A small sample multi-objective optimizer / data miner.
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
 OPTIONS:
