@@ -16,15 +16,18 @@ OPTIONS:
 local b4={};for k,v in pairs(_ENV) do b4[k]=k end
 
 ---------------------------------------------------------
-local say,fmt,csv,map,copy,mode,norm,push,sort,firsts
+local say,fmt,csv,map,copy,mode,norm,push,sort,firsts,sum
 fmt = string.format
 function say(...)      print(fmt(...)) end
+function same(x)       return x end
 function firsts(x,y)   return x[1] < y[1] end
+function seconds(x,y)  return x[2] < y[2] end
 function push(t,x)     t[ 1+#t ]=x; return x end
 function sort(t,f)     table.sort(t,f); return t end
 function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
 function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
 function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
+function sum(t,f,n)    n=0; for _,v in pairs(t) do n=n+f(v)       end; return n end
 
 function csv(file,   x)
   file = io.input(file)
@@ -48,8 +51,7 @@ function out(t,     u,keys,key1,val1)
   u = #t>0 and map(t, val1) or map(keys(t), key1) 
   return "{"..table.concat(u," ").."}" end 
 
-local Seed,randi,rand,ent
-Seed = the.seed
+local randi,rand,Seed -- remember to set seed before using this
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
   lo, hi = lo or 0, hi or 1
@@ -116,7 +118,7 @@ function ordered(i)
   for j,eg in pairs(sort(i.egs,better)) do 
     if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
   return i end
-
+
 local discretize, xys_sd, bin, div
 function bin(z,divs) 
   if z=="?" then return "?" end
@@ -173,34 +175,34 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
 
-local splitter,worth,tree
+local splitter,worth,tree,count,tree 
+
+function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t end
+function keep(t,at,x) t=t or {}; t[at]=t[at] or {}; push(t[at],x); return t end
+
 function splitter(xs, egs) 
-  function worth(at,_)
-    local xy = {}
+  function worth(at,_,    xy,n,x,xpect)
+    xy,n = {}, 0
     for _,eg in pairs(egs) do
-      local x,y = eg.cooked[at], eg.klass
-      if x ~= "?" then
-        xy[x] = xy[x] or {}
-        xy[x][y] = 1 + (xy[x][y] or 0) end end 
-    local n, xpect = #egs, 0
-    for _,t in pairs(xy) do
-       local e,n1 = ent(t)
-       xpect = xpect+n1/n*e end
-    return {xpect,at} end
-  return sort(map(xs, worth),firsts)[1][2] end
+      x = eg.cooked[at]
+      if x ~= "?" then 
+        n=n+1
+        xy[x] = count(xy[x] or {}, eg.klass) end end
+    return {at, sum(xy, function(t) local e,n1=ent(t); return n1/n* e end)} end
+  return sort(map(xs, worth),seconds)[1][1] end
+
 
 function tree(xs, egs)
+  local here,at,splits,counts
+  for _,eg in pairs(egs) do counts=count(counts,eg.klass) end
+  here = {mode=mode(counts), n=#egs, kids={}}
   if #egs > 2*the.stop then 
-    local kid,kids,at = {},0,splitter(xs,egs)
-    for _,eg in pairs(egs) do
-      local x= eg.cooked[at]
-      if not kid[x] then kid[x]={}; kids=kids+1 end
-      push(kid[x], eg) end
-    if kids> 1 then
-      return map(kid, function(x,t) return {at=at,val=x,sub=tree(xs,t)} end) end end
-  local t = {}
-  for _,eg in pairs(egs) do t[eg.klass] = 1 + (t[eg.klass] or 0) end
-  return {mode=mode(t),  has=t} end --egs=egs} end
+    at = {},splitter(xs,egs)
+    for _,eg in pairs(egs) do splits=keep(splits,eg.cooked[at],eg) end
+    for val,split in pairs(splits) do 
+       if #split < #egs then 
+         push(here.kids, {at=at,val=x,sub=tree(xs,split)}) end end end
+  return here end
 
 -- function show(tree,pre)
 --   pre = pre or ""
