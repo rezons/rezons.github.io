@@ -1,7 +1,7 @@
 local the, help = {}, [[
-lua tiny.lua [OPTIONS]
+lua hint.lua [OPTIONS]
 
-A small sample multi-objective optimizer
+A small sample multi-objective optimizer.
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
 OPTIONS:
@@ -177,8 +177,8 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
 
 local splitter,worth,tree,count,tree 
 
-function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t end
-function keep(t,at,x) t=t or {}; t[at]=t[at] or {}; push(t[at],x); return t end
+function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t  end
+function keep(t,at,x) t=t or {}; t[at]=t[at] or {}; push(t[at],x); return t  end
 
 function splitter(xs, egs) 
   function worth(at,_,    xy,n,x,xpect)
