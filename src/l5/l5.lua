@@ -118,7 +118,7 @@ function Num:per(p,    t)
   return #t<2 and t[1] or t[p < 1 and 1 or p>#t and #t or p] end
 
 -- The 10th to 90th percentile range is 2.56 times the standard deviation.
-function Num:sd() return (self:per(.9) - self:per(.1))/ 2.56 end
+function Num:sd() return math.abs(self:per(.9) - self:per(.1))/ 2.56 end
 function Num:spread() return self:sd() end
 
 -- Create one span (each has the  row indexes of the rows)
@@ -302,7 +302,7 @@ local mergeable,merge
 function div(xys, tiny, trivial,col,yklass)
   xys    = sort(xys, function(a,b) return a.x < b.x end)
   local tenth=#xys//10
-  trvial = trivial or it.TRIVIAL*(xys[9*tenth][1] - xys[tenth][1])/2.56
+  trvial = trivial or it.TRIVIAL*math.abs(xys[9*tenth][1] - xys[tenth][1])/2.56
   tiny   = tiny    or it.TINY*#xys
   yklass = yklass  or Num
   local spans,span

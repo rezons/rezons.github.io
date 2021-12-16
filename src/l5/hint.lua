@@ -11,23 +11,28 @@ OPTIONS:
   -seed     X   random number seed;                       = 10019
   -stop     X   create subtrees while at least 2*stop egs =  4
   -tiny     X   min range size = size(egs)^tiny           = .5
-  -trivial  X   ignore differences under trivial*sddev    = .35 ]]
+  -todo     X   demos to run at start time                = all
+  -trivial  X   ignore differences under trivial*stdev    = .35 
+  -wild     X   run demos with all details                = false ]]
 
 local b4={};for k,v in pairs(_ENV) do b4[k]=k end
-
----------------------------------------------------------
-local say,fmt,csv,map,copy,mode,norm,push,sort,firsts,sum
+--------------------------------------------------------------------------------
+local say,fmt,csv,map,keys,same,copy,mode,norm,push,sort,color,firsts,seconds,sum
 fmt = string.format
 function say(...)      print(fmt(...)) end
-function same(x)       return x end
+function same(x,...)   return x end
 function firsts(x,y)   return x[1] < y[1] end
 function seconds(x,y)  return x[2] < y[2] end
+function color(n,s)    return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
 function push(t,x)     t[ 1+#t ]=x; return x end
 function sort(t,f)     table.sort(t,f); return t end
-function copy(t,  u)   u={}; for k,v in pairs(t) do u[k]=v end; return u end
+function keys(t,u)     u={};for k,_ in pairs(t) do u[1+#u]=k end;return sort(u);end
+function copy(t,  u)   u={};for k,v in pairs(t) do u[k]=v end; return u end
 function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function map(t,f,u)    u={};for k,v in pairs(t) do push(u,f(k,v)) end; return u end
-function sum(t,f,n)    n=0; for _,v in pairs(t) do n=n+f(v)       end; return n end
+function map(t,f,   u)    
+  u,f = {},f or same; for k,v in pairs(t) do push(u, f(k,v)) end; return u end
+function sum(t,f,   n) 
+  n,f = 0,f or samex;; for _,v in pairs(t) do n = n + f(v)    end; return n end
 
 function csv(file,   x)
   file = io.input(file)
@@ -42,13 +47,11 @@ function csv(file,   x)
 
 local shout,out
 function shout(x) print(out(x)) end
-function out(t,     u,keys,key1,val1)
-  function keys(t,u)  
-    u={}; for k,_ in pairs(t) do u[1+#u]=k end; return sort(u); end
-  function key1(_,k)  return string.format(":%s %s", k, out(t[k])) end
-  function val1(_,v)  return out(v) end
+function out(t,     u,key,val)
+  function key(_,k) return string.format(":%s %s", k, out(t[k])) end
+  function val(_,v) return out(v) end
   if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t, val1) or map(keys(t), key1) 
+  u = #t>0 and map(t, val) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
 
 local randi,rand,Seed -- remember to set seed before using this
@@ -175,7 +178,7 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
 
-local splitter,worth,tree,count,tree 
+local splitter,worth,tree,count,keep,tree 
 
 function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t  end
 function keep(t,at,x) t=t or {}; t[at]=t[at] or {}; push(t[at],x); return t  end
@@ -190,7 +193,6 @@ function splitter(xs, egs)
         xy[x] = count(xy[x] or {}, eg.klass) end end
     return {at, sum(xy, function(t) local e,n1=ent(t); return n1/n* e end)} end
   return sort(map(xs, worth),seconds)[1][1] end
-
 
 function tree(xs, egs)
   local here,at,splits,counts
@@ -213,13 +215,38 @@ function tree(xs, egs)
 --       show(one.sub,pre.."|.. ") end end
 --   else x end end
 --
+local go={} 
+function go.ordered(  s,n) 
+  s = ordered(slurp())
+  n = #s.egs
+  shout(s.heads)
+  for i=1,15 do shout(s.egs[i].raw) end
+  print("#")
+  for i=n,n-15,-1 do shout(s.egs[i].raw) end end
 
-local function main(s)
-  local s=discretize(ordered(slurp()))
-  for col,divs in pairs(s.divs) do
-     print("")
-     for _,div in pairs(divs) do
-       print(col,out(div)) end end end
+function go.the() shout(the) end
+function go.bad(  s) assert(false) end
+
+-- Run demos, each time resetting random seed and the global config options.
+-- Return to the operating system then number of failing demos.
+local function main(it,    no,defaults,one)
+  no, defaults = 0, copy(the)
+  function one(it,      ok,msg)
+    if type( go[it] ) ~= "function" then return print("UNKNOWN:",it) end
+    Seed = the.seed or 10019
+    the  = copy(defaults)
+    if the.wild then go[it]() else
+      ok,msg = pcall( go[it] )
+      if not ok then no=no+1; print(color(31,"FAIL"),it,msg) end end end 
+  if it=="all" then map(keys(go),function(_,it1) one(it1) end) else one(it) end 
+  for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k) end end 
+  os.exit(no) end
+
+  -- local s=discretize(ordered(slurp()))
+  -- for col,divs in pairs(s.divs) do
+  --    print("")
+  --    for _,div in pairs(divs) do
+  --      print(col,out(div)) end end end
 
 -------------------------------------------------------------------------------
 -- Make 'the' options array from help string and any updates from command line.
@@ -230,6 +257,4 @@ local function main(s)
      if x=="false" then x=false elseif x=="true" then x=true end
      the[flag]=x end)
 
-Seed=the.seed or 10019
-if the.h then print(help) else main() end
-for k,v in pairs(_ENV) do if not b4[k] then print("?rogue: ",k,type(v)) end end 
+if the.h then print(help) else main(the.todo) end
