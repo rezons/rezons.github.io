@@ -17,6 +17,12 @@ etc/vimrc:;     @$(GET)
 etc/tmux-conf:; @$(GET)
 #------------------------------------------------------------------------------
 
+ween1:
+	lua ween.lua -todo ordered|column  -t
+
+ween2:
+	lua ween.lua -todo dist|column  -t
+
 f=l5
 
 small:
