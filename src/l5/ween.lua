@@ -181,14 +181,13 @@ function go.dist(  i,dist1,t)
   for j=(#t)-5,#t do print(j,fmt("%5.3f",t[j][1]),out(t[j][2])) end end
 
 function go.hint(  i,sort1,sort2,s)
+  function lt(a,b) return left_is_best(i,a,b) end
   i=slurp()
   sort1= ordered(i)
   sort2= hint(i)
-  for j=1,10               do shout(sort1[j]) end; print("#")
-  for j=1,10               do shout(sort2[j]) end; print("#")
-  for j=(#sort1)-10,#sort1 do shout(sort1[j]) end; print("#")
-  for j=(#sort2)-10,#sort2 do shout(sort2[j]) end
-  end
+  for m,eg in pairs(sort2) do
+     if m < 20 then shout(eg) end
+     if m > (#sort2)-20 then shout(eg) end end end
 
 -- Run demos, each time resetting random seed and the global config options.
 -- Return to the operating system then number of failing demos.
