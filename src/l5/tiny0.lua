@@ -28,17 +28,6 @@ local function copy(t,  u)
 -- More interesting stuff to handle load and start
 local help="" -- place to store the help test
 
--- if "-flag" matches to something on the command line, then update flag's value.
--- For the same of brevity:
--- (a) command line flags need only match the flag suffix;
--- (b) for boolean values, -flag flips the default boolean
-local function maybeUpdateFromCommandLine(flag,x) 
-  for n,word in ipairs(arg) do 
-    if flag:match("^"..word:sub(2)..".*") then 
-       -- booleans have no arguments, other flags take their value from n+1 items
-       x= (x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
-  return x end
-
 -- All the start-up actions:
 -- [1] keep a copy of the options as "defaults"
 -- [2] maybe just show the  help text
@@ -55,31 +44,38 @@ local function what2doAtLastLine(options, actions)
   if options.debug then actions[ options.debug ]() end -- [3]
   local todos = options.todo =="all" and keys(actions) or {options.todo}
   for _,todo in pairs(todos) do
-    if type(actions[todo]) ~= "function" then return print("NOFUN:",todo) end
-    for k,v in pairs(defaults) do options[k]=v end    -- [4]
-    options.seed = options.seed or 10019              -- [5]
-    local ok,msg = pcall( actions[todo] )             -- [6]
-    if ok then print(color(32,"PASS ")..todo)         
-          else print(color(31,"FAIL ")..todo,msg)  
-                   fails=fails+1 end                  -- [7]
+    if   type(actions[todo]) ~= "function" 
+    then print(color(31,"NOFUN:"),todo) 
+    else for k,v in pairs(defaults) do options[k]=v end -- [4]
+         options.seed = options.seed or 10019           -- [5]
+         local ok,msg = pcall( actions[todo] )          -- [6]
+         if ok then print(color(32,"PASS ")..todo)         
+               else print(color(31,"FAIL ")..todo,msg)  
+                    fails=fails+1 end end                -- [7]
   end             
   rogues()           -- [9]
   os.exit(fails) end -- [8]
 
--- In the last paragraph starting "Options", all lines that start with
--- "-flag" have a default value as the last word on that  line.
--- Build the "options" array from those flags and defaults (checking to see if
--- we need to update those defaults from command line arguments).
+-- In paragraph of the text that starts with "Options", all lines that start with
+-- "-flag" have a default value as the last word on that line.
+-- [1] Build the "options" array from those flags and defaults 
+-- [2] Check if we can update those defaults from command line arguments).
+-- [3] Anything on the command line is a string. Check if these can become nums
+-- For the sake of brevity:
+-- [4] command line flags need only match the start of the flag;
+-- [5] for boolean values, -flag flips the default boolean
+-- [6] add in the ability to call "what2doAtLastLine"
 local function what2doAtFirstLine(txt)
   local options={}
   help = txt
   txt:gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)",
-        function(flag,x) 
-           x = maybeUpdateFromCommandLine(flag,x)
-           if     x=="true"  then x=true 
-           elseif x=="false" then x=false 
-           else   x= tonumber(x) or x end
-           options[flag] = x end)
-  return setmetatable(options,{__call=what2doAtLastLine}) end
+    function(flag,x) 
+      for n,word in ipairs(arg) do                  -- [2]
+        if flag:match("^"..word:sub(2)..".*") then  -- [4]
+          x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
+        if x=="true" then x=true elseif x=="false" then x=false else -- [4]
+        x = tonumber(x) or x end  -- [3]
+     options[flag] = x end)       -- [1]
+  return setmetatable(options,{__call=what2doAtLastLine}) end -- [6]
 
 return what2doAtFirstLine

@@ -50,12 +50,12 @@ function clone(i, inits,     out)
 
 function sample(eg,i)
   local numeric,independent,dependent,head,data,datum
-  i = i or {n=0,xs={},nys=0,ys={},lo={},hi={},w={},egs={},heads={},divs={}} 
+  i = i or {n=0,xs={},nys=0,ys={},num={},egs={},heads={},divs={}} 
   function head(n,x)
-    function numeric()     i.lo[n]= math.huge; i.hi[n]= -i.lo[n] end 
+    function numeric()     i.num[n]= {hi=-math.huge,lo=math.huge} end
     function independent() i.xs[n]= x end
     function dependent()
-      i.w[n]  = x:find"-" and -1 or 1
+      i.num[n].w  = x:find"-" and -1 or 1
       i.ys[n] = x
       i.nys   = i.nys+1 end
     if not x:find":" then
@@ -65,9 +65,10 @@ function sample(eg,i)
   function data(eg) return {raw=eg, cooked=copy(eg)} end
   function datum(n,x)
     if x ~= "?" then
-      if i.lo[n] then 
-        i.lo[n] = math.min(i.lo[n],x)
-        i.hi[n] = math.max(i.hi[n],x) end end
+      local num=i.num[n]
+      if num then 
+        num.lo = math.min(num.lo,x)
+        num.hi = math.max(num.hi,x) end end
     return x end
   eg = eg.raw and eg.raw or eg 
   if #i.heads==0 then i.heads=map(eg,head) else push(i.egs,data(map(eg,datum))) end 
@@ -78,10 +79,11 @@ function ordered(i)
   local function better(eg1,eg2,     a,b,s1,s2)
     s1,s2=0,0
     for n,_ in pairs(i.ys) do
-      a  = norm(i.lo[n], i.hi[n], eg1.raw[n])
-      b  = norm(i.lo[n], i.hi[n], eg2.raw[n])
-      s1 = s1 - 2.71828^(i.w[n] * (a-b)/i.nys) 
-      s2 = s2 - 2.71828^(i.w[n] * (b-a)/i.nys) end
+      local num = i.num[n]
+      a  = norm(num.lo, num.hi, eg1.raw[n])
+      b  = norm(num.lo, num.hi, eg2.raw[n])
+      s1 = s1 - 2.71828^(num.w * (a-b)/i.nys) 
+      s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end
     return s1/i.nys < s2/i.nys end 
   for j,eg in pairs(sort(i.egs,better)) do 
     if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
@@ -94,22 +96,22 @@ function bin(z,divs)
     if x.lo<= z and z<= x.hi then return string.char(96+n) end end end 
 
 function discretize(i)       
+  function xys_sd(col,egs,    out,p)
+    out={}
+    for _,eg in pairs(egs) do 
+      local x=eg.raw[col]
+      if x~="?" then push(out, {x=x,  y=eg.klass}) end end
+    out = sort(out, function(a,b) return a.x < b.x end) 
+    p   = function(z) return out[z*#out//10].x end
+    return out, math.abs(p(.9) - p(.1))/2.56 
+  end -----------------------
   for col,_ in pairs(i.xs) do
-    if i.lo[col] then
+    if i.num[col] then
       local xys,sd = xys_sd(col, i.egs)
       i.divs[col]  = div(xys, the.Tiny*#xys, the.epsilon*sd)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
-
-function xys_sd(col,egs,    xys,p)
-  xys={}
-  for _,eg in pairs(egs) do 
-    local x=eg.raw[col]
-    if x~="?" then push(xys, {x=x,  y=eg.klass}) end end
-  xys = sort(xys, function(a,b) return a.x < b.x end) 
-  p   = function(z) return xys[z*#xys//10].x end
-  return xys, math.abs(p(.9) - p(.1))/2.56 end
 
 function div(xys,tiny,trivial,     one,all,merged,merge)
   function merged(a,b,an,bn,      c)
@@ -182,6 +184,9 @@ function tree(xs, egs)
 
 --------------------------------------------------------------------------------
 local go={} 
+function go.the() shout(the) end
+function go.bad(  s) assert(false) end
+function go.ing() return true end
 function go.ordered(  s,n) 
   s = ordered(slurp())
   n = #s.egs
@@ -190,8 +195,8 @@ function go.ordered(  s,n)
   print("#")
   for i=n,n-15,-1 do shout(s.egs[i].raw) end end
 
-function go.the() shout(the) end
-function go.bad(  s) assert(false) end
-function go.ing() return true end
+function go.bins(    s)
+  s= discretize(ordered(slurp())) 
+  for _,div in  pairs(s.divs) do shout(div) end end
 
 the(go)

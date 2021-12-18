@@ -52,6 +52,18 @@ show::
 	rm $f.ps
 	open $f.pdf
 
+t=tiny
+tiny: 
+	echo 111
+	a2ps -jR --line-numbers=1                       \
+           --borders=no --pro=color --columns 2 -L 150      \
+           --right-footer="" --left-footer="" \
+            --footer="" \
+           --pretty-print=lua.ssh -M letter -o $t.ps $t.lua $(t)lib.lua $(t)0.lua
+	ps2pdf $t.ps $t.pdf
+	rm $t.ps
+	open $t.pdf
+
 f=l5
 pdf: 
 	a2ps -jR --line-numbers=1                       \
