@@ -25,6 +25,7 @@ local norm, sum             = _.norm,  _sum                -- maths
 local randi,rand            = _.randi, _,rand              -- randoms
 local same                  = _.same                       -- meta
 local csv                   = _.csv -- files
+
 local ent,mode
 function ent(t,    n,e)
   n=0; for _,n1 in pairs(t) do n = n + n1 end
@@ -96,7 +97,7 @@ function discretize(i)
   for col,_ in pairs(i.xs) do
     if i.lo[col] then
       local xys,sd = xys_sd(col, i.egs)
-      i.divs[col]  = div(xys, the.tiny*#xys, the.trivial*sd)
+      i.divs[col]  = div(xys, the.Tiny*#xys, the.epsilon*sd)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
@@ -162,7 +163,7 @@ function tree(xs, egs)
   local here,at,splits,counts
   for _,eg in pairs(egs) do counts=count(counts,eg.klass) end
   here = {mode=mode(counts), n=#egs, kids={}}
-  if #egs > 2*the.stop then 
+  if #egs > 2*the.Stop then 
     at = {},splitter(xs,egs)
     for _,eg in pairs(egs) do splits=keep(splits,eg.cooked[at],eg) end
     for val,split in pairs(splits) do 
