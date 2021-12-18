@@ -1,4 +1,4 @@
-local the, help = {}, [[
+local the =require"tiny0"[[
 lua hint.lua [OPTIONS]
 
 A small sample multi-objective optimizer / data miner.
@@ -6,64 +6,25 @@ A small sample multi-objective optimizer / data miner.
 
 OPTIONS:
   -best     X   Best examples are in 1..best*size(all)    = .05
-  -debug    X   run one test, show stackdumps on fail     = none
+  -debug    X   run one test, show stackdumps on fail     = ing
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
   -seed     X   Random number seed;                       = 10019
-  -stop     X   Create subtrees while at least 2*stop egs =  4
-  -tiny     X   Min range size = size(egs)^tiny           = .5
-  -todo     X   Pass/fail tests to run at start time      = nome
+  -Stop     X   Create subtrees while at least 2*stop egs =  4
+  -Tiny     X   Min range size = size(egs)^tiny           = .5
+  -todo     X   Pass/fail tests to run at start time      = ing
                 If "all" then run all.
-  -trivial  X   ignore differences under trivial*stdev    = .35  ]]
+  -epsilon  X   ignore differences under epsilon*stdev    = .35  ]]
 
-local b4={};for k,v in pairs(_ENV) do b4[k]=k end
-local function rogues() 
-  for k,v in pairs(_ENV) do if not b4[k] then print("?: ",k) end end end
 --------------------------------------------------------------------------------
-local say,fmt,csv,map,keys,same,copy,mode,norm,push,sort,color,firsts,seconds,sum
-fmt = string.format
-function say(...)      print(fmt(...)) end
-function same(x,...)   return x end
-function firsts(x,y)   return x[1] < y[1] end
-function seconds(x,y)  return x[2] < y[2] end
-function color(n,s)    return fmt("\27[1m\27[%sm%s\27[0m",n,s) end
-function push(t,x)     t[ 1+#t ]=x; return x end
-function sort(t,f)     table.sort(t,f); return t end
-function keys(t,u)     u={};for k,_ in pairs(t) do u[1+#u]=k end;return sort(u);end
-function copy(t,  u)   u={};for k,v in pairs(t) do u[k]=v end; return u end
-function norm(lo,hi,x) return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
-function map(t,f,   u)    
-  u,f = {},f or same; for k,v in pairs(t) do push(u, f(k,v)) end; return u end
-function sum(t,f,   n) 
-  n,f = 0,f or samex;; for _,v in pairs(t) do n = n + f(v)    end; return n end
-
-function csv(file,   x)
-  file = io.input(file)
-  x    = io.read()
-  return function(   t,tmp)
-    if x then
-      t={}
-      for y in x:gsub("[\t ]*",""):gmatch"([^,]+)" do push(t,tonumber(y) or y) end
-      x = io.read()
-      if #t>0 then return t end 
-    else io.close(file) end end end
-
-local shout,out
-function shout(x) print(out(x)) end
-function out(t,     u,key,val)
-  function key(_,k) return string.format(":%s %s", k, out(t[k])) end
-  function val(_,v) return out(v) end
-  if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t, val) or map(keys(t), key) 
-  return "{"..table.concat(u," ").."}" end 
-
-local randi,rand,Seed -- remember to set seed before using this
-function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-function rand(lo,hi)
-  lo, hi = lo or 0, hi or 1
-  Seed = (16807 * Seed) % 2147483647
-  return lo + (hi-lo) * Seed / 2147483647 end
-
+local _=require"tinylib"
+local say,fmt,color,out,shout= _.say,_.fmt,_.color,_.out,_.shout,_.csv -- strings
+local map,copy,keys,push    = _.map,_.copy, _.keys, _.push -- tables
+local sort, firsts, seconds = _.sort, _.firsts, _.seconds  -- sorting
+local norm, sum             = _.norm,  _sum                -- maths
+local randi,rand            = _.randi, _,rand              -- randoms
+local same                  = _.same                       -- meta
+local csv                   = _.csv -- files
 local ent,mode
 function ent(t,    n,e)
   n=0; for _,n1 in pairs(t) do n = n + n1 end
@@ -217,7 +178,8 @@ function tree(xs, egs)
 --       say("%s %s=%s", pre, one.at or "", one.val or "")
 --       show(one.sub,pre.."|.. ") end end
 --   else x end end
---
+
+--------------------------------------------------------------------------------
 local go={} 
 function go.ordered(  s,n) 
   s = ordered(slurp())
@@ -229,38 +191,6 @@ function go.ordered(  s,n)
 
 function go.the() shout(the) end
 function go.bad(  s) assert(false) end
-function go.none() return true end
+function go.ing() return true end
 
--- Run demos, each time resetting random seed and the global config options.
--- Return to the operating system then number of failing demos.
-local function main(it) 
-  local fails, defaults, reset = 0, copy(the)
-  function reset(x) Seed=the.seed or 10019; the= copy(defaults) end
-  reset()
-  go[ the.wild ]()
-  for _,it in pairs(the.todo=="all" and keys(go) or {the.todo}) do
-    if type( go[it] ) ~= "function" then return print("UNKNOWN:",it) end
-    reset()
-    ok,msg = pcall( go[it] )
-    if ok 
-    then print(color(32,"PASS"),it) 
-    else fails=fails+1; print(color(31,"FAIL"),it,msg) end end 
-  rogues()
-  os.exit(fails) end
-
-  -- local s=discretize(ordered(slurp()))
-  -- for col,divs in pairs(s.divs) do
-  --    print("")
-  --    for _,div in pairs(divs) do
-  --      print(col,out(div)) end end end
-
--------------------------------------------------------------------------------
--- Make 'the' options array from help string and any updates from command line.
-(help or ""):gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)",
-   function(flag,x) 
-     for n,word in ipairs(arg) do if word==("-"..flag) then 
-       x = x=="false" and "true" or tonumber(arg[n+1]) or arg[n+1] end end 
-     if x=="false" then x=false elseif x=="true" then x=true end
-     the[flag]=x end)
-
-if the.h then print(help) else main() end
+the(go)
