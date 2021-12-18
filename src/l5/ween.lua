@@ -180,7 +180,7 @@ function go.dist(  i,dist1,t)
   print("#")
   for j=(#t)-5,#t do print(j,fmt("%5.3f",t[j][1]),out(t[j][2])) end end
 
-function go.hint(  i,sort1,sort2,s)
+function go.hint(  i,sort1,sort2,s,lt)
   function lt(a,b) return left_is_best(i,a,b) end
   i=slurp()
   sort1= ordered(i)
@@ -200,7 +200,8 @@ local function main()
     if type(go[it]) ~= "function" then return print("NOFUN:",it) end
     reset()
     local ok,msg = pcall( go[it] )
-    if ok then print("PASS "..it) else no=no+1; print("FAIL "..it,msg) end end 
+    if ok then print(color("PASS ",31)..it) 
+          else print(color("FAIL ",31)..it,msg); no=no+1 end end 
   rogues()
   os.exit(no) end
 
