@@ -44,7 +44,7 @@ doc: pdf ## make pdf and html
 f=l5
 show:: 
 	a2ps -jR --line-numbers=1                       \
-           --borders=no --pro=color --columns 2 -L 150      \
+           --borders=no --pro=color --columns 2 -L 120      \
            --right-footer="" --left-footer="" \
             --footer="" \
            --pretty-print=lua.ssh -M letter -o $f.ps $f.lua 

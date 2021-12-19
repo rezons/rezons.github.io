@@ -7,14 +7,15 @@ A small sample multi-objective optimizer / data miner.
 OPTIONS:
   -best     X   Best examples are in 1..best*size(all)    = .05
   -debug    X   run one test, show stackdumps on fail     = ing
+  -epsilon  X   ignore differences under epsilon*stdev    = .35  
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
   -seed     X   Random number seed;                       = 10019
   -Stop     X   Create subtrees while at least 2*stop egs =  4
   -Tiny     X   Min range size = size(egs)^tiny           = .5
   -todo     X   Pass/fail tests to run at start time      = ing
-                If "all" then run all.
-  -epsilon  X   ignore differences under epsilon*stdev    = .35  ]]
+                If "X=all", then run all.
+                If "X=ls" then list all. ]]
 
 -- .  .       
 -- |\/|* __ _.
@@ -43,9 +44,23 @@ function mode(t,     most,out)
 -- (__  _.._ _ ._ | _ 
 -- .__)(_][ | )[_)|(/,
 --             |      
+-- [5] Returns a sample, initialized, updated
+-- [1] Self initialize (if nil, then create).
+-- [2] Read from disc file
+-- [3] First item is special (contains names of columns)
+-- [4] Other rows are the actual examples. Use these to update column headers
+-- [6] Numeric columns have an "num[n]" entry that tracks the
+--     "num[n].lo" and "num[n].hi" range for each variable.
+-- [7] Columns to be minimized or maximized are dependent (listed in "ys")
+-- [8] All other columns are the independent (listed in "xs")
+-- [9] Dependent variables are minimized,maximized at weights -1,1 
+--     if their name contains "-" or "+". The number of dependents ins "nys"
+-- [10]columns contain ":" are ignored
+-- [11]Each example will be discretized (later) so each example holds the
+--     "raw" values (not discretized) and the "cooked" examples (discretized).
 local slurp,sample,ordered,clone
 function slurp(out)
-  for eg in csv(the.file) do out=sample(eg,out) end
+  for eg in csv(the.file) do out=sample(eg,out) end --[2] 
   return out end
 
 function clone(i, inits,     out)
@@ -55,44 +70,50 @@ function clone(i, inits,     out)
 
 function sample(eg,i)
   local numeric,independent,dependent,head,data,datum
-  i = i or {n=0,xs={},nys=0,ys={},num={},egs={},heads={},divs={}} 
+  i = i or {xs={},nys=0,ys={},num={},egs={},heads={},divs={}}  -- [1]
   function head(n,x)
-    function numeric()     i.num[n]= {hi=-math.huge,lo=math.huge} end
-    function independent() i.xs[n]= x end
-    function dependent()
-      i.num[n].w  = x:find"-" and -1 or 1
+    function numeric()     i.num[n]= {hi=-math.huge,lo=math.huge} end -- [6]]
+    function independent() i.xs[n]= x end  -- [8]
+    function dependent()                   -- [7]
+      i.num[n].w  = x:find"-" and -1 or 1  -- [9]
       i.ys[n] = x
       i.nys   = i.nys+1 end
-    if not x:find":" then
+    if not x:find":" then  -- [10]
       if x:match"^[A-Z]" then numeric() end 
-      if x:find"-" or x:find"+" then dependent() else independent() end end
+      if x:find"-" or x:find"+" then dependent() else independent() end end --[7,8]
     return x end
-  function data(eg) return {raw=eg, cooked=copy(eg)} end
-  function datum(n,x)
+  function data(eg) return {raw=eg, cooked=copy(eg)} end --[11]
+  function datum(n,x) -- [4]
     if x ~= "?" then
       local num=i.num[n]
       if num then 
-        num.lo = math.min(num.lo,x)
-        num.hi = math.max(num.hi,x) end end
+        num.lo = math.min(num.lo,x)          -- [6]
+        num.hi = math.max(num.hi,x) end end  -- [6]
     return x end
   eg = eg.raw and eg.raw or eg 
-  if #i.heads==0 then i.heads=map(eg,head) else push(i.egs,data(map(eg,datum))) end 
-  i.n = i.n + 1
-  return i end
+  if #i.heads==0 then i.heads=map(eg,head) else  -- [3]
+    push(i.egs,data(map(eg,datum))) end          -- [4]
+  return i end -- [5]
 
-function ordered(i)
+-- [14] Returns the sample, examples sorted by their goals.
+-- [15] The direction that losses the most points to best example.
+--      e.g. a.b=.7,.6 and a-b  s .1 (small loss) and b-a is -.1 
+--      (much smaller than a or b) so a is more important than b.
+-- [13] Goal differences are amplified by raining them to a power (so normalize
+--      the goals first so you that calculation does not explode.
+function ordered(i) -- [11]
   local function better(eg1,eg2,     a,b,s1,s2)
     s1,s2=0,0
-    for n,_ in pairs(i.ys) do
+    for n,_ in pairs(i.ys) do    -- [15]
       local num = i.num[n]
-      a  = norm(num.lo, num.hi, eg1.raw[n])
-      b  = norm(num.lo, num.hi, eg2.raw[n])
-      s1 = s1 - 2.71828^(num.w * (a-b)/i.nys) 
-      s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end
-    return s1/i.nys < s2/i.nys end 
+      a  = norm(num.lo, num.hi, eg1.raw[n])         -- [13]
+      b  = norm(num.lo, num.hi, eg2.raw[n])         -- [13]
+      s1 = s1 - 2.71828^(num.w * (a-b)/i.nys)       -- [12]
+      s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end   -- [12]
+    return s1/i.nys < s2/i.nys end                  -- [12]
   for j,eg in pairs(sort(i.egs,better)) do 
     if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
-  return i end
+  return i end  -- [14]
 
 -- .__        
 -- [__)*._  __
@@ -197,6 +218,9 @@ function tree(xs, egs)
 --   |   _  __-+- __
 --   |  (/,_)  | _) 
 local go={} 
+function go.ls() 
+  print("\nlua "..arg[0].." -todo ACTION\n\nACTIONS:")
+  for _,k in pairs(keys(go)) do  print("  -todo",k) end end
 function go.the() shout(the) end
 function go.bad(  s) assert(false) end
 function go.ing() return true end
