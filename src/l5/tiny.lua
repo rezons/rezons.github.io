@@ -108,12 +108,12 @@ function discretize(i)
   for col,_ in pairs(i.xs) do
     if i.num[col] then
       local xys,sd = xys_sd(col, i.egs)
-      i.divs[col]  = div(xys, the.Tiny*#xys, the.epsilon*sd)
+      i.divs[col]  = div(xys, (#xys)^the.Tiny, the.epsilon*sd)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
 
-function div(xys,tiny,trivial,     one,all,merged,merge)
+function div(xys,tiny,epsilon,     one,all,merged,merge)
   function merged(a,b,an,bn,      c)
     c={}
     for x,v in pairs(a) do c[x] = v end
@@ -137,7 +137,7 @@ function div(xys,tiny,trivial,     one,all,merged,merge)
   all = {one}
   for j,xy in pairs(xys) do
     local x,y = xy.x, xy.y
-    if   j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo>trivial
+    if   j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo>epsilon
     then one = push(all, {lo=one.hi, hi=x, n=0, has={}}) 
     end
     one.n  = 1 + one.n
@@ -197,6 +197,8 @@ function go.ordered(  s,n)
 
 function go.bins(    s)
   s= discretize(ordered(slurp())) 
-  for _,div in  pairs(s.divs) do shout(div) end end
+  for m,div in pairs(s.divs) do 
+    print("")
+    for n,div1 in pairs(div) do print(m, n,out(div1)) end end end
 
 the(go)
