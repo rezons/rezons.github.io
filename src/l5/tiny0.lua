@@ -4,16 +4,20 @@
 -- e.g
 --       the(go)
 
---------------------------------------------------------------------------------
+-- .__                
+-- [__) _  _ . . _  __
+-- |  \(_)(_](_|(/,_) 
+--        ._|         
 -- at load time, remember the current globals
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 -- after start time, complain if code has created  rogue globals
 local function rogues() 
   for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end end
 
---------------------------------------------------------------------------------
--- Misc one-line support functions. Nothing very exciting.
--- table keys, in sorted order
+-- .  .       
+-- |\/|* __ _.
+-- |  ||_) (_.
+-- Table keys, in sorted order
 local function keys(t,u)     
   u={}; for k,_ in pairs(t) do u[1+#u]=k end;  table.sort(u); return u end 
 
@@ -24,9 +28,10 @@ local function color(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
 local function copy(t,  u)
      u={}; for k,v in pairs(t) do u[k]=v end ; return u end 
 
---------------------------------------------------------------------------------
--- More interesting stuff to handle load and start
-local help="" -- place to store the help test
+--  __. ,        ,            
+-- (__ -+- _.._.-+- ___ . .._ 
+-- .__) | (_][   |      (_|[_)
+local help = ""
 
 -- All the start-up actions:
 -- [1] keep a copy of the options as "defaults"
@@ -56,6 +61,9 @@ local function what2doAtLastLine(options, actions)
   rogues()           -- [9]
   os.exit(fails) end -- [8]
 
+-- .            .__.      
+-- |   *._  _   |  |._  _ 
+-- |___|[ )(/,  |__|[ )(/,
 -- In paragraph of the text that starts with "Options", all lines that start with
 -- "-flag" have a default value as the last word on that line.
 -- [1] Build the "options" array from those flags and defaults 
@@ -73,9 +81,14 @@ local function what2doAtFirstLine(txt)
       for n,word in ipairs(arg) do                  -- [2]
         if flag:match("^"..word:sub(2)..".*") then  -- [4]
           x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
-        if x=="true" then x=true elseif x=="false" then x=false else -- [4]
-        x = tonumber(x) or x end  -- [3]
-     options[flag] = x end)       -- [1]
+      if     x=="true"  then x=true 
+      elseif x=="false" then x=false -- [4]
+      else   x= tonumber(x) or x     -- [3]
+      end
+      options[flag] = x end)         -- [1]
   return setmetatable(options,{__call=what2doAtLastLine}) end -- [6]
 
+-- .__     ,          
+-- [__) _ -+-. .._.._ 
+-- |  \(/, | (_|[  [ )
 return what2doAtFirstLine

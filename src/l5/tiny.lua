@@ -16,7 +16,6 @@ OPTIONS:
                 If "all" then run all.
   -epsilon  X   ignore differences under epsilon*stdev    = .35  ]]
 
---------------------------------------------------------------------------------
 -- .  .       
 -- |\/|* __ _.
 -- |  ||_) (_.
@@ -40,7 +39,6 @@ function mode(t,     most,out)
   for x,n in pairs(t) do if n > most then most,out = n,x end end
   return out end
 
---------------------------
 --  __.           .   
 -- (__  _.._ _ ._ | _ 
 -- .__)(_][ | )[_)|(/,
@@ -96,7 +94,6 @@ function ordered(i)
     if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
   return i end
 
---------------------------------------------------------------------------------
 -- .__        
 -- [__)*._  __
 -- [__)|[ )_) 
@@ -156,7 +153,6 @@ function div(xys,tiny,epsilon,     one,all,merged,merge)
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
 
---------------------------------------------------------------------------------
 -- .___.            
 --   |  ._. _  _  __
 --   |  [  (/,(/,_) 
@@ -197,7 +193,6 @@ function tree(xs, egs)
 --       show(one.sub,pre.."|.. ") end end
 --   else x end end
 
---------------------------------------------------------------------------------
 -- .___.       ,    
 --   |   _  __-+- __
 --   |  (/,_)  | _) 
@@ -221,7 +216,6 @@ function go.bins(    s)
   shout(s.egs[1])
   end
 
---------------------------------------------------------------------------------
 --  __. ,        ,            
 -- (__ -+- _.._.-+- ___ . .._ 
 -- .__) | (_][   |      (_|[_)
