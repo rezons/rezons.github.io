@@ -17,6 +17,9 @@ OPTIONS:
   -epsilon  X   ignore differences under epsilon*stdev    = .35  ]]
 
 --------------------------------------------------------------------------------
+-- .  .       
+-- |\/|* __ _.
+-- |  ||_) (_.
 local _=require"tinylib"
 local say,fmt,color,out,shout= _.say,_.fmt,_.color,_.out,_.shout,_.csv -- strings
 local map,copy,keys,push    = _.map,_.copy, _.keys, _.push -- tables
@@ -38,6 +41,10 @@ function mode(t,     most,out)
   return out end
 
 --------------------------
+--  __.           .   
+-- (__  _.._ _ ._ | _ 
+-- .__)(_][ | )[_)|(/,
+--             |      
 local slurp,sample,ordered,clone
 function slurp(out)
   for eg in csv(the.file) do out=sample(eg,out) end
@@ -89,6 +96,10 @@ function ordered(i)
     if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
   return i end
 
+--------------------------------------------------------------------------------
+-- .__        
+-- [__)*._  __
+-- [__)|[ )_) 
 local discretize, xys_sd, bin, div
 function bin(z,divs) 
   if z=="?" then return "?" end
@@ -144,7 +155,11 @@ function div(xys,tiny,epsilon,     one,all,merged,merge)
     one.hi = x
     one.has[y] = 1 + (one.has[y] or 0); end
   return merge(all) end 
-
+
+--------------------------------------------------------------------------------
+-- .___.            
+--   |  ._. _  _  __
+--   |  [  (/,(/,_) 
 local splitter,worth,tree,count,keep,tree 
 
 function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t  end
@@ -183,6 +198,9 @@ function tree(xs, egs)
 --   else x end end
 
 --------------------------------------------------------------------------------
+-- .___.       ,    
+--   |   _  __-+- __
+--   |  (/,_)  | _) 
 local go={} 
 function go.the() shout(the) end
 function go.bad(  s) assert(false) end
@@ -199,6 +217,13 @@ function go.bins(    s)
   s= discretize(ordered(slurp())) 
   for m,div in pairs(s.divs) do 
     print("")
-    for n,div1 in pairs(div) do print(m, n,out(div1)) end end end
+    for n,div1 in pairs(div) do print(m, n,out(div1)) end end 
+  shout(s.egs[1])
+  end
 
+--------------------------------------------------------------------------------
+--  __. ,        ,            
+-- (__ -+- _.._.-+- ___ . .._ 
+-- .__) | (_][   |      (_|[_)
+--                        |  
 the(go)

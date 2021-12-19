@@ -1,15 +1,19 @@
 local lib={}
-
--- ROGUES ----------------------------------------------------------------------
--- 
+-------------------------------------------------------------------------------
+-- .__                
+-- [__) _  _ . . _  __
+-- |  \(_)(_](_|(/,_) 
+--        ._|         
 -- Call `rogues`, last thing, to find escaped locals.
 lib._b4={}; for k,v in pairs(_ENV) do lib._b4[k]=k end
 function lib.rogues()
   for k,v in pairs(_ENV) do 
     if not lib._b4[k] then print("?rogue: ",k,type(v)) end end end
-
--- OBJECTS ---------------------------------------------------------------------
---
+-------------------------------------------------------------------------------
+-- .__..            ,    
+-- |  ||_   * _  _.-+- __
+-- |__|[_)  |(/,(_. | _) 
+--        ._|            
 -- Create an instance
 function lib.has(mt,x) return setmetatable(x,mt) end
 -- Create a clss
@@ -17,9 +21,10 @@ function lib.obj(s, o,new)
    o = {_is=s, __tostring=lib.out}
    o.__index = o
    return setmetatable(o,{__call = function(_,...) return o.new(...) end}) end
-
--- RANDOM ----------------------------------------------------------------------
--- 
+-------------------------------------------------------------------------------
+-- .__         .        
+-- [__) _.._  _| _ ._ _ 
+-- |  \(_][ )(_](_)[ | )
 lib.Seed = 10019
 -- random integers
 function lib.randi(lo,hi) return math.floor(0.5 + lib.rand(lo,hi)) end
@@ -28,9 +33,10 @@ function lib.rand(lo,hi,     mult,mod)
   lo, hi = lo or 0, hi or 1
   lib.Seed = (16807 * lib.Seed) % 2147483647
   return lo + (hi-lo) * lib.Seed / 2147483647 end
-
--- MATHS -----------------------------------------------------------------------
--- 
+-------------------------------------------------------------------------------
+-- .  .    , .     
+-- |\/| _.-+-|_  __
+-- |  |(_] | [ )_) 
 lib.abs = math.abs
 -- Round `x` to `d` decimal places.
 function lib.rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
@@ -42,9 +48,10 @@ function lib.rnds(t,d)
 function lib.sum(t,f,     out)
   f= f or function(x) return x end
   out=0; for _,x in pairs(t) do out = out + f(x) end; return out end
-
--- FILES -----------------------------------------------------------------------
---
+-------------------------------------------------------------------------------
+-- .___ .      
+-- [__ *| _  __
+-- |   ||(/,_) 
 -- Return one table per line, split on commas.
 function lib.csv(file,   line)
   file = io.input(file)
@@ -57,9 +64,11 @@ function lib.csv(file,   line)
       line = io.read()
       if #t>0 then return t end 
     else io.close(file) end end end
-
--- PRINTING --------------------------------------------------------------------
--- 
+-------------------------------------------------------------------------------
+-- .__         ,        
+-- [__)._.*._ -+-*._  _ 
+-- |   [  |[ ) | |[ )(_]
+--                   ._|
 lib.fmt = string.format
 lib.say = function(...) print(lib.fmt(...)) end
 
@@ -83,9 +92,10 @@ function lib.out(t,seen,    u,key,value,public)
   if seen[t] then return "..." else seen[t] = t end
   u = #t>0 and lib.lap(t, value) or lib.lap(lib.keys(t), key) 
   return lib.red((t._is or"").."{")..lib.cat(u," ")..lib.red("}") end 
-
--- TABLE -----------------------------------------------------------------------
---
+-------------------------------------------------------------------------------
+-- .___.   .  .   
+--   |   _.|_ | _ 
+--   |  (_][_)|(/,
 -- Table to string.
 lib.cat     = table.concat 
 -- Return a sorted table.
@@ -137,6 +147,8 @@ function lib.bchop(t,val,policy,lo,hi,     mid)
     mid =(lo+hi) // 2
     if policy(t[mid],val) then lo=mid+1 else hi= mid-1 end end
   return math.min(lo,#t)  end
-
 -------------------------------------------------------------------------------`
+-- .__     ,          
+-- [__) _ -+-. .._.._ 
+-- |  \(/, | (_|[  [ )
 return lib

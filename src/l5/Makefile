@@ -55,7 +55,7 @@ show::
 t=tiny
 tiny: 
 	echo 111
-	a2ps -jR --line-numbers=1                       \
+	a2ps -jR -A fill --line-numbers=1                       \
            --borders=no --pro=color --columns 2 -L 150      \
            --right-footer="" --left-footer="" \
             --footer="" \
