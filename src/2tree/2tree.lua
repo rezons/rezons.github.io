@@ -16,26 +16,53 @@ OPTIONS:
   -todo     X   Pass/fail tests to run at start time      = ing
                 If "X=all", then run all.
                 If "X=ls" then list all. ]]
+
+local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 -- .  .       
 -- |\/|* __ _.
 -- |  ||_) (_.
-local keys,color,copy
-keys=  function(t,u)     
-         u={};for k,_ in pairs(t) do u[1+#u]=k end; table.sort(u); return u end 
-color= function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
-copy = function(t,  u)
-         u={};for k,v in pairs(t) do u[k]=v end ; return u end 
+local push,sort
+push= function(t,x) table.insert(t,x); return x end
+sort= function(t)   table.sort(t);     return t end
 
-local ent,mode
-function ent(t,    n,e)
-  n=0; for _,n1 in pairs(t) do n = n + n1 end
-  e=0; for _,n1 in pairs(t) do e = e - n1/n*math.log(n1/n,2) end
-  return e,n  end
+local copy,keys,map
+copy=function(t,    u) u={};for k,v in pairs(t) do u[k]=v          end; return u       end
+keys=function(t,    u) u={};for k,_ in pairs(t) do u[1+#u]=k       end; return sort(u) end
+map =function(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v) end; return u       end
 
-function mode(t,     most,out)
-  most = 0
-  for x,n in pairs(t) do if n > most then most,out = n,x end end
-  return out end
+local hue,shout,out
+hue  = function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
+shout= function(x) print(out(x)) end
+
+function out(t,   u,key,val)
+  function key(_,k) return string.format(":%s %s", k, out(t[k])) end
+  function val(_,v) return out(v) end
+  if type(t) ~= "table" then return tostring(t) end
+  u = #t>0 and map(t, val) or map(keys(t), key) 
+  return "{"..table.concat(u," ").."}" end 
+
+local has,obj
+has = function(mt,x) return setmetatable(x,mt) end
+function obj(s,o,new)
+  o = {_is=s, __tostring=out}
+  o.__index = o
+  return setmetatable(o,{__call=function(_,...)return o.new(...) end}) end
+
+local coerce,csv
+function coerce(x)
+  if x=="true"  then return true  end
+  if x=="false" then return false end
+  return tonumber(x) or x end
+
+function csv(file,   x)
+  file = io.input(file)
+  return function(   t,tmp)
+    x  = io.read()
+    if x then
+      t={};for y in x:gsub("[\t ]*",""):gmatch"([^,]+)" do push(t,coerce(y)) end
+      if #t>0 then return t end 
+    else io.close(file) end end end
+
 
 --  __.           .   
 -- (__  _.._ _ ._ | _ 
@@ -55,34 +82,34 @@ function mode(t,     most,out)
 -- [10] Columns contain ":" are ignored
 -- [11] Each example will be discretized (later) so each example holds the
 --      "raw" values (not discretized) and the "cooked" examples (discretized).
-local slurp,sample,ordered,clone
+local slurp,sample,ordered
 function slurp(out)
   for eg in csv(the.file) do out=sample(eg,out) end --[2] 
-  return out end
+  return ordered(out) end
 
 function sample(eg,i)
-  local numeric,independent,dependent,head,data,datum
+  local head,datum
   function head(n,x)
-    function numeric()     i.num[n]= {hi=-math.huge,lo=math.huge} end -- [6]]
-    function independent() i.xs[n]= x end  -- [8]
-    function dependent()                   -- [7]
-      i.num[n].w  = x:find"-" and -1 or 1  -- [9]
-      i.ys[n] = x
-      i.nys   = i.nys+1 end
     if not x:find":" then  -- [10]
-      if x:match"^[A-Z]" then numeric() end 
-      if x:find"-" or x:find"+" then dependent() else independent() end end --[7,8]
-    return x end
+      if x:match"^[A-Z]" then i.num[n]= {hi=-math.huge,lo=math.huge} end -- [6]]
+      if x:find"-" or x:find"+" 
+      then i.ys[n]    = x
+           i.nys      = i.nys+1 
+           i.num[n].w = x:find"-" and -1 or 1 end -- [9]
+      else i.xs[n] = x end 
+    return x  end
   function datum(n,x) -- [4]
     if x ~= "?" then
       local num=i.num[n]
       if num then 
         num.lo = math.min(num.lo,x)          -- [6]
         num.hi = math.max(num.hi,x) end end  -- [6]
-    return x end
-  if i then push(i.egs, map(eg,datum)) else            -- [4]
-     i = {xs={},nys=0,ys={},num={},egs={},divs={},heads={}}  -- [1] [3]
-     i.heads = map(eg,head) end                              -- [3]
+    return x end 
+  --------------
+  if   i 
+  then push(i.egs, {cells=map(eg,datum)})             -- [4]
+  else i = {xs={},nys=0,ys={},num={},egs={},divs={},heads={}}  -- [1] [3]
+       i.heads = map(eg,head) end                              -- [3]
   return i end                                               -- [5]
 
 -- [14] Returns the sample, examples sorted by their goals, each example
@@ -99,14 +126,13 @@ function ordered(i)
     s1,s2=0,0
     for n,_ in pairs(i.ys) do                     -- [12]
       local num = i.num[n]
-      a  = norm(num.lo, num.hi, eg1[n])       -- [13]
-      b  = norm(num.lo, num.hi, eg2[n])       -- [13]
+      a  = norm(num.lo, num.hi, eg1.cells[n])       -- [13]
+      b  = norm(num.lo, num.hi, eg2.cells[n])       -- [13]
       s1 = s1 - 2.71828^(num.w * (a-b)/i.nys)     -- [13] [15]
       s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end -- [13] [15]
     return s1/i.nys < s2/i.nys end                -- [15]
-  for j,eg in pairs(sort(i.egs,better)) do eg.klass=k end 
+  for j,eg in pairs(sort(i.egs,better)) do eg.rank=j end 
   return i end                                    -- [14]
-
 
 -- .___.            
 --   |  ._. _  _  __
@@ -132,8 +158,7 @@ function Num:add (x,    d)
   self.n  = self.n + 1
   d       = x - self.mu
   self.mu = self.mu + d / self.n
-  self.m2 = self.m2 + d * (x - self.mu) 
-  return x end
+  self.m2 = self.m2 + d * (x - self.mu) end
 
 function Num:sd() 
   return self.n < 2 and 0 or self.m2 <0 and 0 or (self.m2/(self.n - 1))^.5 end 
@@ -142,8 +167,7 @@ function Num:sub (x,     d)
   self.n  = self.n - 1
   d       = x - self.mu
   self.mu = self.mu - d / self.n
-  self.m2 = self.m2 - d * (x - self.mu) 
-  return x end
+  self.m2 = self.m2 - d * (x - self.mu) end
 
 function split(xy, epsilon, tiny)
    local min,xy,cut = math.huge, sort(xy,firsts)
@@ -153,7 +177,8 @@ function split(xy, epsilon, tiny)
    xhi, xlo= xy[#xy][1], xy[1][1]
    for k,v in pairs(xy) do
      x,y = v[1],v[2]
-     yleft:add( yright:sub(y))
+     yleft:add(y);
+     yright:sub(y)
      if k > tiny and k < #xy-tiny and x ~= v[k+1][1] and 
         x-xlo > epsilon and xhi-x>epsilon 
      then xpect = (yleft.n*yleft:sd()+ yright.n*yright:sd())/#xy
@@ -222,18 +247,24 @@ end
 -- (__ -+- _.._.-+- ___ . .._ 
 -- .__) | (_][   |      (_|[_)
 --                        |  
-the={}
-function main(help, options,actions)
-  help:gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)", 
-    function(flag,x) 
-      for n,word in ipairs(arg) do                  -- [2]
-        if flag:match("^"..word:sub(2)..".*") then  -- [4]
-          x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
-      if     x=="true"  then x=true 
-      elseif x=="false" then x=false -- [4]
-      else   x= tonumber(x) or x     -- [3]
-      end
-      options[flag] = x end)         -- [1]
-end
+help:gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)", 
+  function(flag,x) 
+    for n,word in ipairs(arg) do                  -- [2]
+      if flag:match("^"..word:sub(2)..".*") then  -- [4]
+        x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
+    the[flag] = coerce(x) end)         -- [1]
 
-main(help,the,go)
+if the.h     then return print(help) end         -- [2]
+if the.debug then go[the.debug]() end          -- [3]
+
+local fails, defaults = 0, copy(the)             -- [1]
+for _,todo in pairs(the.todo == "all" and keys(go) or {the.todo}) do
+  the = copy(defaults)
+  the.seed = the.seed or 10019                   -- [5]
+  local ok,msg = pcall( go[todo] )             -- [6]
+  if ok then print(hue(32,"PASS ")..todo)         
+        else print(hue(31,"FAIL ")..todo,msg)
+             fails=fails+1 end end -- [7]
+
+for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end 
+os.exit(fails) -- [8]
