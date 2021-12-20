@@ -5,7 +5,7 @@ A small sample multi-objective optimizer / data miner.
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
 OPTIONS:
-  -best     X   Best examples are in 1..best*size(all)    = .1
+  -best     X   Best examples are in 1..best*size(all)    = .2
   -debug    X   run one test, show stackdumps on fail     = ing
   -epsilon  X   ignore differences under epsilon*stdev    = .35  
   -file     X   Where to read data                        = ../../data/auto93.csv
@@ -124,7 +124,7 @@ local discretize, xys_sd, bin, div
 function bin(z,divs) 
   if z=="?" then return "?" end
   for n,x in pairs(divs) do 
-    if x.lo<= z and z<= x.hi then return string.char(96+n) end end end 
+    if x.lo<= z and z<= x.hi then return n end end end 
 
 function discretize(i)       
   function xys_sd(col,egs,    out,p)
@@ -136,15 +136,23 @@ function discretize(i)
     p   = function(z) return out[z*#out//10].x end
     return out, math.abs(p(.9) - p(.1))/2.56 
   end -----------------------
-  for col,_ in pairs(i.xs) do
+  for col,name in pairs(i.xs) do
     if i.num[col] then
       local xys,sd = xys_sd(col, i.egs)
-      i.divs[col]  = div(xys, (#xys)^the.Tiny, the.epsilon*sd)
+      i.divs[col]  = div(col,name,xys, (#xys)^the.Tiny, the.epsilon*sd)
       for _,eg in pairs(i.egs) do 
         eg.cooked[col]= bin(eg.raw[col], i.divs[col]) end end end 
   return i end
 
-function div(xys,tiny,epsilon,     one,all,merged,merge)
+local function showDiv(i,at,val,      out)
+  out="??"
+  if i.num[at] then
+    for k,div in pairs(i.divs[at]) do
+      if k==val then out =fmt("%s <= %s <= %s",div.lo, i.xs[at], div.hi) end end 
+  else out= fmt("%s = %s", i.xs[at], val) end
+  return out end
+
+function div(col,name,xys,tiny,epsilon,     one,all,merged,merge)
   function merged(a,b,an,bn,      c)
     c={}
     for x,v in pairs(a) do c[x] = v end
@@ -159,17 +167,18 @@ function div(xys,tiny,epsilon,     one,all,merged,merge)
       if after then
         local simpler = merged(now.has,after.has, now.n,after.n)
         if simpler then   
-          now = {lo=now.lo, hi=after.hi, n=now.n+after.n, has=simpler} 
+          now = {col=col,name=name, lo=now.lo, hi=after.hi, 
+                 n=now.n+after.n, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
   end ------------------------ 
-  one = {lo=xys[1].x, hi=xys[1].x, n=0, has={}}
+  one = {col=col,name=name,lo=xys[1].x, hi=xys[1].x, n=0, has={}}
   all = {one}
   for j,xy in pairs(xys) do
     local x,y = xy.x, xy.y
     if   j< #xys-tiny and x~= xys[j+1].x and one.n> tiny and one.hi-one.lo>epsilon
-    then one = push(all, {lo=one.hi, hi=x, n=0, has={}}) 
+    then one = push(all, {col=col,name=name,lo=one.hi, hi=x, n=0, has={}}) 
     end
     one.n  = 1 + one.n
     one.hi = x
@@ -191,38 +200,32 @@ function splitter(xs, egs)
       x = eg.cooked[at]
       if x ~= "?" then 
         n=n+1
-        xy[x] = count(xy[x] or {}, eg.klass) end end
-    return {at, sum(xy, function(t) local e,n1=ent(t); return n1/n* e end)} end
+        xy[x] = count(xy[x] or {},eg.klass) end end
+    return {at, sum(xy, function(t)  local e,n1=ent(t); return n1/n* e end)} end
   return sort(map(xs,worth),seconds)[1][1] end
 
 function tree(xs, egs,lvl)
   local here,at,splits,counts
   for _,eg in pairs(egs) do counts=count(counts,eg.klass) end
   here = {mode=mode(counts), n=#egs, kids={}}
-  if #egs > 2*the.Stop then 
+  if #egs > the.Stop then 
     splits,at = {},splitter(xs,egs)
-    for _,eg in pairs(egs) do print(at,eg.cooked[at]); splits=keep(splits,eg.cooked[at],eg) end
-    shout(splits[1])
+    for _,eg in pairs(egs) do  splits=keep(splits,eg.cooked[at],eg) end
     for val,split in pairs(splits) do 
-       if #split < #egs then 
-         push(here.kids, {at=at,val=x,
-                          sub=tree(xs,split,(lvl or "").."|.. ")}) end end end
+      if #split < #egs and #split > the.Stop then 
+        push(here.kids, {at=at,val=val,
+                         sub=tree(xs,split,(lvl or "").."|.. ")}) end end end
   return here end
 
-local function show(tree,pre)
-  pre=pre or ""
-  print(pre.. tostring(tree.mode), tree.n)
-  shout(tree.kids[1])
-  --for _,kid in pairs(tree.kids) do print(pre, tree.at, tree.val);show(kid, "|.. ".. pre) end 
-  end
--- function show(tree,pre)
---   pre = pre or ""
---   if tree.sub then
---     say("%s %s ",pre)
---     for _,one in  pairs(tree.sub) do
---       say("%s %s=%s", pre, one.at or "", one.val or "")
---       show(one.sub,pre.."|.. ") end end
---   else x end end
+local function show(i,tree)
+  local vals=function(a,b) return a.val < b.val end
+  local function show1(tree,pre)
+    if #tree.kids==0 then io.write(fmt(" ==>  %s [%s]",tree.mode, tree.n)) end
+    for _,kid in pairs(sort(tree.kids,vals))  do
+        io.write("\n"..fmt("%s%s",pre, showDiv(i, kid.at, kid.val)))
+         show1(kid.sub, pre.."|.. ") end  
+  end ------------------------
+  show1(tree,""); print("") end
 
 -- .___.       ,    
 --   |   _  __-+- __
@@ -250,12 +253,11 @@ function go.bins(    s)
   for m,div in pairs(s.divs) do 
     print("")
     for n,div1 in pairs(div) do print(m, n,out(div1)) end end 
-  shout(s.egs[1])
   end
 
 function go.tree(  s,t) 
-  s = ordered(slurp())
-  show(tree(s.xs, s.egs))
+  s = discretize(ordered(slurp()))
+  show(s,tree(s.xs, s.egs))
 end
 
 --  __. ,        ,            
