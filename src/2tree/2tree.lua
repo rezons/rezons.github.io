@@ -1,4 +1,4 @@
-local the =require"tiny0"[[
+local the,help = {}, [[
 lua 2tree.lua [OPTIONS]
 
 Tree learner (binary splits on numierics
@@ -19,15 +19,12 @@ OPTIONS:
 -- .  .       
 -- |\/|* __ _.
 -- |  ||_) (_.
-local _=require"2treelib"
-local say,fmt,color,out,shout= _.say, _.fmt,_.color,_.out,_.shout,_.csv -- strings
-local map,copy,keys,push     = _.map,_.copy, _.keys, _.push -- tables
-local sort, firsts, seconds  = _.sort, _.firsts, _.seconds  -- sorting
-local norm, sum              = _.norm,  _.sum               -- maths
-local randi,rand             = _.randi, _,rand              -- randoms
-local same                   = _.same                       -- meta
-local csv                    = _.csv -- files
-local has,obj                = _.has, _.obj
+local keys,color,copy
+keys=  function(t,u)     
+         u={};for k,_ in pairs(t) do u[1+#u]=k end; table.sort(u); return u end 
+color= function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
+copy = function(t,  u)
+         u={};for k,v in pairs(t) do u[k]=v end ; return u end 
 
 local ent,mode
 function ent(t,    n,e)
@@ -225,4 +222,18 @@ end
 -- (__ -+- _.._.-+- ___ . .._ 
 -- .__) | (_][   |      (_|[_)
 --                        |  
-the(go)
+the={}
+function main(help, options,actions)
+  help:gsub("^.*OPTIONS:",""):gsub("\n%s*-([^%s]+)[^\n]*%s([^%s]+)", 
+    function(flag,x) 
+      for n,word in ipairs(arg) do                  -- [2]
+        if flag:match("^"..word:sub(2)..".*") then  -- [4]
+          x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
+      if     x=="true"  then x=true 
+      elseif x=="false" then x=false -- [4]
+      else   x= tonumber(x) or x     -- [3]
+      end
+      options[flag] = x end)         -- [1]
+end
+
+main(help,the,go)
