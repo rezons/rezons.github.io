@@ -70,7 +70,6 @@ function lib.csv(file,   x)
     if x then
       t={}
       for y in x:gsub("[\t ]*",""):gmatch"([^,]+)" do t[1+#t]=tonumber(y) or y end
-      x = io.read()
       if #t>0 then return t end 
     else io.close(file) end end end
 

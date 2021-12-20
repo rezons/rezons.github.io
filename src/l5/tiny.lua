@@ -5,7 +5,7 @@ A small sample multi-objective optimizer / data miner.
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
 OPTIONS:
-  -best     X   Best examples are in 1..best*size(all)    = .05
+  -best     X   Best examples are in 1..best*size(all)    = .1
   -debug    X   run one test, show stackdumps on fail     = ing
   -epsilon  X   ignore differences under epsilon*stdev    = .35  
   -file     X   Where to read data                        = ../../data/auto93.csv
@@ -16,18 +16,17 @@ OPTIONS:
   -todo     X   Pass/fail tests to run at start time      = ing
                 If "X=all", then run all.
                 If "X=ls" then list all. ]]
-
 -- .  .       
 -- |\/|* __ _.
 -- |  ||_) (_.
 local _=require"tinylib"
-local say,fmt,color,out,shout= _.say,_.fmt,_.color,_.out,_.shout,_.csv -- strings
-local map,copy,keys,push    = _.map,_.copy, _.keys, _.push -- tables
-local sort, firsts, seconds = _.sort, _.firsts, _.seconds  -- sorting
-local norm, sum             = _.norm,  _sum                -- maths
-local randi,rand            = _.randi, _,rand              -- randoms
-local same                  = _.same                       -- meta
-local csv                   = _.csv -- files
+local say,fmt,color,out,shout= _.say, _.fmt,_.color,_.out,_.shout,_.csv -- strings
+local map,copy,keys,push     = _.map,_.copy, _.keys, _.push -- tables
+local sort, firsts, seconds  = _.sort, _.firsts, _.seconds  -- sorting
+local norm, sum              = _.norm,  _.sum               -- maths
+local randi,rand             = _.randi, _,rand              -- randoms
+local same                   = _.same                       -- meta
+local csv                    = _.csv -- files
 
 local ent,mode
 function ent(t,    n,e)
@@ -44,20 +43,20 @@ function mode(t,     most,out)
 -- (__  _.._ _ ._ | _ 
 -- .__)(_][ | )[_)|(/,
 --             |      
--- [5] Returns a sample, initialized, updated
--- [1] Self initialize (if nil, then create).
--- [2] Read from disc file
--- [3] First item is special (contains names of columns)
--- [4] Other rows are the actual examples. Use these to update column headers
--- [6] Numeric columns have an "num[n]" entry that tracks the
---     "num[n].lo" and "num[n].hi" range for each variable.
--- [7] Columns to be minimized or maximized are dependent (listed in "ys")
--- [8] All other columns are the independent (listed in "xs")
--- [9] Dependent variables are minimized,maximized at weights -1,1 
---     if their name contains "-" or "+". The number of dependents ins "nys"
--- [10]columns contain ":" are ignored
--- [11]Each example will be discretized (later) so each example holds the
---     "raw" values (not discretized) and the "cooked" examples (discretized).
+-- [5]  Returns a sample, initialized, updated
+-- [1]  Self initialize (if nil, then create).
+-- [2]  Read from disc file
+-- [3]  First item is special (contains names of columns)
+-- [4]  Other rows are the actual examples. Use these to update column headers
+-- [6]  Numeric columns have an "num[n]" entry that tracks the
+--      "num[n].lo" and "num[n].hi" range for each variable.
+-- [7]  Columns to be minimized or maximized are dependent (listed in "ys")
+-- [8]  All other columns are the independent (listed in "xs")
+-- [9]  Dependent variables are minimized,maximized at weights -1,1 
+--      if their name contains "-" or "+". The number of dependents ins "nys"
+-- [10] Columns contain ":" are ignored
+-- [11] Each example will be discretized (later) so each example holds the
+--      "raw" values (not discretized) and the "cooked" examples (discretized).
 local slurp,sample,ordered,clone
 function slurp(out)
   for eg in csv(the.file) do out=sample(eg,out) end --[2] 
@@ -70,7 +69,6 @@ function clone(i, inits,     out)
 
 function sample(eg,i)
   local numeric,independent,dependent,head,data,datum
-  i = i or {xs={},nys=0,ys={},num={},egs={},heads={},divs={}}  -- [1]
   function head(n,x)
     function numeric()     i.num[n]= {hi=-math.huge,lo=math.huge} end -- [6]]
     function independent() i.xs[n]= x end  -- [8]
@@ -91,29 +89,33 @@ function sample(eg,i)
         num.hi = math.max(num.hi,x) end end  -- [6]
     return x end
   eg = eg.raw and eg.raw or eg 
-  if #i.heads==0 then i.heads=map(eg,head) else  -- [3]
-    push(i.egs,data(map(eg,datum))) end          -- [4]
-  return i end -- [5]
+  if i then push(i.egs, data(map(eg,datum))) else            -- [4]
+     i = {xs={},nys=0,ys={},num={},egs={},divs={},heads={}}  -- [1] [3]
+     i.heads = map(eg,head) end                              -- [3]
+  return i end                                               -- [5]
 
--- [14] Returns the sample, examples sorted by their goals.
+-- [14] Returns the sample, examples sorted by their goals, each example
+--      tagged with "eg.klass=best" or "eg.klass=rest" if "eg" is in the top
+--     "the.best" in the sort.
+-- [12] Sort each example by exploring all goals (dependent variables).
 -- [15] The direction that losses the most points to best example.
---      e.g. a.b=.7,.6 and a-b  s .1 (small loss) and b-a is -.1 
+--      e.g. a.b=.7,.6 and a-b is .1 (small loss) and b-a is -.1 
 --      (much smaller than a or b) so a is more important than b.
 -- [13] Goal differences are amplified by raining them to a power (so normalize
 --      the goals first so you that calculation does not explode.
-function ordered(i) -- [11]
+function ordered(i) 
   local function better(eg1,eg2,     a,b,s1,s2)
     s1,s2=0,0
-    for n,_ in pairs(i.ys) do    -- [15]
+    for n,_ in pairs(i.ys) do                     -- [12]
       local num = i.num[n]
-      a  = norm(num.lo, num.hi, eg1.raw[n])         -- [13]
-      b  = norm(num.lo, num.hi, eg2.raw[n])         -- [13]
-      s1 = s1 - 2.71828^(num.w * (a-b)/i.nys)       -- [12]
-      s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end   -- [12]
-    return s1/i.nys < s2/i.nys end                  -- [12]
+      a  = norm(num.lo, num.hi, eg1.raw[n])       -- [13]
+      b  = norm(num.lo, num.hi, eg2.raw[n])       -- [13]
+      s1 = s1 - 2.71828^(num.w * (a-b)/i.nys)     -- [13] [15]
+      s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end -- [13] [15]
+    return s1/i.nys < s2/i.nys end                -- [15]
   for j,eg in pairs(sort(i.egs,better)) do 
-    if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end
-  return i end  -- [14]
+    if j < the.best*#i.egs then eg.klass="best" else eg.klass="rest" end end 
+  return i end                                    -- [14]
 
 -- .__        
 -- [__)*._  __
@@ -191,20 +193,28 @@ function splitter(xs, egs)
         n=n+1
         xy[x] = count(xy[x] or {}, eg.klass) end end
     return {at, sum(xy, function(t) local e,n1=ent(t); return n1/n* e end)} end
-  return sort(map(xs, worth),seconds)[1][1] end
+  return sort(map(xs,worth),seconds)[1][1] end
 
-function tree(xs, egs)
+function tree(xs, egs,lvl)
   local here,at,splits,counts
   for _,eg in pairs(egs) do counts=count(counts,eg.klass) end
   here = {mode=mode(counts), n=#egs, kids={}}
   if #egs > 2*the.Stop then 
-    at = {},splitter(xs,egs)
-    for _,eg in pairs(egs) do splits=keep(splits,eg.cooked[at],eg) end
+    splits,at = {},splitter(xs,egs)
+    for _,eg in pairs(egs) do print(at,eg.cooked[at]); splits=keep(splits,eg.cooked[at],eg) end
+    shout(splits[1])
     for val,split in pairs(splits) do 
        if #split < #egs then 
-         push(here.kids, {at=at,val=x,sub=tree(xs,split)}) end end end
+         push(here.kids, {at=at,val=x,
+                          sub=tree(xs,split,(lvl or "").."|.. ")}) end end end
   return here end
 
+local function show(tree,pre)
+  pre=pre or ""
+  print(pre.. tostring(tree.mode), tree.n)
+  shout(tree.kids[1])
+  --for _,kid in pairs(tree.kids) do print(pre, tree.at, tree.val);show(kid, "|.. ".. pre) end 
+  end
 -- function show(tree,pre)
 --   pre = pre or ""
 --   if tree.sub then
@@ -230,7 +240,10 @@ function go.ordered(  s,n)
   shout(s.heads)
   for i=1,15 do shout(s.egs[i].raw) end
   print("#")
-  for i=n,n-15,-1 do shout(s.egs[i].raw) end end
+  for i=n,n-15,-1 do shout(s.egs[i].raw) end 
+  n={}; for _,eg in pairs(s.egs) do n=count(n,eg.klass) end
+  shout(n)
+end
 
 function go.bins(    s)
   s= discretize(ordered(slurp())) 
@@ -239,6 +252,11 @@ function go.bins(    s)
     for n,div1 in pairs(div) do print(m, n,out(div1)) end end 
   shout(s.egs[1])
   end
+
+function go.tree(  s,t) 
+  s = ordered(slurp())
+  show(tree(s.xs, s.egs))
+end
 
 --  __. ,        ,            
 -- (__ -+- _.._.-+- ___ . .._ 
