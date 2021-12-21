@@ -145,7 +145,14 @@ upto = function(x,y) return y<=x end
 over = function(x,y) return y>x  end
 eq   = function(x,y) return x==y end
 
-function syms(at,egs,     xy,n,x)
+function symcuts(at,egs,txt,    xy,n,x)
+  function cuts(     xpect,cuts,size)
+    size  = 0
+    xpect = sum(xy, function(num) size=size+1; return num.n/n*sd(num) end)
+    if size > 1 then
+       return xpect,map(keys(xy),function(x) 
+                    return {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
+  -----------
   xy,n = {},0
   for _,eg in pairs(egs) do
     local x=eg.cell[at]
@@ -153,53 +160,50 @@ function syms(at,egs,     xy,n,x)
       n = n + 1
       xy[x] = xy[x] or Num()
       add(xy[x], eg.klass) end  end
-  return n,xy end
+  return cuts() end
 
-function nums(at,eps,   xy,n,x)
-  xy, num = {}, Num()
+function numcuts(i,at,txt,     argmin,cuts)
+  function argmin(xy,ynum,xeps,tiny,    xy,xlo,xhi,min,left,right,x,y,xpect)
+    xy  = sort(xy,firsts)
+    xlo = xy[  1][1]
+    xhi = xy[#xy][1]
+    min = sd(ynum)
+    if ynum.hi - ynum.lo > 2*tiny then
+      left, right = Num(), ynum
+      for k,z in  pairs(xy) do
+        x,y = z[1], z[2]
+        add(left,y)
+        sub(right,y)
+        if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
+             x-xlo >= xeps and xhi-x >= xeps 
+        then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
+             if tmp < xpect then cut,min = x,xpect end end end end
+    return cut,min end
+  -------------------
+  function cuts(xy,ynum,    xepsilon, tiny)
+    xespilon  = sd(i.num[at])*the.epsilon
+    tiny      = (#i.egs)*the.Tiny
+    cut,xpect  = argmin(xy,ynum,xepsilon, tiny)
+    if cut then
+      return xpect, {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
+                     {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
+  -------------------
+  local xy, ynum = {}, Num()
   for _,eg in pairs(egs) do 
-    x = eg.cell[at]
+    local x = eg.cell[at]
     if x ~= "?" then 
-      inc(num, x)
+      inc(ynum, x)
       push(xy, {x, eg.klass}) end end
-  return sort(xy,ones),num end
+  return cuts(xy,ynum) end
 
-function binarySplit(i,at,xeps,tiny,    xy,n,x,xpect,cut,min)
-  xy,ynum = nums(at,egs)
-  xlo  = xy[  1][1]
-  xhi  = xy[#xy][1]
-  min  = sd(ynum)
-  xpect= sd(ynum)
-  if ynum.hi - ynum.lo > 2*tiny then
-    left, right = Num(), Num()
-    for k,z in  pairs(xy) do
-      x,y = z[1], z[2]
-      add(left,y)
-      sub(right,y)
-      if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
-           x-xlo >= xeps and xhi-x >= xeps 
-      then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
-        if xpect < min then 
-           cut,min = x,xpect end end end end
-  return xpect, cut end
-
-function split1(i, xeps,tiny)
+function at_cuts(i)
+  local at,cuts
   for at,txt in pairs(i.xs) do
-    if i.num[at] then
-      n,xy = nums(at,sd(i.num[at])*the.epsilon,(#i.egs)*the.Tiny)
-      xpect,cut = binarySplit(i,at,xeps)
-      if xpect < min then
-        min = xpect
-        cuts = {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
-               {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end
-    else
-      n,xy = syms(at,eps)
-      xpect = sum(xy,function(num) return num.n/n*sd(num) end)
-      if xpect < min then
-        min = xpect
-        cuts= map(keys(xy),function(x) return {txt=fmt("%s=%s",txt,x),
-                                              at=at,op=eq,val=x} end) end end end
-  return cuts end
+    if i.num[at] 
+    then xpect,cuts0 = nums(i,at,txt) 
+    else xpect,cuts0 = syms(i,at,txt) end
+    if xpect and xpect < min then out,min,cuts = at,xpect,cuts0 end end
+  return at, cuts end
 
 function tree(xs, egs,lvl)
   local here,at,splits,counts
