@@ -21,14 +21,18 @@ local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 -- .  .       
 -- |\/|* __ _.
 -- |  ||_) (_.
+local same
+same= function(x,...) return x end
 local push,sort
 push= function(t,x) table.insert(t,x); return x end
 sort= function(t)   table.sort(t);     return t end
+ones= function(a,b) return a[1] < b[1] end
 
 local copy,keys,map
 copy=function(t,    u) u={};for k,v in pairs(t) do u[k]=v          end; return u       end
 keys=function(t,    u) u={};for k,_ in pairs(t) do u[1+#u]=k       end; return sort(u) end
 map =function(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v) end; return u       end
+sum =function(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end; return n    end
 
 local hue,shout,out
 hue  = function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
@@ -40,13 +44,6 @@ function out(t,   u,key,val)
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t, val) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
-
-local has,obj
-has = function(mt,x) return setmetatable(x,mt) end
-function obj(s,o,new)
-  o = {_is=s, __tostring=out}
-  o.__index = o
-  return setmetatable(o,{__call=function(_,...)return o.new(...) end}) end
 
 local coerce,csv
 function coerce(x)
@@ -63,6 +60,13 @@ function csv(file,   x)
       if #t>0 then return t end 
     else io.close(file) end end end
 
+num= function(i) return {n=0, mu=0, m2=0, lo=math.huge, hi= -math.huge} end
+sd = function(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
+
+function sub(i,x,  d) i.n=i.n-1; d=x-i.mu; i.mu=i.mu-d/i.n; i.m2=i.m2-d*(x-i.mu) end
+function add(i,x,  d) i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
+  i.lo = math.min(x, i.lo)
+  i.hi = math.max(x, i.hi) end
 
 --  __.           .   
 -- (__  _.._ _ ._ | _ 
@@ -91,7 +95,7 @@ function sample(eg,i)
   local head,datum
   function head(n,x)
     if not x:find":" then  -- [10]
-      if x:match"^[A-Z]" then i.num[n]= {hi=-math.huge,lo=math.huge} end -- [6]]
+      if x:match"^[A-Z]" then i.num[n]= num() end -- [6]]
       if x:find"-" or x:find"+" 
       then i.ys[n]    = x
            i.nys      = i.nys+1 
@@ -99,15 +103,12 @@ function sample(eg,i)
       else i.xs[n] = x end 
     return x  end
   function datum(n,x) -- [4]
-    if x ~= "?" then
-      local num=i.num[n]
-      if num then 
-        num.lo = math.min(num.lo,x)          -- [6]
-        num.hi = math.max(num.hi,x) end end  -- [6]
+    local num=i.num[n]
+    if num and x ~= "?" then inc(num,x) end 
     return x end 
   --------------
   if   i 
-  then push(i.egs, {cells=map(eg,datum)})             -- [4]
+  then push(i.egs, {cells = map(eg,datum)})             -- [4]
   else i = {xs={},nys=0,ys={},num={},egs={},divs={},heads={}}  -- [1] [3]
        i.heads = map(eg,head) end                              -- [3]
   return i end                                               -- [5]
@@ -131,61 +132,74 @@ function ordered(i)
       s1 = s1 - 2.71828^(num.w * (a-b)/i.nys)     -- [13] [15]
       s2 = s2 - 2.71828^(num.w * (b-a)/i.nys) end -- [13] [15]
     return s1/i.nys < s2/i.nys end                -- [15]
-  for j,eg in pairs(sort(i.egs,better)) do eg.rank=j end 
+  for j,eg in pairs(sort(i.egs,better)) do eg.klass=j end 
   return i end                                    -- [14]
 
 -- .___.            
 --   |  ._. _  _  __
 --   |  [  (/,(/,_) 
-local splitter,worth,tree,count,keep,tree 
+-- local splitter,worth,tree,count,keep,tree 
+--
 
-function count(t,at)  t=t or {}; t[at]=1+(t[at] or 0); return t  end
-function keep(t,at,x) t=t or {}; t[at]=t[at] or {}; push(t[at],x); return t  end
+upto = function(x,y) return y<=x end 
+over = function(x,y) return y>x  end
+eq   = function(x,y) return x==y end
 
-function splitter(xs, egs) 
-  function worth(at,_,    xy,n,x,xpect)
-    xy,n = {}, 0
-    for _,eg in pairs(egs) do
-      x = eg.cooked[at]
-      if x ~= "?" then push(xy,{x,y}) end end
-    return {at, sum(xy, function(t)  local e,n1=ent(t); return n1/n* e end)} end
-  return sort(map(xs,worth),seconds)[1][1] end
+function syms(at,egs,     xy,n,x)
+  xy,n = {},0
+  for _,eg in pairs(egs) do
+    local x=eg.cell[at]
+    if  x ~= "?" then
+      n = n + 1
+      xy[x] = xy[x] or Num()
+      add(xy[x], eg.klass) end  end
+  return n,xy end
 
-local Num=obj"Num"
-function Num.new() return has(Num,{n=0,mu=0,m2=0}) end
+function nums(at,eps,   xy,n,x)
+  xy, num = {}, Num()
+  for _,eg in pairs(egs) do 
+    x = eg.cell[at]
+    if x ~= "?" then 
+      inc(num, x)
+      push(xy, {x, eg.klass}) end end
+  return sort(xy,ones),num end
 
-function Num:add (x,    d)
-  self.n  = self.n + 1
-  d       = x - self.mu
-  self.mu = self.mu + d / self.n
-  self.m2 = self.m2 + d * (x - self.mu) end
+function binarySplit(i,at,xeps,tiny,    xy,n,x,xpect,cut,min)
+  xy,ynum = nums(at,egs)
+  xlo  = xy[  1][1]
+  xhi  = xy[#xy][1]
+  min  = sd(ynum)
+  xpect= sd(ynum)
+  if ynum.hi - ynum.lo > 2*tiny then
+    left, right = Num(), Num()
+    for k,z in  pairs(xy) do
+      x,y = z[1], z[2]
+      add(left,y)
+      sub(right,y)
+      if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
+           x-xlo >= xeps and xhi-x >= xeps 
+      then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
+        if xpect < min then 
+           cut,min = x,xpect end end end end
+  return xpect, cut end
 
-function Num:sd() 
-  return self.n < 2 and 0 or self.m2 <0 and 0 or (self.m2/(self.n - 1))^.5 end 
-
-function Num:sub (x,     d)
-  self.n  = self.n - 1
-  d       = x - self.mu
-  self.mu = self.mu - d / self.n
-  self.m2 = self.m2 - d * (x - self.mu) end
-
-function split(xy, epsilon, tiny)
-   local min,xy,cut = math.huge, sort(xy,firsts)
-   local yright,yleft = Num(),  Num()
-   for _,v in pairs(xy) do yright:add(v[2]) end 
-   xy = sort(xy,firsts)
-   xhi, xlo= xy[#xy][1], xy[1][1]
-   for k,v in pairs(xy) do
-     x,y = v[1],v[2]
-     yleft:add(y);
-     yright:sub(y)
-     if k > tiny and k < #xy-tiny and x ~= v[k+1][1] and 
-        x-xlo > epsilon and xhi-x>epsilon 
-     then xpect = (yleft.n*yleft:sd()+ yright.n*yright:sd())/#xy
-           if xpect < min then 
-             cut, min = k,xpect end end end 
-   return  cut,min end
-
+function split1(i, xeps,tiny)
+  for at,txt in pairs(i.xs) do
+    if i.num[at] then
+      n,xy = nums(at,sd(i.num[at])*the.epsilon,(#i.egs)*the.Tiny)
+      xpect,cut = binarySplit(i,at,xeps)
+      if xpect < min then
+        min = xpect
+        cuts = {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
+               {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end
+    else
+      n,xy = syms(at,eps)
+      xpect = sum(xy,function(num) return num.n/n*sd(num) end)
+      if xpect < min then
+        min = xpect
+        cuts= map(keys(xy),function(x) return {txt=fmt("%s=%s",txt,x),
+                                              at=at,op=eq,val=x} end) end end end
+  return cuts end
 
 function tree(xs, egs,lvl)
   local here,at,splits,counts
