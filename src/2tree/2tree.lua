@@ -139,12 +139,32 @@ function ordered(i)
 --   |  ._. _  _  __
 --   |  [  (/,(/,_) 
 -- local splitter,worth,tree,count,keep,tree 
---
+
+-- utility to take a list of {{x,y},..} pairs to return a cut on
+-- x that most minimizes expected value of variance of y
+function minXpect(xy,ynum,xeps,tiny,    xy,xlo,xhi,min,left,right,x,y,xpect)
+  xy  = sort(xy,firsts)
+  xlo = xy[  1][1]
+  xhi = xy[#xy][1]
+  min = sd(ynum)
+  if ynum.hi - ynum.lo > 2*tiny then
+    left, right = Num(), ynum
+    for k,z in  pairs(xy) do
+      x,y = z[1], z[2]
+      add(left,y)
+      sub(right,y)
+      if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
+           x-xlo >= xeps and xhi-x >= xeps 
+      then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
+           if tmp < xpect then cut,min = x,xpect end end end end
+  return cut,min end
 
 upto = function(x,y) return y<=x end 
 over = function(x,y) return y>x  end
 eq   = function(x,y) return x==y end
 
+-- Divide a column of symbols into one row per symbol. Return the
+-- cuts and expecte
 function symcuts(at,egs,txt,    xy,n,x)
   function cuts(     xpect,cuts,size)
     size  = 0
@@ -163,27 +183,11 @@ function symcuts(at,egs,txt,    xy,n,x)
   return cuts() end
 
 function numcuts(i,at,txt,     argmin,cuts)
-  function argmin(xy,ynum,xeps,tiny,    xy,xlo,xhi,min,left,right,x,y,xpect)
-    xy  = sort(xy,firsts)
-    xlo = xy[  1][1]
-    xhi = xy[#xy][1]
-    min = sd(ynum)
-    if ynum.hi - ynum.lo > 2*tiny then
-      left, right = Num(), ynum
-      for k,z in  pairs(xy) do
-        x,y = z[1], z[2]
-        add(left,y)
-        sub(right,y)
-        if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
-             x-xlo >= xeps and xhi-x >= xeps 
-        then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
-             if tmp < xpect then cut,min = x,xpect end end end end
-    return cut,min end
-  -------------------
+   -------------------
   function cuts(xy,ynum,    xepsilon, tiny)
     xespilon  = sd(i.num[at])*the.epsilon
     tiny      = (#i.egs)*the.Tiny
-    cut,xpect  = argmin(xy,ynum,xepsilon, tiny)
+    cut,xpect  = minXpect(xy,ynum,xepsilon, tiny)
     if cut then
       return xpect, {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
                      {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
