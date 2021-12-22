@@ -23,18 +23,21 @@ local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 -- |  ||_) (_.
 local same
 same= function(x,...) return x end
-local push,sort
+
+local push,sort,ones
 push= function(t,x) table.insert(t,x); return x end
-sort= function(t)   table.sort(t);     return t end
+sort= function(t,f) table.sort(t,f);   return t end
 ones= function(a,b) return a[1] < b[1] end
 
-local copy,keys,map
+local copy,keys,map,sum
 copy=function(t,    u) u={};for k,v in pairs(t) do u[k]=v          end; return u       end
 keys=function(t,    u) u={};for k,_ in pairs(t) do u[1+#u]=k       end; return sort(u) end
 map =function(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v) end; return u       end
 sum =function(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end; return n    end
 
-local hue,shout,out
+local hue,shout,out,say,fmt
+fmt  = string.format
+say  = function(...) print(string.format(...)) end
 hue  = function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
 shout= function(x) print(out(x)) end
 
@@ -60,13 +63,27 @@ function csv(file,   x)
       if #t>0 then return t end 
     else io.close(file) end end end
 
-num= function(i) return {n=0, mu=0, m2=0, lo=math.huge, hi= -math.huge} end
-sd = function(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
+local Num,sd,sub,add
+Num= function(i) return {n=0, mu=0, m2=0, lo=math.huge, hi= -math.huge} end
+sd = function(i) return (i.m2/(i.n-1))^0.5 end 
 
-function sub(i,x,  d) i.n=i.n-1; d=x-i.mu; i.mu=i.mu-d/i.n; i.m2=i.m2-d*(x-i.mu) end
-function add(i,x,  d) i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
+function sub(i,x,  d) 
+  i.n=i.n-1; d=x-i.mu; i.mu=i.mu-d/i.n; i.m2=i.m2-d*(x-i.mu)
+  return end
+function add(i,x,  d) 
+  i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
   i.lo = math.min(x, i.lo)
-  i.hi = math.max(x, i.hi) end
+  i.hi = math.max(x, i.hi)
+  return x end
+
+local norm,randi,rand
+norm = function(lo,hi,x) return math.abs(lo - hi)<1E-9 and 0 or (x-lo)/(hi-lo) end
+randi= function(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+
+function rand(lo,hi)
+  lo, hi = lo or 0, hi or 1
+  the.seed = (16807 * the.seed) % 2147483647
+  return lo + (hi-lo) * the.seed / 2147483647 end
 
 --  __.           .   
 -- (__  _.._ _ ._ | _ 
@@ -95,7 +112,7 @@ function sample(eg,i)
   local head,datum
   function head(n,x)
     if not x:find":" then  -- [10]
-      if x:match"^[A-Z]" then i.num[n]= num() end -- [6]]
+      if x:match"^[A-Z]" then i.num[n]= Num() end -- [6]]
       if x:find"-" or x:find"+" 
       then i.ys[n]    = x
            i.nys      = i.nys+1 
@@ -104,7 +121,7 @@ function sample(eg,i)
     return x  end
   function datum(n,x) -- [4]
     local num=i.num[n]
-    if num and x ~= "?" then inc(num,x) end 
+    if num and x ~= "?" then add(num,x) end 
     return x end 
   --------------
   if   i 
@@ -142,21 +159,32 @@ function ordered(i)
 
 -- utility to take a list of {{x,y},..} pairs to return a cut on
 -- x that most minimizes expected value of variance of y
-function minXpect(xy,ynum,xeps,tiny,    xy,xlo,xhi,min,left,right,x,y,xpect)
-  xy  = sort(xy,firsts)
+local minXpect,upto,over,eq,symcuts,numcuts,at_cuts
+function minXpect(xy,ynum,xeps,tiny,    x,y,xlo,xhi,cut,min,left,right,xpect)
+  shout{xeps=xeps, ones=ones,tiny=tiny}
+  xy  = sort(xy, ones)
   xlo = xy[  1][1]
   xhi = xy[#xy][1]
   min = sd(ynum)
-  if ynum.hi - ynum.lo > 2*tiny then
-    left, right = Num(), ynum
+  print(0,min)
+  if xhi - xlo > 2*tiny then
+    left, right = Num(), copy(ynum)
     for k,z in  pairs(xy) do
       x,y = z[1], z[2]
-      add(left,y)
+      add(left, y)
       sub(right,y)
-      if   k >= tiny     and k <= #xy - tiny and x ~= xy[k+1][1] and 
-           x-xlo >= xeps and xhi-x >= xeps 
-      then xpect = left.n/#xy*sd(left) + right.n/#xy*sd(right)
-           if tmp < xpect then cut,min = x,xpect end end end end
+      shout(left)
+      if k>=tiny then
+        if k<=#xy-tiny then
+          if x~=xy[k+1][1] then
+            if x-xlo>=xeps then
+              if xhi-x>=xeps then 
+                xpect = left.n/(#xy)*sd(left) + right.n/(#xy)*sd(right)
+                --say(":: %5f %5f %5.2f",min,  xpect, min-xpect)
+                io.write(".")
+                if min-xpect > 0.01 then 
+                   print("||",k,x,10)
+                   cut,min = x,xpect end end end end end end end  end
   return cut,min end
 
 upto = function(x,y) return y<=x end 
@@ -196,7 +224,7 @@ function numcuts(i,at,txt,     argmin,cuts)
   for _,eg in pairs(egs) do 
     local x = eg.cell[at]
     if x ~= "?" then 
-      inc(ynum, x)
+      add(ynum, x)
       push(xy, {x, eg.klass}) end end
   return cuts(xy,ynum) end
 
@@ -209,7 +237,7 @@ function at_cuts(i)
     if xpect and xpect < min then out,min,cuts = at,xpect,cuts0 end end
   return at, cuts end
 
-function tree(xs, egs,lvl)
+local function tree(xs, egs,lvl)
   local here,at,splits,counts
   for _,eg in pairs(egs) do counts=count(counts,eg.klass) end
   here = {mode=mode(counts), n=#egs, kids={}}
@@ -246,23 +274,19 @@ function go.ordered(  s,n)
   s = ordered(slurp())
   n = #s.egs
   shout(s.heads)
-  for i=1,15 do shout(s.egs[i].raw) end
+  for i=1,15 do shout(s.egs[i].cells) end
   print("#")
-  for i=n,n-15,-1 do shout(s.egs[i].raw) end 
-  n={}; for _,eg in pairs(s.egs) do n=count(n,eg.klass) end
-  shout(n)
+  for i=n,n-15,-1 do shout(s.egs[i].cells) end 
 end
 
-function go.bins(    s)
-  s= discretize(ordered(slurp())) 
-  for m,div in pairs(s.divs) do 
-    print("")
-    for n,div1 in pairs(div) do print(m, n,out(div1)) end end 
-  end
-
-function go.tree(  s,t) 
-  s = discretize(ordered(slurp()))
-  show(s,tree(s.xs, s.egs))
+function go.num(    cut,min)
+  local xy, xnum, ynum = {}, Num(), Num()
+  for i=1,100 do push(xy, {add(xnum,i), add(ynum, rand()^2)}) end
+  shout{sd=sd(ynum), mu=ynum.mu}
+  --shout(xy)
+  cut,min= minXpect(xy, ynum, .35*sd(xnum), (#xy)^the.Tiny)
+  print("")
+  shout{cut=cut, min=min}
 end
 
 --  __. ,        ,            
