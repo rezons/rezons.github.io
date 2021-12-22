@@ -70,6 +70,7 @@ sd = function(i) return (i.m2/(i.n-1))^0.5 end
 function sub(i,x,  d) 
   i.n=i.n-1; d=x-i.mu; i.mu=i.mu-d/i.n; i.m2=i.m2-d*(x-i.mu)
   return end
+
 function add(i,x,  d) 
   i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
   i.lo = math.min(x, i.lo)
@@ -177,50 +178,39 @@ upto = function(x,y) return y<=x end
 over = function(x,y) return y>x  end
 eq   = function(x,y) return x==y end
 
-function numcuts(i,at,txt)
-  local xy, ynum = {}, Num()
-  local function collect()
-    for _,eg in pairs(egs) do 
-      local x = eg.cell[at]
-      if x ~= "?" then 
-        add(ynum, x)
-        push(xy, {x, eg.klass}) end end end
-  local function split(    xepsilon, tiny)
-    xespilon  = sd(i.num[at])*the.epsilon
-    tiny      = (#i.egs)*the.Tiny
-    cut,xpect = minXpect(xy,ynum,xepsilon, tiny)
-    if cut then
-      return xpect, {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
-                     {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
-  collect()
-  return split() end
+function numcuts(i,at,egs,txt,epsilon,tiny)
+  local xy,x,xpect,ynum,cut
+  xy, ynum = {}, Num()
+  for _,eg in pairs(egs) do 
+    x = eg.cells[at]
+    if x ~= "?" then 
+      add(ynum, x)
+      push(xy, {x, eg.klass}) end end 
+  cut,xpect = minXpect(xy,ynum, epsilon,tiny)
+  if cut then return xpect, {
+                  {txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
+                  {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
 
--- Divide a column of symbols into one row per symbol. Return the
--- cuts and expecte
 function symcuts(at,egs,txt)
-  local xy,n = {},0
-  local function collect()
-    for _,eg in pairs(egs) do
-      local x=eg.cells[at]
-      if  x ~= "?" then
-        n = n + 1
-        xy[x] = xy[x] or Num()
-        add(xy[x], eg.klass) end  end end
-  local function split(     xpect,size)
-    size  = 0
-    xpect = sum(xy, function(num) size=size+1; return num.n/n*sd(num) end)
-    if size > 1 then
-      return xpect,map(keys(xy),function(x) 
-                   return {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
-  collect()
-  return split() end
+  local xy,x,xpect,n
+  xy,n = {},0,0
+  for _,eg in pairs(egs) do
+    x=eg.cells[at]
+    if  x ~= "?" then
+      n = n + 1
+      xy[x] = xy[x] or Num() 
+      add(xy[x], eg.klass) end  end 
+  if #(keys(xy)) > 1 then
+    xpect = sum(xy, function(num) return num.n/n*sd(num) end)
+    return xpect,map(keys(xy), function(x) return
+                    {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
 
-function at_cuts(i)
-  local at,cuts
-  for at,txt in pairs(i.xs) do
+function at_cuts(i,egs,epsilon,tiny)
+  local at, cuts, cuts0
+  for at,txt in pairs(xs) do
     if i.num[at] 
-    then xpect,cuts0 = nums(i,at,txt) 
-    else xpect,cuts0 = syms(i,at,txt) end
+    then xpect,cuts0 = numcuts(i,at,egs,txt,espilon,tiny) 
+    else xpect,cuts0 = symcuts(at,egs,txt) end
     if xpect and xpect < min then out,min,cuts = at,xpect,cuts0 end end
   return at, cuts end
 
@@ -277,10 +267,20 @@ function go.symcuts(  s,xpect,cuts)
   s=ordered(slurp())
   print(out(s.xs),out(s.ys)) 
   xpect,cuts = symcuts(7,s.egs, "origin") 
-  print(7, sd(s.num[7]))
   for _,cut in pairs(cuts) do print(xpect, out(cut)) end end
 
+function go.numcuts(  s,xpect,cuts)
+  s=ordered(slurp())
+  xpect,cuts = numcuts(s,2,s.egs,"Dsiplcment")
+  if xpect then
+    for _,cut in pairs(cuts) do print(xpect, out(cut)) end end end
 
+function  go.atcuts()
+  s=ordered(slurp())
+  ynum=Num()
+  map(s.egs,function(_,eg) add(ynum, eg.klass) end)
+  at,cuts=at_cuts(s,s.egs,sd(ynum)*the.epsilon, (#s.egs)^the.Tiny) 
+  for _,cut in pairs(cuts) do print(at, out(cut)) end end 
 --  __. ,        ,            
 -- (__ -+- _.._.-+- ___ . .._ 
 -- .__) | (_][   |      (_|[_)
