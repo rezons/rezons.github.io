@@ -177,42 +177,43 @@ upto = function(x,y) return y<=x end
 over = function(x,y) return y>x  end
 eq   = function(x,y) return x==y end
 
+function numcuts(i,at,txt)
+  local xy, ynum = {}, Num()
+  local function collect()
+    for _,eg in pairs(egs) do 
+      local x = eg.cell[at]
+      if x ~= "?" then 
+        add(ynum, x)
+        push(xy, {x, eg.klass}) end end end
+  local function split(    xepsilon, tiny)
+    xespilon  = sd(i.num[at])*the.epsilon
+    tiny      = (#i.egs)*the.Tiny
+    cut,xpect = minXpect(xy,ynum,xepsilon, tiny)
+    if cut then
+      return xpect, {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
+                     {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
+  collect()
+  return split() end
+
 -- Divide a column of symbols into one row per symbol. Return the
 -- cuts and expecte
-function symcuts(at,egs,txt,    cuts, xy,n,x)
-  function cuts(     xpect,size)
+function symcuts(at,egs,txt)
+  local xy,n = {},0
+  local function collect()
+    for _,eg in pairs(egs) do
+      local x=eg.cells[at]
+      if  x ~= "?" then
+        n = n + 1
+        xy[x] = xy[x] or Num()
+        add(xy[x], eg.klass) end  end end
+  local function split(     xpect,size)
     size  = 0
     xpect = sum(xy, function(num) size=size+1; return num.n/n*sd(num) end)
     if size > 1 then
       return xpect,map(keys(xy),function(x) 
                    return {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
-  -----------
-  xy,n = {},0
-  for _,eg in pairs(egs) do
-    local x=eg.cells[at]
-    if  x ~= "?" then
-      n = n + 1
-      xy[x] = xy[x] or Num()
-      add(xy[x], eg.klass) end  end
-  return cuts() end
-
-function numcuts(i,at,txt,     argmin,cuts)
-   -------------------
-  function cuts(xy,ynum,    xepsilon, tiny)
-    xespilon  = sd(i.num[at])*the.epsilon
-    tiny      = (#i.egs)*the.Tiny
-    cut,xpect  = minXpect(xy,ynum,xepsilon, tiny)
-    if cut then
-      return xpect, {{txt=fmt("%s<=%s",txt,cut), at=at, op=upto, val=cut},
-                     {txt=fmt("%s>%s",txt,cut),  at=at, op=over, val=cut}} end end
-  -------------------
-  local xy, ynum = {}, Num()
-  for _,eg in pairs(egs) do 
-    local x = eg.cell[at]
-    if x ~= "?" then 
-      add(ynum, x)
-      push(xy, {x, eg.klass}) end end
-  return cuts(xy,ynum) end
+  collect()
+  return split() end
 
 function at_cuts(i)
   local at,cuts
