@@ -105,10 +105,10 @@ function rand(lo,hi)
 --      "raw" values (not discretized) and the "cooked" examples (discretized).
 local slurp,sample,ordered
 function slurp(out)
-  for eg in csv(the.file) do out=sample(eg,out) end --[2] 
+  for eg in csv(the.file) do out=sample(out,eg) end --[2] 
   return ordered(out) end
 
-function sample(eg,i)
+function sample(i,eg)
   local head,datum
   function head(n,x)
     if not x:find":" then  -- [10]
@@ -116,8 +116,8 @@ function sample(eg,i)
       if x:find"-" or x:find"+" 
       then i.ys[n]    = x
            i.nys      = i.nys+1 
-           i.num[n].w = x:find"-" and -1 or 1 end -- [9]
-      else i.xs[n] = x end 
+           i.num[n].w = x:find"-" and -1 or 1     -- [9]
+      else i.xs[n] = x end end
     return x  end
   function datum(n,x) -- [4]
     local num=i.num[n]
@@ -160,31 +160,17 @@ function ordered(i)
 -- utility to take a list of {{x,y},..} pairs to return a cut on
 -- x that most minimizes expected value of variance of y
 local minXpect,upto,over,eq,symcuts,numcuts,at_cuts
-function minXpect(xy,ynum,xeps,tiny,    x,y,xlo,xhi,cut,min,left,right,xpect)
-  shout{xeps=xeps, ones=ones,tiny=tiny}
+function minXpect(xy,ynum,eps,tiny,    x,y,xlo,xhi,cut,min,left,right,xpect)
   xy  = sort(xy, ones)
-  xlo = xy[  1][1]
-  xhi = xy[#xy][1]
-  min = sd(ynum)
-  print(0,min)
+  min, xlo, xhi = sd(ynum), xy[1][1], xy[#xy][1]
   if xhi - xlo > 2*tiny then
     left, right = Num(), copy(ynum)
     for k,z in  pairs(xy) do
       x,y = z[1], z[2]
-      add(left, y)
-      sub(right,y)
-      shout(left)
-      if k>=tiny then
-        if k<=#xy-tiny then
-          if x~=xy[k+1][1] then
-            if x-xlo>=xeps then
-              if xhi-x>=xeps then 
-                xpect = left.n/(#xy)*sd(left) + right.n/(#xy)*sd(right)
-                --say(":: %5f %5f %5.2f",min,  xpect, min-xpect)
-                io.write(".")
-                if min-xpect > 0.01 then 
-                   print("||",k,x,10)
-                   cut,min = x,xpect end end end end end end end  end
+      sub(right,add(left,y))
+      if k>=tiny and k<=#xy-tiny and x~=xy[k+1][1] and x-xlo>=eps and xhi-x>=eps 
+      then xpect = left.n/(#xy)*sd(left) + right.n/(#xy)*sd(right)
+           if min-xpect > 0.01 then cut,min = x,xpect end end end end
   return cut,min end
 
 upto = function(x,y) return y<=x end 
@@ -193,17 +179,17 @@ eq   = function(x,y) return x==y end
 
 -- Divide a column of symbols into one row per symbol. Return the
 -- cuts and expecte
-function symcuts(at,egs,txt,    xy,n,x)
-  function cuts(     xpect,cuts,size)
+function symcuts(at,egs,txt,    cuts, xy,n,x)
+  function cuts(     xpect,size)
     size  = 0
     xpect = sum(xy, function(num) size=size+1; return num.n/n*sd(num) end)
     if size > 1 then
-       return xpect,map(keys(xy),function(x) 
-                    return {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
+      return xpect,map(keys(xy),function(x) 
+                   return {txt=fmt("%s=%s",txt,x),at=at,op=eq,val=x} end) end end
   -----------
   xy,n = {},0
   for _,eg in pairs(egs) do
-    local x=eg.cell[at]
+    local x=eg.cells[at]
     if  x ~= "?" then
       n = n + 1
       xy[x] = xy[x] or Num()
@@ -281,13 +267,18 @@ end
 
 function go.num(    cut,min)
   local xy, xnum, ynum = {}, Num(), Num()
-  for i=1,100 do push(xy, {add(xnum,i), add(ynum, rand()^2)}) end
-  shout{sd=sd(ynum), mu=ynum.mu}
-  --shout(xy)
+  for i=1,400   do push(xy, {add(xnum,i), add(ynum, rand()^3  )}) end
+  for i=401,500 do push(xy, {add(xnum,i), add(ynum, rand()^.25)})  end
   cut,min= minXpect(xy, ynum, .35*sd(xnum), (#xy)^the.Tiny)
-  print("")
-  shout{cut=cut, min=min}
-end
+  shout{cut=cut, min=min} end
+
+function go.symcuts(  s,xpect,cuts)
+  s=ordered(slurp())
+  print(out(s.xs),out(s.ys)) 
+  xpect,cuts = symcuts(7,s.egs, "origin") 
+  print(7, sd(s.num[7]))
+  for _,cut in pairs(cuts) do print(xpect, out(cut)) end end
+
 
 --  __. ,        ,            
 -- (__ -+- _.._.-+- ___ . .._ 
