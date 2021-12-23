@@ -7,6 +7,7 @@ todo
 - num sym can optionally have  ppinter back to their
   sample. so cuts cane be implemented  in those objcts.
 
+sample class
 numerics splits y gaussian  cut
 
 import numpy as np
@@ -26,3 +27,5 @@ m2 = 5.0
 std2 = 1.0
 
 result = solve(m1,m2,std1,std2)
+
+cut object. print method

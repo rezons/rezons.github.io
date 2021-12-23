@@ -1,15 +1,18 @@
 local the,help = {}, [[
-lua 2tree.lua [OPTIONS]
+lua rezon.lua [OPTIONS]
 
-Tree learner (binary splits on numierics
+Tree learner (binary splits on numerics using Gaussian approximation)
 (c)2021 Tim Menzies <timm@ieee.org> unlicense.org
 
 OPTIONS:
   -best     X   Best examples are in 1..best*size(all)    = .2
   -debug    X   run one test, show stackdumps on fail     = ing
   -epsilon  X   ignore differences under epsilon*stdev    = .35  
+  -Far      X   How far to look for remove items          = .9
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
+  -little   X   size of subset of a list                 = 256
+  -p        X   distance calc coefficient                 = 2
   -seed     X   Random number seed;                       = 10019
   -Stop     X   Create subtrees while at least 2*stop egs =  4
   -Tiny     X   Min range size = size(egs)^tiny           = .5
@@ -48,6 +51,14 @@ function out(t,   u,key,val)
   u = #t>0 and map(t, val) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
 
+local ako,has,obj
+ako= getmetatable
+has= function(mt,x) return setmetatable(x,mt) end
+obj= function(s, o,new)
+       o = {_is=s, __tostring=lib.out}
+       o.__index = o
+       return setmetatable(o,{__call=function(_,...) return o.new(...) end}) end
+
 local coerce,csv
 function coerce(x)
   if x=="true"  then return true  end
@@ -63,47 +74,208 @@ function csv(file,   x)
       if #t>0 then return t end 
     else io.close(file) end end end
 
-local Num,sd,sub,add
-Num= function(i) return {n=0, mu=0, m2=0, lo=math.huge, hi= -math.huge} end
-sd = function(i) return (i.m2/(i.n-1))^0.5 end 
+local log,sqrt,randi,rand,rnd,rnds,any,some
+log = math.log
+sqrt= math.sqrt
+rnd = function(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
+rnds= function(t,d)     return map(t, function(_,x) return rnd(x,d or 2) end) end
+any = function(t)       return t[randi(1,#t)] end
 
-function sub(i,x,  d) 
-  i.n=i.n-1; d=x-i.mu; i.mu=i.mu-d/i.n; i.m2=i.m2-d*(x-i.mu)
-  return end
+function some(t,n,    u)
+  if n >= #t then return copy(t) end
+  u={};for i=1,n do push(u,any(t)) end; return u end
 
-function add(i,x,  d) 
-  i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
-  i.lo = math.min(x, i.lo)
-  i.hi = math.max(x, i.hi)
-  return x end
-
-local norm,randi,rand
-norm = function(lo,hi,x) return math.abs(lo - hi)<1E-9 and 0 or (x-lo)/(hi-lo) end
-randi= function(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-
+randi = function(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
   lo, hi = lo or 0, hi or 1
   the.seed = (16807 * the.seed) % 2147483647
   return lo + (hi-lo) * the.seed / 2147483647 end
 
---  __.           .   
--- (__  _.._ _ ._ | _ 
--- .__)(_][ | )[_)|(/,
---             |      
--- [5]  Returns a sample, initialized, updated
--- [1]  Self initialize (if nil, then create).
--- [2]  Read from disc file
--- [3]  First item is special (contains names of columns)
--- [4]  Other rows are the actual examples. Use these to update column headers
--- [6]  Numeric columns have an "num[n]" entry that tracks the
---      "num[n].lo" and "num[n].hi" range for each variable.
--- [7]  Columns to be minimized or maximized are dependent (listed in "ys")
--- [8]  All other columns are the independent (listed in "xs")
--- [9]  Dependent variables are minimized,maximized at weights -1,1 
---      if their name contains "-" or "+". The number of dependents ins "nys"
--- [10] Columns contain ":" are ignored
--- [11] Each example will be discretized (later) so each example holds the
---      "raw" values (not discretized) and the "cooked" examples (discretized).
+-------------------------------------------------------------------------------
+local Eg=obj"Eg"
+
+function Eg.new(cells) self.cells = cells end
+
+function Eg:mid(cols)    return map(cols, function(_,c) return c:mid()    end) end
+function Eg:spread(cols) return map(cols, function(_,c) return c:spread() end) end
+
+function Eg:dist(other,cols,   a,b,d,n,inc)
+  d,n = 0,0
+  for _,col in pairs(cols) do
+    a,b = self.cells[col.at], other.cells[col.at]
+    inc = a=="?" and b=="?" and 1 or col:dist(a,b)
+    d   = d + inc^the.p
+    n   = n + 1 end
+  return (d/n)^(1/the.p) end
+
+function Eg:better(other,cols,     e,n,a,b,s1,s2)
+  n,s1,s2,e = #cols, 0, 0, 2.71828
+  for _,num in pairs(cols) do
+    a  = num:norm(self.cells[ num.at])
+    b  = num:norm(other.cells[num.at])
+    s1 = s1 - e^(num.w * (a-b)/n) 
+    s2 = s2 - e^(num.w * (b-a)/n) end
+  return s1/n < s2/n end 
+
+-------------------------------------------------------------------------------
+local Num=obj"Num"
+function Num.new(inits,at,txt,     self)
+  self = has(Num,{n=0, at=at or 0, txt=txt or "",  
+                  w=(txt or ""):find"-" and -1 or 1,
+                  mu=0, m2=0, lo=math.huge, hi=-math.huge}) 
+  for _,x in pairs(inits or {}) do self:add(x) end
+  return self end
+
+function Num:mid()    return self.mu end
+function Num:spread() return (self.m2/(self.n-1))^0.5 end 
+
+function Num:add(x,  d) 
+  if x ~= "?" then
+    self.n=self.n+1
+    d=x-self.mu
+    self.mu= self.mu+d/self.n
+    self.m2= self.m2+d*(x-self.mu) 
+    self.lo = math.min(x, self.lo)
+    self.hi = math.max(x, self.hi) end
+  return x end
+
+function Num:norm(x)
+  local lo,hi = self.lo,self.hi
+  return  math.abs(hi - lo) < 1E-9 and 0 or (x-lo)/(hi-lo) end
+
+function Num:dist(x,y)
+  if     x=="?" then y=self:norm(y); x=y>0.5 and 0 or 1
+  elseif y=="?" then x=self:norm(x); y=x>0.5 and 0 or 1
+  else   x, y = self:norm(x), self:norm(y) end
+  return (x-y) end
+
+function Num:split(other)
+  local i, j, e, a, b, c, root1, root2 = self, other, 2.71828
+  a = 1/(2*sd(i)^2) - 1/(2*sd(j)^2)
+  b = j.mu/(sd(j)^2) - i.mu/(sd(i)^2)
+  c = i.mu^2 /(2*sd(i)^2) - j.mu^2 / (2*sd(j)^2) - mat
+  root1 = (-b - sqrt(b*b - 4*a*c) )/2*a
+  root2 = (-b + sqrt(b*b - 4*a*c) )/2*a
+  return i.mu<=root1 and root1<=j.mu and root1 or root2 end
+
+-------------------------------------------------------------------------------
+local Skip=obj"Skip"
+function Skip.new(inits,at,txt)
+  return has(Skip,{n=0, at=at or 0, txt=txt or ""}) end
+
+function Skip:mid()    return "?" end
+function Skip:spread() return 0   end
+function Skip:add(x)   return  x  end
+
+-------------------------------------------------------------------------------
+local Sym=obj"Sym"
+function Sym.new(inits,at,txt,sample,     self)
+  self=  has(Sym,{n=0, at=at or 0, txt=txt or "", sample=sample, 
+                  seen={}, mode=nil, most=0})
+  for _,x in pairs(inits or {}) do self:add(x) end
+  return self end
+
+function Sym:mid()    return self.mode end
+function Sym:spread() return sum(self.seen,function(n) 
+                                       return -n/self.n*log(n/self.n,2) end) end
+function Sym:add(x)
+  self.seen[x] = (self.seen[x] or 0) + 1
+  if self.seen[x] > self.most then self.mode, self.most = x, self.seen[x] end 
+  return x end
+
+function Sym:dist(x,y) return  x==y and 0 or 1 end
+
+function Sym:split(other)
+  local out={}
+  for k,_ in pairs(self.seen)  do push(out,k) end
+  for k,_ in pairs(other.seen) do push(out,k) end
+  return out end
+
+-------------------------------------------------------------------------------
+local Cols=obj"Cols"
+function Cols.new(names,    self, new,what)
+  self = has(Cols, {names=names, xs={}, all={}, ys={}})
+  for n,x in pairs(names) do
+    new = (x:find":" and Skip or x:match"^[A-Z]" and Num or Sym)({},n,x)
+    push(self.all, new)
+    if not x:find":" then
+      what = (x:find"-" or x:find"+") and self.ys or self.xs
+      push(what, new) end end 
+  return self end 
+
+function Cols:add(eg)
+  return map(eg, function(n,x) self.all[n]:add(x); return x end) end
+
+-------------------------------------------------------------------------------
+local Sample=obj"Sample"
+function Sample.new(inits,    self)
+  self = has(Sample, {cols=nil, egs={}})
+  if type(inits)=="string" then for eg in csv(inits)   do self:add(eg) end end
+  if type(inits)=="table"  then for eg in pairs(inits) do self:add(eg) end end 
+  return self end
+
+function Sample:clone(inits,   out)
+  out = Sample:new{self.cols.names}
+  for _,eg in pairs(inits or {}) do out:add(eg) end
+  return out end 
+
+function Sample:add(eg)
+  eg = eg.cells and eg.cells or eg
+  if   self.cols 
+  then push(self.egs,eg); self.cols:add(eg) 
+  else self.cols = Cols(eg) end end
+
+function Sample:neighbors(eg1,egs,cols)
+  local dist_eg2 = function(_,eg2) return {eg1:dist(eg2,cols or self.xs),eg2} end
+  return sort(map(egs or self.egs,dist_eg2),firsts) end
+
+function Sample:distance_farExample(eg1,egs,cols,    tmp)
+  tmp = self:neighbors(eg1, egs, cols)
+  return table.unpack(tmp[#tmp*self.Far//1]) end
+
+function Sample:twain(egs,cols)
+  local egs, north, south, a,b,c, lo,hi
+  egs     = nany(egs or self.egs, self.little)
+  _,north = self:distance_farExample(any(self.egs), egs, cols)
+  c,south = self:distance_farExample(north,         egs, cols)
+  for _,eg in pairs(self.egs) do
+    a = eg:dist(north, cols)
+    b = eg:dist(south, cols)
+    eg.tmpx = (a^2 + c^2 - b^2)/(2*c) end
+  lo, ho = self:clone(), self:clone()
+  for n,eg in pairs(sort(self.egs, function(a,b) return a.tmpx < b.tmpx end)) do
+    if n < .5*#eg then lo:add(eg) else hi:add(eg) end end 
+  return lo, hi end 
+
+function Sample:mid(cols)
+  return map(cols or self.cols.all,function(_,col) return col:mid() end) end
+
+function Sample:nearest(eg, one,two)
+  eg         = eg.cells and eg or Row(eg)
+  mid1, mid2 = Row(one:mid()), Row(two;mid())
+  d1, d2     = eg:dist(mid1,self.xs), eg:dist(mid2,self.xs)
+  return d1 < d2 and one or two end
+
+upto = function(x,y) return y<=x end 
+over = function(x,y) return y>x  end
+eq   = function(x,y) return x==y end
+
+function Sample:splits(other)
+  todo = {}
+  for pos,col in pairs(self.cols.xs) do
+    cut = col:splits(other.cols.xs[pos])
+    if   isa(col) == Num 
+    then lo,hi = {txt=fmt("self:clone(), self:clone) 
+    else cuts  = map(end
+    for _,eg in pairs(i.egs) do
+      x = eg.cells[col.at]
+      if x=="?" then push(todo, eg) else
+        if isa(col) == Num
+
+    if isa(col)==Num then
+
+end
+map(self.cols.all
 local slurp,sample,ordered
 function slurp(out)
   for eg in csv(the.file) do out=sample(out,eg) end --[2] 
@@ -174,10 +346,6 @@ function minXpect(xy,ynum,eps,tiny,    x,y,xlo,xhi,cut,min,left,right,xpect)
            if min-xpect > 0.01 then cut,min = x,xpect end end end end
   return cut,min end
 
-upto = function(x,y) return y<=x end 
-over = function(x,y) return y>x  end
-eq   = function(x,y) return x==y end
-
 function numcuts(i,at,egs,txt,epsilon,tiny)
   local xy,x,xpect,ynum,cut
   xy, ynum = {}, Num()
@@ -215,13 +383,6 @@ function at_cuts(i,egs,epsilon,tiny)
     if xpect and xpect < min then at,min,cuts = at0,xpect,cuts0 end end
   return at, cuts end
 
-local function tree1(i,egs,epsilon,tiny,lvl)
-  ynum= Num(a); map(egs,function(_,eg) add(ynum, eg.klass) end)
-  here = {mu=ynum.mu, n=#egs, kids={}}
-  at, cuts  = at_cuts(i,eps,epsilon,tiny)
-  for _,eg in pair(egs) do
-    :here.kids = map(cuts, function(_,cut) 
-                          map(egs,function(_,eg) if cut.op(
 
   
 local function tree(i)
