@@ -42,6 +42,10 @@ alias vi="vim -u $here/etc/vimrc "
 alias vims="vim +PluginInstall +qall"         
 alias mds="cd $here/src; ../etc/md *.lua; gp"
 
+
+export BASH_SILENCE_DEPRECATION_WARNING=1
+export PATH=/opt/homebrew/bin:$PATH
+
 doc() {
   mkdir -p $here/docs
   docco -o $here/docs $*

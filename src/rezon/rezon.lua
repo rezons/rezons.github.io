@@ -149,23 +149,30 @@ function Num:dist(x,y)
   else   x, y = self:norm(x), self:norm(y) end
   return (x-y) end
 
-function Num:split(other)
-  local i, j, e, a, b, c, root1, root2 = self, other, 2.71828
+function Num:splits(other)
+  function cuts(x,s,at) return {
+    {val=x, at=at, txt=fmt("%s<=$s",s,x), when=function(z) return z<=x end},
+    {val=x, at=at, txt=fmt("%s >$s",s,x), when=function(z) return z >x end}}
+  end
+  local i, j, e, a, b, c, x1, x2 = self, other, 2.71828
   a = 1/(2*sd(i)^2) - 1/(2*sd(j)^2)
   b = j.mu/(sd(j)^2) - i.mu/(sd(i)^2)
   c = i.mu^2 /(2*sd(i)^2) - j.mu^2 / (2*sd(j)^2) - mat
-  root1 = (-b - sqrt(b*b - 4*a*c) )/2*a
-  root2 = (-b + sqrt(b*b - 4*a*c) )/2*a
-  return i.mu<=root1 and root1<=j.mu and root1 or root2 end
+  x1 = (-b - sqrt(b*b - 4*a*c) )/2*a
+  x2 = (-b + sqrt(b*b - 4*a*c) )/2*a
+  if  i.mu<=x1 and x1<=j.mu 
+  then return cuts(x1,self.txt,self.at) 
+  else return cuts(x2,self.txt,self.at) end end
 
 -------------------------------------------------------------------------------
 local Skip=obj"Skip"
 function Skip.new(inits,at,txt)
   return has(Skip,{n=0, at=at or 0, txt=txt or ""}) end
 
-function Skip:mid()    return "?" end
-function Skip:spread() return 0   end
-function Skip:add(x)   return  x  end
+function Skip:mid()     return "?" end
+function Skip:spread()  return 0   end
+function Skip:add(x)    return x   end
+function Skip:splits(_) return {}  end
 
 -------------------------------------------------------------------------------
 local Sym=obj"Sym"
