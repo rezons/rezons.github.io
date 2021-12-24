@@ -21,29 +21,26 @@ OPTIONS:
                 If "X=ls" then list all. ]]
 
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
--- .  .       
--- |\/|* __ _.
--- |  ||_) (_.
-local same
-same= function(x,...) return x end
-
+-----------------------------------------------------------------------------------------       
+local same                                                           --  _  _ _ ____ ____ 
+function same(x,...) return x end                                    --  |\/| | [__  |    
+                                                                     --  |  | | ___] |___ 
 local push,sort,ones
-push= function(t,x) table.insert(t,x); return x end
-sort= function(t,f) table.sort(t,f);   return t end
-ones= function(a,b) return a[1] < b[1] end
+function push(t,x) table.insert(t,x); return x end
+function sort(t,f) table.sort(t,f);   return t end
+function ones(a,b) return a[1] < b[1] end
 
 local copy,keys,map,sum
-copy=function(t,    u) u={};for k,v in pairs(t) do u[k]=v          end; return u       end
-keys=function(t,    u) u={};for k,_ in pairs(t) do u[1+#u]=k       end; return sort(u) end
-map =function(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v) end; return u       end
-sum =function(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end; return n    end
+function copy(t,    u) u={};for k,v in pairs(t) do u[k]=v           end; return u       end
+function keys(t,    u) u={};for k,_ in pairs(t) do u[1+#u]=k        end; return sort(u) end
+function map(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v)   end; return u       end
+function sum(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end;return n       end
 
 local hue,shout,out,say,fmt
 fmt  = string.format
-say  = function(...) print(string.format(...)) end
-hue  = function(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
-shout= function(x) print(out(x)) end
-
+function say(...) print(string.format(...)) end
+function hue(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
+function shoud(x) print(out(x)) end
 function out(t,   u,key,val)
   function key(_,k) return string.format(":%s %s", k, out(t[k])) end
   function val(_,v) return out(v) end
@@ -51,18 +48,9 @@ function out(t,   u,key,val)
   u = #t>0 and map(t, val) or map(keys(t), key) 
   return "{"..table.concat(u," ").."}" end 
 
-local ako,has,obj
-ako= getmetatable
-has= function(mt,x) return setmetatable(x,mt) end
-obj= function(s, o,new)
-       o = {_is=s, __tostring=lib.out}
-       o.__index = o
-       return setmetatable(o,{__call=function(_,...) return o.new(...) end}) end
-
 local coerce,csv
 function coerce(x)
-  if x=="true"  then return true  end
-  if x=="false" then return false end
+  if x=="true" then return true elseif x=="false" then return false end
   return tonumber(x) or x end
 
 function csv(file,   x)
@@ -77,19 +65,26 @@ function csv(file,   x)
 local log,sqrt,randi,rand,rnd,rnds,any,some
 log = math.log
 sqrt= math.sqrt
-rnd = function(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
-rnds= function(t,d)     return map(t, function(_,x) return rnd(x,d or 2) end) end
-any = function(t)       return t[randi(1,#t)] end
-
+function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
+function rnds(t,d)    return map(t, function(_,x) return rnd(x,d or 2) end) end
+function any(t)       return t[randi(1,#t)] end
 function some(t,n,    u)
   if n >= #t then return copy(t) end
   u={};for i=1,n do push(u,any(t)) end; return u end
 
-randi = function(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
   lo, hi = lo or 0, hi or 1
   the.seed = (16807 * the.seed) % 2147483647
   return lo + (hi-lo) * the.seed / 2147483647 end
+
+local ako,has,obj
+ako= getmetatable
+function has(mt,x) return setmetatable(x,mt) end
+function obj(s, o,new)
+  o = {_is=s, __tostring=lib.out}
+  o.__index = o
+  return setmetatable(o,{__call=function(_,...) return o.new(...) end}) end
 
 -------------------------------------------------------------------------------
 local Eg=obj"Eg"
