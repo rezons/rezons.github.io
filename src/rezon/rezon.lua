@@ -371,7 +371,7 @@ function SAMPLE:splits(other,both,    cuts,unplaced,place,score)
   function divide(cuts,    todos,placed)
     todos = {}
     for _,eg in pairs(both.egs) do
-      placed = false
+      placed = false  
       for _,cut in pairs(cuts) do
         if   cut.what(eg.cells[cut.at]) 
         then cut.has = cut.has or self.clone()
