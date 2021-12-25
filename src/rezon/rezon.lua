@@ -5,16 +5,33 @@
 --    \ \ \//\  __/\/_/  /_/\ \L\ \/\ \/\ \      __     \_\ \_\ \ \_\ \/\ \L\.\_ 
 --     \ \_\\ \____\ /\____\ \____/\ \_\ \_\    /\_\    /\____\\ \____/\ \__/.\_\
 --      \/_/ \/____/ \/____/\/___/  \/_/\/_/    \/_/    \/____/ \/___/  \/__/\/_/
-                                                                   
+--
+-- (c)2021 Tim Menzies. Permission is hereby granted, free of charge,
+-- to any person obtaining a copy of this software and associated
+-- documentation files (the "Software"), to deal in the Software without
+-- restriction, including without limitation the rights to use, copy,
+-- modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is
+-- furnished to do so, subject to the following conditions:
+-- 
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-- SOFTWARE
 local help = [[
 lua rezon.lua [OPTIONS]
-
 Tree learner (binary splits on numerics using Gaussian approximation)
-(c)2021 Tim Menzies <timm@ieee.org> unlicense.org
+(c)2021 Tim Menzies <timm@ieee.org> MIT license.
 
 OPTIONS:
   -best     X   Best examples are in 1..best*size(all)    = .2
-  -debug    X   run one test, show stackdumps on fail     = the
+  -debug    X   run one test, show stackdumps on fail     = pass
   -epsilon  X   ignore differences under epsilon*stdev    = .35  
   -Far      X   How far to look for remove items          = .9
   -file     X   Where to read data                        = ../../data/auto93.csv
@@ -24,51 +41,41 @@ OPTIONS:
   -seed     X   Random number seed;                       = 10019
   -Stop     X   Create subtrees while at least 2*stop egs =  4
   -Tiny     X   Min range size = size(egs)^tiny           = .5
-  -todo     X   Pass/fail tests to run at start time      = the
+  -todo     X   Pass/fail tests to run at start time      = pass
                 If "X=all", then run all.
                 If "X=ls" then list all. 
 
 Data read from "-file" is a csv file whose first row contains column
-names.  If a name contains ":", that colu,m will get ignored.
-Otherwise, names starting with upper case denote numerics (and the
-other columns are symbolic).  Names containing "!" are class columns
-and names containing "+" or "-" are goals to be maximized or
-minimized.
+names (and the other row contain data.  If a name contains ":",
+that column will get ignored.  Otherwise, names starting with upper
+case denote numerics (and the other columns are symbolic).  Names
+containing "!" are class columns and names containing "+" or "-"
+are goals to be maximized or minimized. --]] --[[
 
-Internally,  these names are read by a COLS object where numeric,
+Internally,  columns names are read by a COLS object where numeric,
 symbolic, and ignored columns generate NUM, SYM, and SKIP instances
 (respectively).  After row1, all the other rows are examples ('EG')
 which are stored in a SAMPLE. As each example is added to a sample,
-they are summarized in the COLS' objects. ]]
+they are summarized in the COLS' objects.
 
---------------------------------------------------------------------------------
+Note that SAMPLEs can be created from disk data, or at runtimes from
+lists of examples (see SAMPLE:clone()). --]]
+
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
-local function rogues() -- to find any rogue globals, run this at end of file 
-  for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end end
-
---     ___       __               _       
---      |  |__| |_     _  _   _  (_ .  _  
---      |  |  | |__   (_ (_) | ) |  | (_) 
---                                    _/  
-THE = {} -- The THE global stores the global config for this software. 
+local THE = {} -- The THE global stores the global config for this software. 
 -- any line of help text startling with "  -" has flag,default as first,last word
-help:gsub("\n  -([^%s]+)[^\n]*%s([^%s]+)", 
+help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", 
   function(flag,x) 
     for n,word in ipairs(arg) do -- check for any updated to "flag" on command line
       -- use any command line "word" that matches the start of "flag"
       if flag:match("^"..word:sub(2)..".*") then 
         -- command line "word"s for booleans flip the default value
-        x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end 
-    end
-    -- coerce to the right type
+        x=(x=="false" and "true") or (x=="true" and "false") or arg[n+1] end end
     if x=="true" then x=true elseif x=="false" then x=false else x=tonumber(x) or x end
-    -- store
     THE[flag] = x end)
 
 THE.seed = THE.seed or 10019                
-if THE.h then return print(help) end         
--- And now we may begin.
-
+if THE.h then return print(help) end
 --             __  __ 
 --     |\/| | (_  /   
 --     |  | | __) \__ 
@@ -143,7 +150,7 @@ local ako,has,obj
 ako= getmetatable
 function has(mt,x) return setmetatable(x,mt) end
 function obj(s, o,new)
-  o = {_is=s, __tostring=lib.out}
+  o = {_is=s, __tostring=out}
   o.__index = o
   return setmetatable(o,{__call=function(_,...) return o.new(...) end}) end
 --                    
@@ -415,8 +422,15 @@ local go={}
 function go.ls() 
   print("\nlua "..arg[0].." -todo ACTION\n\nACTIONS:")
   for _,k in pairs(keys(go)) do  print("  -todo",k) end end
+
+function go.pass() return true end 
 function go.the() shout(THE) end
 function go.bad(  s) assert(false) end
+
+function go.sort(   t,u)
+  t={}; for i=100,1,-1 do push(t,i) end
+  t=copy(sort(t,function(x,y) if x+y<20 then return x>y else return x<y end end))
+  shout(t) end
 function go.ordered(  s,n) 
   s = ordered(slurp())
   n = #s.egs
@@ -459,10 +473,12 @@ local fails, defaults = 0, copy(THE)
 go[ THE.debug ]()
 local todos = THE.todo == "all" and keys(go) or {THE.todo}
 for _,todo in pairs(todos) do
+  print(todo)
   THE = copy(defaults)
   local ok,msg = pcall( go[todo] )             
   if ok then print(hue(32,"PASS ")..todo)         
         else print(hue(31,"FAIL ")..todo,msg)
              fails=fails+1 end end 
 
+for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end 
 os.exit(fails) 
