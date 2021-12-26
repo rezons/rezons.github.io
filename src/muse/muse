@@ -202,7 +202,7 @@ function NUM:dist(x,y)
   if     x=="?" then y=self:norm(y); x=y>0.5 and 0 or 1
   elseif y=="?" then x=self:norm(x); y=x>0.5 and 0 or 1
   else   x, y = self:norm(x), self:norm(y) end
-  return maths.abs(x-y) end
+  return math.abs(x-y) end
 
 -- discretization
 function NUM:splits(other)
@@ -505,6 +505,14 @@ function go.sample(   s,egs,xs,ys)
   shout(rnds(map(s:spread(ys),function(_,x) return .35*x end), 1)); print("")
   for i=1,10 do shout(rnds(egs[i]:mid(ys),1)) end; print("")
   for i=#egs,#egs-10,-1 do shout(rnds(egs[i]:mid(ys),1)) end end
+
+function go.dist(   s,xs)
+  print(11)
+  s=SAMPLE(THE.file) 
+  xs= s.cols.xs
+  for k,eg2 in pairs(s.egs) do
+    print(s.egs[1]:dist(eg2, xs)) end end
+
 
 function go.kordered(  s,n) 
   s = ordered(slurp())

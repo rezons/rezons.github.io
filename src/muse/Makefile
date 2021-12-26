@@ -4,7 +4,7 @@ show: ok
             --borders=no --pro=color --columns 2 -L 90      \
             --right-footer="" --left-footer="" \
             --footer="page %p." \
-            --pretty-print=lua.ssh -M letter -o $f.ps $f.lua 
+            --pretty-print=lua.ssh -M letter -o $f.ps $f 
 	ps2pdf $f.ps ../../docs/$f.pdf
 	rm $f.ps
 	git add ../../docs/$f.pdf
