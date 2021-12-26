@@ -1,10 +1,10 @@
---                                                    ___                        
---                                                   /\_ \                       
---     _ __    __   ____     ___     ___             \//\ \    __  __     __     
---    /\`'__\/'__`\/\_ ,`\  / __`\ /' _ `\             \ \ \  /\ \/\ \  /'__`\   
---    \ \ \//\  __/\/_/  /_/\ \L\ \/\ \/\ \      __     \_\ \_\ \ \_\ \/\ \L\.\_ 
---     \ \_\\ \____\ /\____\ \____/\ \_\ \_\    /\_\    /\____\\ \____/\ \__/.\_\
---      \/_/ \/____/ \/____/\/___/  \/_/\/_/    \/_/    \/____/ \/___/  \/__/\/_/
+#!/usr/bin/env lua
+-- vim : filetype=lua ts=2 sw=2 et :
+--   ___ ___     __  __    ____     __  
+-- /' __` __`\  /\ \/\ \  /',__\  /'__`\ 
+-- /\ \/\ \/\ \ \ \ \_\ \/\__, `\/\  __/ 
+-- \ \_\ \_\ \_\ \ \____/\/\____/\ \____\
+--  \/_/\/_/\/_/  \/___/  \/___/  \/____/ 
 --
 -- (c)2021 Tim Menzies. Permission is hereby granted, free of charge,
 -- to any person obtaining a copy of this software and associated
@@ -26,6 +26,7 @@
 -- SOFTWARE
 local help = [[
 lua rezon.lua [OPTIONS]
+
 Tree learner (binary splits on numerics using Gaussian approximation)
 (c)2021 Tim Menzies <timm@ieee.org> MIT license.
 
@@ -51,7 +52,7 @@ names (and the other row contain data.  If a name contains ":",
 that column will get ignored.  Otherwise, names starting with upper
 case denote numerics (and the other columns are symbolic).  Names
 containing "!" are class columns and names containing "+" or "-"
-are goals to be maximized or minimized. --]] --[[
+are goals to be maximized or minimized. ]] --[[
 
 Internally,  columns names are read by a COLS object where numeric,
 symbolic, and ignored columns generate NUM, SYM, and SKIP instances
@@ -131,7 +132,8 @@ local log,sqrt,rnd,rnds,roots
 log = math.log
 sqrt= math.sqrt
 function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / n end
-function rnds(t,d)    return map(t, function(_,x) return rnd(x,d) end) end
+function rnds(t,d)
+  return map(t,function(_,x) return type(x)=="number" and rnd(x,d) or x end) end
 
 function roots(m1,m2,std1,std2,      a,b,c)
   if std1==std2 then return (m1+m2)/2 end
@@ -491,18 +493,18 @@ function go.sym(    cut,min)
   local w = SYM{"m","m","m","m","b","b","c"}
   local z = SYM{"a","a","a","a","b","b","c"}
   assert(1.38 == rnd(z:spread(),2)) 
-  for _,cut in pairs(w:splits(z)) do shout(cut) end 
-  end
+  for _,cut in pairs(w:splits(z)) do shout(cut) end end
 
-function go.sample(   s,egs)
+function go.sample(   s,egs,xs,ys)
   s=SAMPLE(THE.file) 
-  assert(4 == #s.cols.xs)
-  assert(3 == #s.cols.ys)
+  xs,ys= s.cols.xs, s.cols.ys
+  assert(4 == #xs)
+  assert(3 == #ys)
   egs=s:sorted()
-  for i=1,5 do shout(rnds(egs[i]:mid(s.cols.ys),2)) end
-  print("")
-  for i=#egs,#egs-5,-1 do shout(rnds(egs[i]:mid(s.cols.ys),2)) end
-  end
+  shout(rnds(s:mid(ys),1)); 
+  shout(rnds(map(s:spread(ys),function(_,x) return .35*x end), 1)); print("")
+  for i=1,10 do shout(rnds(egs[i]:mid(ys),1)) end; print("")
+  for i=#egs,#egs-10,-1 do shout(rnds(egs[i]:mid(ys),1)) end end
 
 function go.kordered(  s,n) 
   s = ordered(slurp())
@@ -510,8 +512,7 @@ function go.kordered(  s,n)
   shout(s.heads)
   for i=1,15 do shout(s.egs[i].cells) end
   print("#")
-  for i=n,n-15,-1 do shout(s.egs[i].cells) end 
-end
+  for i=n,n-15,-1 do shout(s.egs[i].cells) end end
 
 function go.ksymcuts(  s,xpect,cuts)
   s=ordered(slurp())
@@ -530,7 +531,6 @@ function  go.katcuts(s,cuts,at,ynum)
   ynum=NUM(a); map(s.egs,function(_,eg) add(ynum, eg.klass) end)
   at,cuts = at_cuts(s,egs,sd(ynum)*THE.epsilon, (#s.egs)^THE.Tiny) 
   for _,cut in pairs(cuts) do print(at, out(cut)) end end 
-
 --      __ ___       __  ___           __  
 --     (_   |   /\  |__)  |   __ /  \ |__) 
 --     __)  |  /--\ | \   |      \__/ |    

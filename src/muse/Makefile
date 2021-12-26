@@ -1,9 +1,9 @@
-f=rezon
+f=muse
 show: ok 
-	a2ps  -jr --line-numbers=1                       \
+	a2ps  -Bjr --line-numbers=1                       \
             --borders=no --pro=color --columns 2 -L 90      \
             --right-footer="" --left-footer="" \
-            --footer="" \
+            --footer="page %p." \
             --pretty-print=lua.ssh -M letter -o $f.ps $f.lua 
 	ps2pdf $f.ps ../../docs/$f.pdf
 	rm $f.ps
