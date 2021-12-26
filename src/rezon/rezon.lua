@@ -109,7 +109,7 @@ function out(t,   u,key,val) -- convert nested tables to a string
   function val(_,v) return out(v) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t, val) or map(keys(t), key) 
-  return "{"..table.concat(u," ").."}" end 
+  return (t._is or "").."{"..table.concat(u," ").."}" end 
 
 -- reading from file
 local coerce,csv
@@ -217,8 +217,8 @@ function NUM:splits(other)
 --     __)  |  |  | 
 --                  
 local SYM=obj"SYM"
-function SYM.new(inits,at,txt,sample,     self)
-  self=  has(SYM,{n=0, at=at or 0, txt=txt or "", sample=sample, 
+function SYM.new(inits,at,txt,    self)
+  self=  has(SYM,{n=0, at=at or 0, txt=txt or "",  
                   seen={}, mode=nil, most=0})
   for _,x in pairs(inits or {}) do self:add(x) end
   return self end
@@ -268,12 +268,11 @@ function SKIP:splits(_) return {}  end
 --              
 -- One example
 local EG=obj"EG"
-
-function EG.new(cells) self.cells = cells end
+function EG.new(cells) return has(EG,{cells=cells}) end
 
 -- Sumamrizing
-function EG:mid(cols)    return map(cols, function(_,c) return c:mid()    end) end
-function EG:spread(cols) return map(cols, function(_,c) return c:spread() end) end
+function EG:mid(cols) 
+  return map(cols,function(_,c) return self.cells[c.at] end) end
 
 -- Queries
 function EG:dist(other,cols,   a,b,d,n,inc)
@@ -306,9 +305,9 @@ function COLS.new(names,    self, new,what)
     new = (x:find":" and SKIP or x:match"^[A-Z]" and NUM or SYM)({},n,x)
     push(self.all, new)
     if not x:find":" then
-      if x:find"!" then self.klass = new
-      what = (x:find"-" or x:find"+") and self.ys or self.xs
-      push(what, new) end end end
+      if x:find"!" then self.klass = new end
+      what = (x:find"-" or x:find"+") and "ys" or "xs"
+      push(self[what], new) end end
   return self end 
 
 -- Updates
@@ -337,7 +336,7 @@ function SAMPLE:clone(inits,   out)
 function SAMPLE:add(eg)
   eg = eg.cells and eg.cells or eg
   if   self.cols 
-  then push(self.egs,eg); self.cols:add(eg) 
+  then push(self.egs, EG(eg)); self.cols:add(eg)
   else self.cols = COLS(eg) end end
 
 -- Distance queries
@@ -366,8 +365,13 @@ function SAMPLE:twain(egs,cols)
 
 function SAMPLE:mid(cols)
   return map(cols or self.cols.all,function(_,col) return col:mid() end) end
+
 function SAMPLE:spread(cols)
   return map(cols or self.cols.all,function(_,col) return col:spread() end) end
+
+function SAMPLE:sorted()
+  self.egs= sort(self.egs, function(eg1,eg2) return eg1:better(eg2,self.cols.ys) end)
+  return self.egs end
 
 --      __            __       __   ___  __   __  __ 
 --     (_   /\  |\/| |__) |   |_     |  |__) |_  |_  
@@ -490,7 +494,16 @@ function go.sym(    cut,min)
   for _,cut in pairs(w:splits(z)) do shout(cut) end 
   end
 
-function go.ordered(  s,n) 
+function go.sample(   s,egs)
+  s=SAMPLE(THE.file) 
+  assert(4 == #s.cols.xs)
+  assert(3 == #s.cols.ys)
+  egs=s:sorted()
+  for i=1,10            do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
+  for i=#egs,#egs-10,-1 do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
+  end
+
+function go.kordered(  s,n) 
   s = ordered(slurp())
   n = #s.egs
   shout(s.heads)
@@ -499,19 +512,19 @@ function go.ordered(  s,n)
   for i=n,n-15,-1 do shout(s.egs[i].cells) end 
 end
 
-function go.symcuts(  s,xpect,cuts)
+function go.ksymcuts(  s,xpect,cuts)
   s=ordered(slurp())
   print(out(s.xs),out(s.ys)) 
   xpect,cuts = symcuts(7,s.egs, "origin") 
   for _,cut in pairs(cuts) do print(xpect, out(cut)) end end
 
-function go.numcuts(  s,xpect,cuts)
+function go.knumcuts(  s,xpect,cuts)
   s=ordered(slurp())
   xpect,cuts = numcuts(s,2,s.egs,"Dsiplcment")
   if xpect then
     for _,cut in pairs(cuts) do print(xpect, out(cut)) end end end
 
-function  go.atcuts(s,cuts,at,ynum)
+function  go.katcuts(s,cuts,at,ynum)
   s=ordered(slurp())
   ynum=NUM(a); map(s.egs,function(_,eg) add(ynum, eg.klass) end)
   at,cuts = at_cuts(s,egs,sd(ynum)*THE.epsilon, (#s.egs)^THE.Tiny) 
