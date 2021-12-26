@@ -121,7 +121,7 @@ function csv(file,   x)
   file = io.input(file)
   return function(   t,tmp)
     x  = io.read()
-    if x then
+    if x then -- kill space, split on ",", return non-empty lines
       t={};for y in x:gsub("[\t ]*",""):gmatch"([^,]+)" do push(t,coerce(y)) end
       if #t>0 then return t end 
     else io.close(file) end end end
@@ -499,9 +499,9 @@ function go.sample(   s,egs)
   assert(4 == #s.cols.xs)
   assert(3 == #s.cols.ys)
   egs=s:sorted()
-  for _,eg in pairs(egs) do shout(eg) end
-  --for i=1,10            do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
-  --for i=#egs,#egs-10,-1 do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
+  for i=1,5 do shout(rnds(egs[i]:mid(s.cols.ys),2)) end
+  print("")
+  for i=#egs,#egs-5,-1 do shout(rnds(egs[i]:mid(s.cols.ys),2)) end
   end
 
 function go.kordered(  s,n) 
