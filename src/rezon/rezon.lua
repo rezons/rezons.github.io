@@ -499,8 +499,9 @@ function go.sample(   s,egs)
   assert(4 == #s.cols.xs)
   assert(3 == #s.cols.ys)
   egs=s:sorted()
-  for i=1,10            do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
-  for i=#egs,#egs-10,-1 do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
+  for _,eg in pairs(egs) do shout(eg) end
+  --for i=1,10            do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
+  --for i=#egs,#egs-10,-1 do shout(rnd(egs[i]:mid(s.cols.ys),2)) end
   end
 
 function go.kordered(  s,n) 
