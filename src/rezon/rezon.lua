@@ -36,8 +36,9 @@ OPTIONS:
   -Far      X   How far to look for remove items          = .9
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
-  -little   X   size of subset of a list                 = 256
+  -little   X   size of subset of a list                  = 256
   -p        X   distance calc coefficient                 = 2
+  -round    X   Control for rounding numbers              = 2
   -seed     X   Random number seed;                       = 10019
   -Stop     X   Create subtrees while at least 2*stop egs =  4
   -Tiny     X   Min range size = size(egs)^tiny           = .5
@@ -126,14 +127,21 @@ function csv(file,   x)
     else io.close(file) end end end
 
 -- maths
-local log,sqrt,rnd,rnds
+local log,sqrt,rnd,rnds,roots
 log = math.log
 sqrt= math.sqrt
-function rnd(x,d,  n) n=10^(d or 0); return math.floor(x*n+0.5) / n end
-function rnds(t,d)    return map(t, function(_,x) return rnd(x,d or 2) end) end
+function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / n end
+function rnds(t,d)    return map(t, function(_,x) return rnd(x,d) end) end
+
+function roots(m1,m2,std1,std2,      a,b,c)
+  if std1==std2 then return (m1+m2)/2 end
+  a = 1/(2*std1^2) - 1/(2*std2^2) -- 1/(2*1^1)
+  b = m2/(std2^2)  - m1/(std1^2)
+  c = m1^2 /(2*std1^2) - m2^2 / (2*std2^2) - log(std2/std1)
+  return ((-b - sqrt(b*b - 4*a*c))/(2*a)), ((-b + sqrt(b*b - 4*a*c))/(2*a)) end
 
 -- random stuff (LUA's built-in randoms give different results on different platfors)
-local randi,rand,any,some
+local randi,rand,any,some,shuffle
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function rand(lo,hi)
   lo, hi = lo or 0, hi or 1
@@ -142,8 +150,11 @@ function rand(lo,hi)
 
 function any(t)       return t[randi(1,#t)] end
 function some(t,n,    u)
-  if n >= #t then return copy(t) end
+  if n >= #t then return shuffle(copy(t)) end
   u={}; for i=1,n do push(u,any(t)) end; return u end
+
+function shuffle(t,   j)
+  for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
 -- objects
 local ako,has,obj
@@ -172,10 +183,10 @@ function NUM:spread() return (self.m2/(self.n-1))^0.5 end
 -- updating
 function NUM:add(x,  d) 
   if x ~= "?" then
-    self.n=self.n+1
-    d=x-self.mu
-    self.mu= self.mu+d/self.n
-    self.m2= self.m2+d*(x-self.mu) 
+    self.n  = self.n  + 1
+    d       = x       - self.mu
+    self.mu = self.mu + d/self.n
+    self.m2 = self.m2 + d*(x-self.mu) 
     self.lo = math.min(x, self.lo)
     self.hi = math.max(x, self.hi) end
   return x end
@@ -183,29 +194,24 @@ function NUM:add(x,  d)
 -- querying
 function NUM:norm(x)
   local lo,hi = self.lo,self.hi
-  return  math.abs(hi - lo) < 1E-9 and 0 or (x-lo)/(hi-lo) end
+  return math.abs(hi - lo) < 1E-9 and 0 or (x-lo)/(hi-lo) end
 
 function NUM:dist(x,y)
   if     x=="?" then y=self:norm(y); x=y>0.5 and 0 or 1
   elseif y=="?" then x=self:norm(x); y=x>0.5 and 0 or 1
   else   x, y = self:norm(x), self:norm(y) end
-  return (x-y) end
+  return maths.abs(x-y) end
 
 -- discretization
 function NUM:splits(other)
-  function cuts(x,s,at) return {
-    {val=x, at=at, txt=fmt("%s <= $s",s,x), when=function(z) return z<=x end},
-    {val=x, at=at, txt=fmt("%s > $s",s,x),  when=function(z) return z >x end}}
+  local function cuts(x,s,at) return {
+    {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
+    {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
-  local i, j, e, a, b, c, x1, x2 = self, other, 2.71828
-  a = 1/(2*sd(i)^2) - 1/(2*sd(j)^2)
-  b = j.mu/(sd(j)^2) - i.mu/(sd(i)^2)
-  c = i.mu^2 /(2*sd(i)^2) - j.mu^2 / (2*sd(j)^2) - mat
-  x1 = (-b - sqrt(b*b - 4*a*c) )/2*a
-  x2 = (-b + sqrt(b*b - 4*a*c) )/2*a
-  if  i.mu<=x1 and x1<=j.mu 
-  then return cuts(x1,self.txt,self.at) 
-  else return cuts(x2,self.txt,self.at) end end
+  local root1,root2 = roots(self:mid(), other:mid(), self:spread(), other:spread())
+  if   self.mu<=root1 and root1<=other.mu  
+  then return cuts(root1,self.txt,self.at) 
+  else return cuts(root2,self.txt,self.at) end end
 --      __          
 --     (_  \_/ |\/| 
 --     __)  |  |  | 
@@ -224,21 +230,23 @@ function SYM:spread()
 
 -- update
 function SYM:add(x)
-  self.seen[x] = (self.seen[x] or 0) + 1
-  if self.seen[x] > self.most then self.mode, self.most = x, self.seen[x] end 
-  return x end
+  if x ~= "?" then
+    self.n = 1 + self.n
+    self.seen[x] = (self.seen[x] or 0) + 1
+    if self.seen[x] > self.most then self.mode, self.most = x, self.seen[x] end 
+    return x end end
 
 -- querying
 function SYM:dist(x,y) return  x==y and 0 or 1 end
 
 -- discretization
 function SYM:splits(other)
-  function cut(_,x) return
-    {val=x, at=self.at, txt=fmt("%s==$s",self.txt,x),
+  local function cut(_,x) return
+    {val=x, at=self.at, txt=fmt("%s==%s",self.txt,x),
      when = function(z) return z==x end} end
   local out={}
-  for k,_ in pairs(self.seen)  do push(out,k) end
-  for k,_ in pairs(other.seen) do push(out,k) end
+  for k,_ in pairs(self.seen)  do out[k]=k end
+  for k,_ in pairs(other.seen) do out[k]=k end
   return map(sort(out),cut) end
 
 --      __        __  
@@ -344,7 +352,7 @@ function SAMPLE:distance_farExample(eg1,egs,cols,    tmp)
 -- Discretization 
 function SAMPLE:twain(egs,cols)
   local egs, north, south, a,b,c, lo,hi
-  egs     = nany(egs or self.egs, self.little)
+  egs     = some(egs or self.egs, self.little)
   _,north = self:distance_farExample(any(self.egs), egs, cols)
   c,south = self:distance_farExample(north,         egs, cols)
   for _,eg in pairs(self.egs) do
@@ -427,10 +435,61 @@ function go.pass() return true end
 function go.the() shout(THE) end
 function go.bad(  s) assert(false) end
 
-function go.sort(   t,u)
+function go.sort(   u,t)
   t={}; for i=100,1,-1 do push(t,i) end
-  t=copy(sort(t,function(x,y) if x+y<20 then return x>y else return x<y end end))
-  shout(t) end
+  t=sort(t,function(x,y) 
+      if x+y<20 then return x>y else return x<y end end)
+  assert(sum(t,function(x) return x*100 end)==505000)
+  assert(t[1] == 10)
+  assert(t[#t]==100) 
+  u=copy(t)
+  t[1] = 99
+  assert(u[1] ~= 99) end
+
+function go.out( s)
+  assert("{:age 21 :milestones {1 2 3 4} :name tim}"==out(
+         {name='tim', age=21, milestones={1,2,3,4}}))end
+
+function go.file( n) 
+  for _,t in pairs{{"true",true,"boolean"}, {"false",false,"boolean"},
+                   {"42.1",42.1,"number"},  {"32zz","32zz","string"},
+                   {"nil","nil","string"}} do
+    assert(coerce(t[1])==t[2])
+    assert(type(coerce(t[1]))==t[3]) end 
+  n =0
+  for row in csv(THE.file) do
+    n = n + 1
+    assert(#row==8)
+    assert(n==1 or type(row[1])=="number")
+    assert(n==1 or type(row[8])=="number") end end
+
+function go.rand( t,u)
+  t,u={},{}; for i=1,20 do push(u,push(t,100*rand())) end
+  t= sort(rnds(t,0))
+  assert(t[1]==3 and t[#t]==88)
+  t= sort(some(t,4))
+  assert(#t==4)
+  assert(t[1]==7)
+  assert(79.5 == rnds(shuffle(u))[1])
+end
+
+function go.num(    cut,min)
+  local z = NUM{9,2,5,4,12,7,8,11,9,3,7,4,12,5,4,10,9,6,9,4}
+  assert(7 ==  z:mid(), 3.06 == rnd(z:spread(),2))
+  local r1,r2 = roots(2.5, 5, 1.1, .9)  
+  assert(rnd(r2,2)==3.8)
+  local x, y =  NUM(), NUM()
+  for i=1,20 do x:add(rand(1,5)) end
+  for i=1,20 do y:add(randi(20,30)) end
+  for _,cut in pairs(x:splits(y)) do shout(cut) end end
+
+function go.sym(    cut,min)
+  local w = SYM{"m","m","m","m","b","b","c"}
+  local z = SYM{"a","a","a","a","b","b","c"}
+  assert(1.38 == rnd(z:spread(),2)) 
+  for _,cut in pairs(w:splits(z)) do shout(cut) end 
+  end
+
 function go.ordered(  s,n) 
   s = ordered(slurp())
   n = #s.egs
@@ -439,13 +498,6 @@ function go.ordered(  s,n)
   print("#")
   for i=n,n-15,-1 do shout(s.egs[i].cells) end 
 end
-
-function go.num(    cut,min)
-  local xy, xnum, ynum = {}, NUM(), NUM()
-  for i=1,400   do push(xy, {add(xnum,i), add(ynum, rand()^3  )}) end
-  for i=401,500 do push(xy, {add(xnum,i), add(ynum, rand()^.25)})  end
-  cut,min= minXpect(xy, ynum, .35*sd(xnum), (#xy)^the.Tiny)
-  shout{cut=cut, min=min} end
 
 function go.symcuts(  s,xpect,cuts)
   s=ordered(slurp())
@@ -473,11 +525,10 @@ local fails, defaults = 0, copy(THE)
 go[ THE.debug ]()
 local todos = THE.todo == "all" and keys(go) or {THE.todo}
 for _,todo in pairs(todos) do
-  print(todo)
   THE = copy(defaults)
   local ok,msg = pcall( go[todo] )             
-  if ok then print(hue(32,"PASS ")..todo)         
-        else print(hue(31,"FAIL ")..todo,msg)
+  if ok then io.write(hue(32,"PASS ")..todo.."\n")         
+        else io.write(hue(31,"FAIL ")..todo.." "..msg.."\n")
              fails=fails+1 end end 
 
 for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end 
