@@ -108,11 +108,11 @@ function btw(...) io.stderr:write(fmt(...).."\n") end
 function hue(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
 function shout(x) print(out(x)) end
 function out(t,   u,key,val) -- convert nested tables to a string
-  function key(_,k) return string.format(":%s %s", k, out(t[k])) end
+  function key(_,k) return string.format(":%s %s", hue(33,k), out(t[k])) end
   function val(_,v) return out(v) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t, val) or map(keys(t), key) 
-  return (t._is or "").."{"..table.concat(u," ").."}" end 
+  return hue(32,(t._is or "")).."{"..table.concat(u," ").."}" end 
 
 -- reading from file
 local coerce,csv
@@ -130,19 +130,12 @@ function csv(file,   x)
     else io.close(file) end end end
 
 -- maths
-local log,sqrt,rnd,rnds,roots
+local log,sqrt,rnd,rnds
 log = math.log
 sqrt= math.sqrt
 function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / n end
 function rnds(t,d)
   return map(t,function(_,x) return type(x)=="number" and rnd(x,d) or x end) end
-
-function roots(m1,m2,std1,std2,      a,b,c)
-  if std1==std2 then return (m1+m2)/2, (m1+m2)/2 end
-  a = 1/(2*std1^2) - 1/(2*std2^2) 
-  b = m2/(std2^2)  - m1/(std1^2)
-  c = m1^2 /(2*std1^2) - m2^2 / (2*std2^2) - log(std2/std1)
-  return ((-b - sqrt(b*b - 4*a*c))/(2*a)), ((-b + sqrt(b*b - 4*a*c))/(2*a)) end
 
 -- random stuff (LUA's built-in randoms give different results on different platfors)
 local randi,rand,any,some,shuffle
@@ -207,15 +200,34 @@ function NUM:dist(x,y)
   return math.abs(x-y) end
 
 -- discretization
-function NUM:splits(other,       cuts,root1,root2)
+local _roots
+function NUM:splits(other,       cuts,cut)
   function cuts(x,s,at) return {
     {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
     {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
-  root1,root2 = roots(self:mid(), other:mid(), self:spread(), other:spread())
-  if   self.mu<=root1 and root1<=other.mu  
-  then return cuts(root1,self.txt,self.at) 
-  else return cuts(root2,self.txt,self.at) end end
+  local n1,n2,mu1,mu2=self.n1, other.n, self.mu,other.mu
+  if math.abs(
+  cut = _roots(self:mid(), other:mid(), self.n, other.n, self:spread(), other:spread())
+  shout{m1=rnd(self.mu), n1=self.n, cut=rnd(cut),m2=rnd(other.mu), n2=other.n}
+  return cuts(cut,self.txt,self.at) end
+
+
+function _roots(m1,m2,n1,n2, s1,s2,      default, a,b,c,root1,root2)
+  if m1 > m2 then -- make sure our comparison goes the right way
+     return _roots(m2,m1, n2,n1,s2,s1) end
+  if s1 ~=s2 then -- try the roots
+    a     = 1/(2*s1^2) - 1/(2*s2^2) 
+    b     = m2/(s2^2)  - m1/(s1^2)
+    c     = m1^2 /(2*s1^2) - m2^2 / (2*s2^2) - log(s2/s1)
+    root1 = (-b - sqrt(b*b - 4*a*c))/(2*a)
+    root2 = (-b + sqrt(b*b - 4*a*c))/(2*a)
+    -- return something in between the means
+    if m1<= root1 and root1<=m2 then return root1 end
+    if m1<= root2 and root2<=m2 then return root2 end end
+  -- else return the weighted sum
+  return (n1*m1+n2*m2)/(n1+n2) end
+
 --      __          
 --     (_  \_/ |\/| 
 --     __)  |  |  | 
@@ -252,7 +264,7 @@ function SYM:splits(other,      cut,out)
   for k,_ in pairs(self.seen)  do out[k]=k end
   for k,_ in pairs(other.seen) do out[k]=k end
   return map(sort(out),cut) end
-
+
 --      __        __  
 --     (_  |_/ | |__) 
 --     __) | \ | |    
@@ -266,6 +278,7 @@ function SKIP:mid()     return "?" end
 function SKIP:spread()  return 0   end
 function SKIP:add(x)    return x   end
 function SKIP:splits(_) return {}  end
+
 --      __  __       __ 
 --     /   /  \ |   (_  
 --     \__ \__/ |__ __) 
@@ -318,6 +331,7 @@ function EG:better(other,cols,     e,n,a,b,s1,s2)
     s1 = s1 - e^(num.w * (a-b)/n) 
     s2 = s2 - e^(num.w * (b-a)/n) end
   return s1/n < s2/n end 
+
 --      __            __       __ 
 --     (_   /\  |\/| |__) |   |_  
 --     __) /--\ |  | |    |__ |__ 
@@ -353,13 +367,11 @@ function SAMPLE:distance_farExample(eg1,egs,cols,    tmp)
   tmp = self:neighbors(eg1, egs, cols)
   return table.unpack(tmp[#tmp*THE.Far//1]) end
 
--- Discretization 
--- need to uthe super
+-- Unsupervised discretization 
 function SAMPLE:twain(egs,cols,           _,north,south,a,b,c,lo,hi)
-  print("egs",#egs)
   _,north = self:distance_farExample(any(egs), egs, cols)
   c,south = self:distance_farExample(north,    egs, cols)
-  for _,eg in pairs(egs) do
+  for _,eg in pairs(egs) do 
     a = eg:dist(north, cols)
     b = eg:dist(south, cols)
     eg.x = (a^2 + c^2 - b^2)/(2*c) end
@@ -385,7 +397,7 @@ function SAMPLE:sorted()
 -- need to sort first
 
 -- how to score
-function SAMPLE:splits(other,both,    cuts,unplaced,place,score)
+function SAMPLE:splits(other,both,    guess, divide,cuts,unplaced,place,score)
   function guess(todos,cuts,      f)
     for _,todo in pairs(todos) do
       f=function(_,cut) 
@@ -397,28 +409,31 @@ function SAMPLE:splits(other,both,    cuts,unplaced,place,score)
     for _,eg in pairs(both.egs) do
       placed = false  
       for _,cut in pairs(cuts) do
-        if   cut.what(eg.cells[cut.at]) 
-        then cut.has = cut.has or self.clone()
+        if   cut.when(eg.cells[cut.at]) 
+        then cut.has = cut.has or self:clone()
              cut.has:add(eg)
              placed = true 
              break end end 
       if not placed then push(todos, eg) end end
-    return guess(todos,cuts) end
+    return guess(todos,cuts) end 
   function score(cut,     m,n)
-    m,n = #cut.has.egs,both.egs; return -m/n*log(m/n,2) end
+    m,n = #(cut.has.egs), #both.egs; return -m/n*log(m/n,2) end
   local best, cutsx, tmp = math.huge
   for pos,col in pairs(both.cols.xs) do
-    cutsx = col:splits(other.cols.xs[pos])
-    tmp   = sum(divide(cutsx),score)
-    if tmp < best then best,cuts = tmp,cutsx end end
+      cutsx = col:splits(other.cols.xs[pos])
+      tmp   = sum(divide(cutsx),score)
+      if tmp < best then best,cuts = tmp,cutsx end end 
   return cuts end
 
-function SAMPLE:tree(top)
-  top = top or self
+function SAMPLE:tree(top,lvl)
+  lvl, top = lvl or 0, top or self
+  say("%s%s",string.rep("|.. ",lvl),#self.egs)
+  if #self.egs < (#top.egs)^THE.Tiny then return self end
   one,two = self:twain(self.egs, top.cols.xs)
-  for _,cut in pairs(one:splits(two,self)) do
-    if cut.stats.n > (#top.egs)^THE.Tiny then
-      cut.sub= cut.has:tree(top) end end end
+  cuts=one:splits(two,self)
+  shout(map(cuts,function(_,cut) return {cut.txt,#cut.has.egs} end))
+  for _,cut in pairs(cuts) do
+    cut.sub= cut.has:tree(top,lvl+1) end end
 
 function SAMPLE:show(tree,          vals,show1)
   vals=function(a,b) return a.val < b.val end
@@ -482,10 +497,10 @@ function go.rand( t,u)
   assert(79.5 == rnds(shuffle(u))[1])
 end
 
-function go.num(    cut,min, z,r1,r1,x,y)
+function go.num(    cut,min, z,r1,r2,x,y)
   z = NUM{9,2,5,4,12,7,8,11,9,3,7,4,12,5,4,10,9,6,9,4}
   assert(7 ==  z:mid(), 3.06 == rnd(z:spread(),2))
-  r1,r2 = roots(2.5, 5, 1.1, .9)  
+  r2 = _roots(2.5, 5, 20,10,1.1, .9)  
   assert(rnd(r2,2)==3.8)
   x, y =  NUM(), NUM()
   for i=1,20 do x:add(rand(1,5)) end
@@ -536,36 +551,22 @@ function go.twain(  s,lo,hi)
   print(#lo.egs, #hi.egs)
 end
 
-function go.splits(  lo,hi)
-  lo,hi = SAMPLE(THE.file):twain()
-  print(#lo.egs, #hi.egs)
+function go.splits(  s,lo,hi)
+  s =  SAMPLE(THE.file)
+  lo,hi = s:twain(s.egs,  s.cols.xs)
+  for _,cut in pairs(lo:splits(hi,s)) do print(cut.txt) end
 end
 
-function go.kordered(  s,n) 
-  s = ordered(slurp())
-  n = #s.egs
-  shout(s.heads)
-  for i=1,15 do shout(s.egs[i].cells) end
-  print("#")
-  for i=n,n-15,-1 do shout(s.egs[i].cells) end end
+function go.splits(  s,lo,hi)
+  s =  SAMPLE(THE.file)
+  lo,hi = s:twain(s.egs,  s.cols.xs)
+  for _,cut in pairs(lo:splits(hi,s)) do print(cut.txt) end
+end
 
-function go.ksymcuts(  s,xpect,cuts)
-  s=ordered(slurp())
-  print(out(s.cols.xs),out(s.cols.ys)) 
-  xpect,cuts = symcuts(7,s.egs, "origin") 
-  for _,cut in pairs(cuts) do print(xpect, out(cut)) end end
+function go.tree(  s,lo,hi)
+  s =  SAMPLE(THE.file):tree()
+end
 
-function go.knumcuts(  s,xpect,cuts)
-  s=ordered(slurp())
-  xpect,cuts = numcuts(s,2,s.egs,"Dsiplcment")
-  if xpect then
-    for _,cut in pairs(cuts) do print(xpect, out(cut)) end end end
-
-function  go.katcuts(s,cuts,at,ynum)
-  s=ordered(slurp())
-  ynum=NUM(a); map(s.egs,function(_,eg) add(ynum, eg.klass) end)
-  at,cuts = at_cuts(s,egs,sd(ynum)*THE.epsilon, (#s.egs)^THE.Tiny) 
-  for _,cut in pairs(cuts) do print(at, out(cut)) end end 
 --      __ ___       __  ___           __  
 --     (_   |   /\  |__)  |   __ /  \ |__) 
 --     __)  |  /--\ | \   |      \__/ |    
