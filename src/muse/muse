@@ -1,10 +1,11 @@
 #!/usr/bin/env lua
 -- vim : filetype=lua ts=2 sw=2 et :
---   ___ ___     __  __    ____     __  
--- /' __` __`\  /\ \/\ \  /',__\  /'__`\ 
--- /\ \/\ \/\ \ \ \ \_\ \/\__, `\/\  __/ 
--- \ \_\ \_\ \_\ \ \____/\/\____/\ \____\
---  \/_/\/_/\/_/  \/___/  \/___/  \/____/ 
+--
+--    ___ ___     __  __     ____      __  
+--  /' __` __`\  /\ \/\ \   /',__\   /'__`\ 
+--  /\ \/\ \/\ \ \ \ \_\ \ /\__, `\ /\  __/ 
+--  \ \_\ \_\ \_\ \ \____/ \/\____/ \ \____\
+--   \/_/\/_/\/_/  \/___/   \/___/   \/____/ 
 --
 -- (c)2021 Tim Menzies. Permission is hereby granted, free of charge,
 -- to any person obtaining a copy of this software and associated
@@ -25,7 +26,7 @@
 -- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 -- SOFTWARE
 local help = [[
-lua rezon.lua [OPTIONS]
+muse [OPTIONS]
 
 Tree learner (binary splits on numerics using Gaussian approximation)
 (c)2021 Tim Menzies <timm@ieee.org> MIT license.
@@ -37,7 +38,7 @@ OPTIONS:
   -Far      X   How far to look for remove items          = .9
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
-  -little   X   size of subset of a list                  = 256
+  -little   X   size of subset of a list                  = 1024
   -p        X   distance calc coefficient                 = 2
   -round    X   Control for rounding numbers              = 2
   -seed     X   Random number seed;                       = 10019
@@ -100,9 +101,10 @@ function map(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(k,v)   end; return 
 function sum(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end;return n       end
 
 -- printing utils
-local hue,shout,out,say,fmt
+local hue,shout,out,say,fmt,btw
 fmt  = string.format
 function say(...) print(string.format(...)) end
+function btw(...) io.stderr:write(fmt(...).."\n") end     
 function hue(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
 function shout(x) print(out(x)) end
 function out(t,   u,key,val) -- convert nested tables to a string
@@ -119,7 +121,7 @@ function coerce(x)
   return tonumber(x) or x end
 
 function csv(file,   x)
-  file = io.input(file)
+  file = io.input(file) 
   return function(   t,tmp)
     x  = io.read()
     if x then -- kill space, split on ",", return non-empty lines
@@ -136,8 +138,8 @@ function rnds(t,d)
   return map(t,function(_,x) return type(x)=="number" and rnd(x,d) or x end) end
 
 function roots(m1,m2,std1,std2,      a,b,c)
-  if std1==std2 then return (m1+m2)/2 end
-  a = 1/(2*std1^2) - 1/(2*std2^2) -- 1/(2*1^1)
+  if std1==std2 then return (m1+m2)/2, (m1+m2)/2 end
+  a = 1/(2*std1^2) - 1/(2*std2^2) 
   b = m2/(std2^2)  - m1/(std1^2)
   c = m1^2 /(2*std1^2) - m2^2 / (2*std2^2) - log(std2/std1)
   return ((-b - sqrt(b*b - 4*a*c))/(2*a)), ((-b + sqrt(b*b - 4*a*c))/(2*a)) end
@@ -194,8 +196,8 @@ function NUM:add(x,  d)
   return x end
 
 -- querying
-function NUM:norm(x)
-  local lo,hi = self.lo,self.hi
+function NUM:norm(x,      lo,hi)
+  lo,hi = self.lo,self.hi
   return math.abs(hi - lo) < 1E-9 and 0 or (x-lo)/(hi-lo) end
 
 function NUM:dist(x,y)
@@ -205,12 +207,12 @@ function NUM:dist(x,y)
   return math.abs(x-y) end
 
 -- discretization
-function NUM:splits(other)
-  local function cuts(x,s,at) return {
+function NUM:splits(other,       cuts,root1,root2)
+  function cuts(x,s,at) return {
     {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
     {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
-  local root1,root2 = roots(self:mid(), other:mid(), self:spread(), other:spread())
+  root1,root2 = roots(self:mid(), other:mid(), self:spread(), other:spread())
   if   self.mu<=root1 and root1<=other.mu  
   then return cuts(root1,self.txt,self.at) 
   else return cuts(root2,self.txt,self.at) end end
@@ -242,11 +244,11 @@ function SYM:add(x)
 function SYM:dist(x,y) return  x==y and 0 or 1 end
 
 -- discretization
-function SYM:splits(other)
-  local function cut(_,x) return
+function SYM:splits(other,      cut,out)
+  function cut(_,x) return
     {val=x, at=self.at, txt=fmt("%s==%s",self.txt,x),
      when = function(z) return z==x end} end
-  local out={}
+  out={}
   for k,_ in pairs(self.seen)  do out[k]=k end
   for k,_ in pairs(other.seen) do out[k]=k end
   return map(sort(out),cut) end
@@ -264,37 +266,6 @@ function SKIP:mid()     return "?" end
 function SKIP:spread()  return 0   end
 function SKIP:add(x)    return x   end
 function SKIP:splits(_) return {}  end
---      __  __  
---     |_  / _  
---     |__ \__) 
---              
--- One example
-local EG=obj"EG"
-function EG.new(cells) return has(EG,{cells=cells}) end
-
--- Sumamrizing
-function EG:mid(cols) 
-  return map(cols,function(_,c) return self.cells[c.at] end) end
-
--- Queries
-function EG:dist(other,cols,   a,b,d,n,inc)
-  d,n = 0,0
-  for _,col in pairs(cols) do
-    a,b = self.cells[col.at], other.cells[col.at]
-    inc = a=="?" and b=="?" and 1 or col:dist(a,b)
-    d   = d + inc^THE.p
-    n   = n + 1 end
-  return (d/n)^(1/THE.p) end
-
--- Sorting
-function EG:better(other,cols,     e,n,a,b,s1,s2)
-  n,s1,s2,e = #cols, 0, 0, 2.71828
-  for _,num in pairs(cols) do
-    a  = num:norm(self.cells[ num.at])
-    b  = num:norm(other.cells[num.at])
-    s1 = s1 - e^(num.w * (a-b)/n) 
-    s2 = s2 - e^(num.w * (b-a)/n) end
-  return s1/n < s2/n end 
 --      __  __       __ 
 --     /   /  \ |   (_  
 --     \__ \__/ |__ __) 
@@ -316,6 +287,37 @@ function COLS.new(names,    self, new,what)
 function COLS:add(eg)
   return map(eg, function(n,x) self.all[n]:add(x); return x end) end
 
+--      __  __  
+--     |_  / _  
+--     |__ \__) 
+--              
+-- One example
+local EG=obj"EG"
+function EG.new(cells) return has(EG,{cells=cells}) end
+
+-- Sumamrizing
+function EG:cols(all) 
+  return map(all,function(_,c) return self.cells[c.at] end) end
+
+-- Queries
+function EG:dist(other,cols,   a,b,d,n,inc)
+  d,n = 0,0
+  for _,col in pairs(cols) do
+    a,b = self.cells[col.at], other.cells[col.at]
+    inc = a=="?" and b=="?" and 1 or col:dist(a,b)
+    d   = d + inc^THE.p
+    n   = n + 1 end
+  return (d/n)^(1/THE.p) end
+
+-- Sorting
+function EG:better(other,cols,     e,n,a,b,s1,s2)
+  n,s1,s2,e = #cols, 0, 0, 2.71828
+  for _,num in pairs(cols) do
+    a  = num:norm(self.cells[ num.at])
+    b  = num:norm(other.cells[num.at])
+    s1 = s1 - e^(num.w * (a-b)/n) 
+    s2 = s2 - e^(num.w * (b-a)/n) end
+  return s1/n < s2/n end 
 --      __            __       __ 
 --     (_   /\  |\/| |__) |   |_  
 --     __) /--\ |  | |    |__ |__ 
@@ -330,7 +332,8 @@ function SAMPLE.new(inits,    self)
 
 -- Create a new sample with the same structure as this one
 function SAMPLE:clone(inits,   out)
-  out = SAMPLE:new{self.cols.names}
+  out = SAMPLE.new()
+  out:add(self.cols.names)
   for _,eg in pairs(inits or {}) do out:add(eg) end
   return out end 
 
@@ -342,27 +345,27 @@ function SAMPLE:add(eg)
   else self.cols = COLS(eg) end end
 
 -- Distance queries
-function SAMPLE:neighbors(eg1,egs,cols)
-  local dist_eg2 = function(_,eg2) return {eg1:dist(eg2,cols or self.xs),eg2} end
-  return sort(map(egs or self.egs,dist_eg2),firsts) end
+function SAMPLE:neighbors(eg1,egs,cols,        dist_eg2)
+  dist_eg2 = function(_,eg2) return {eg1:dist(eg2,cols or self.cols.xs),eg2} end
+  return sort(map(egs or self.egs,dist_eg2),ones) end
 
 function SAMPLE:distance_farExample(eg1,egs,cols,    tmp)
   tmp = self:neighbors(eg1, egs, cols)
-  return table.unpack(tmp[#tmp*self.Far//1]) end
+  return table.unpack(tmp[#tmp*THE.Far//1]) end
 
 -- Discretization 
-function SAMPLE:twain(egs,cols)
-  local egs, north, south, a,b,c, lo,hi
-  egs     = some(egs or self.egs, self.little)
-  _,north = self:distance_farExample(any(self.egs), egs, cols)
-  c,south = self:distance_farExample(north,         egs, cols)
-  for _,eg in pairs(self.egs) do
+-- need to uthe super
+function SAMPLE:twain(egs,cols,           _,north,south,a,b,c,lo,hi)
+  print("egs",#egs)
+  _,north = self:distance_farExample(any(egs), egs, cols)
+  c,south = self:distance_farExample(north,    egs, cols)
+  for _,eg in pairs(egs) do
     a = eg:dist(north, cols)
     b = eg:dist(south, cols)
     eg.x = (a^2 + c^2 - b^2)/(2*c) end
-  lo, ho = self:clone(), self:clone()
-  for n,eg in pairs(sort(self.egs, function(a,b) return a.x < b.x end)) do
-    if n < .5*#eg then lo:add(eg) else hi:add(eg) end end 
+  lo, hi = self:clone(), self:clone()
+  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
+    if n < .5*#egs then lo:add(eg) else hi:add(eg) end end 
   return lo, hi end 
 
 function SAMPLE:mid(cols)
@@ -383,11 +386,11 @@ function SAMPLE:sorted()
 
 -- how to score
 function SAMPLE:splits(other,both,    cuts,unplaced,place,score)
-  function guess(todos,cuts)
+  function guess(todos,cuts,      f)
     for _,todo in pairs(todos) do
-      local f=function(_,cut) 
+      f=function(_,cut) 
                 return {Row(cut.has:mid()):dist(todo, both.cols.xs),cut} end
-      sort(map(cuts,f),firsts)[1][2].has:add(todo) end 
+      sort(map(cuts,f),ones)[1][2].has:add(todo) end 
     return cuts end
   function divide(cuts,    todos,placed)
     todos = {}
@@ -417,9 +420,9 @@ function SAMPLE:tree(top)
     if cut.stats.n > (#top.egs)^THE.Tiny then
       cut.sub= cut.has:tree(top) end end end
 
-function SAMPLE:show(tree)
-  local vals=function(a,b) return a.val < b.val end
-  local function show1(tree,pre)
+function SAMPLE:show(tree,          vals,show1)
+  vals=function(a,b) return a.val < b.val end
+  function show1(tree,pre)
     if #tree.kids==0 then io.write(fmt(" ==>  %s [%s]",tree.mode, tree.n)) end
     for _,kid in pairs(sort(tree.kids,vals))  do
         io.write("\n"..fmt("%s%s",pre, showDiv(i, kid.at, kid.val)))
@@ -479,40 +482,64 @@ function go.rand( t,u)
   assert(79.5 == rnds(shuffle(u))[1])
 end
 
-function go.num(    cut,min)
-  local z = NUM{9,2,5,4,12,7,8,11,9,3,7,4,12,5,4,10,9,6,9,4}
+function go.num(    cut,min, z,r1,r1,x,y)
+  z = NUM{9,2,5,4,12,7,8,11,9,3,7,4,12,5,4,10,9,6,9,4}
   assert(7 ==  z:mid(), 3.06 == rnd(z:spread(),2))
-  local r1,r2 = roots(2.5, 5, 1.1, .9)  
+  r1,r2 = roots(2.5, 5, 1.1, .9)  
   assert(rnd(r2,2)==3.8)
-  local x, y =  NUM(), NUM()
+  x, y =  NUM(), NUM()
   for i=1,20 do x:add(rand(1,5)) end
   for i=1,20 do y:add(randi(20,30)) end
   for _,cut in pairs(x:splits(y)) do shout(cut) end end
 
-function go.sym(    cut,min)
-  local w = SYM{"m","m","m","m","b","b","c"}
-  local z = SYM{"a","a","a","a","b","b","c"}
+function go.sym(    cut,min,w,z)
+  w = SYM{"m","m","m","m","b","b","c"}
+  z = SYM{"a","a","a","a","b","b","c"}
   assert(1.38 == rnd(z:spread(),2)) 
   for _,cut in pairs(w:splits(z)) do shout(cut) end end
 
-function go.sample(   s,egs,xs,ys)
+function go.sample(   s,egs,xs,ys,scopy)
   s=SAMPLE(THE.file) 
+  scopy=s:clone(s.egs)
+  print(s.cols.all[1]:spread(), scopy.cols.all[1]:spread())
   xs,ys= s.cols.xs, s.cols.ys
   assert(4 == #xs)
   assert(3 == #ys)
   egs=s:sorted()
   shout(rnds(s:mid(ys),1)); 
   shout(rnds(map(s:spread(ys),function(_,x) return .35*x end), 1)); print("")
-  for i=1,10 do shout(rnds(egs[i]:mid(ys),1)) end; print("")
-  for i=#egs,#egs-10,-1 do shout(rnds(egs[i]:mid(ys),1)) end end
+  for i=1,10 do shout(rnds(egs[i]:cols(ys),1)) end; print("")
+  for i=#egs,#egs-10,-1 do shout(rnds(egs[i]:cols(ys),1)) end end
 
-function go.dist(   s,xs)
-  print(11)
+function go.dist(   s,xs,sorted, show )
   s=SAMPLE(THE.file) 
   xs= s.cols.xs
   for k,eg2 in pairs(s.egs) do
-    print(s.egs[1]:dist(eg2, xs)) end end
+    if k > 20 then break end
+    print(s.egs[1]:dist(eg2, xs)) end 
+  sorted = s:neighbors(s.egs[1], s.egs,xs)
+  show=function(i)print(rnd(sorted[i][1],2), out(sorted[i][2]:cols(xs))) end
+  for i=1,10               do show(i) end; print("")
+  for i=#sorted-10,#sorted do show(i) end end
 
+function go.far(   s,xs,d,eg2)
+  s  = SAMPLE(THE.file) 
+  xs = s.cols.xs
+  for k,eg1 in pairs(shuffle(s.egs)) do
+    if k > 10 then break end
+    d,eg2 = s:distance_farExample(eg1, s.egs, xs)
+    print(rnd(d), out(eg1:cols(xs)), out(eg2:cols(xs))) end end
+
+function go.twain(  s,lo,hi)
+  s =  SAMPLE(THE.file)
+  lo,hi = s:twain(s.egs,  s.cols.xs)
+  print(#lo.egs, #hi.egs)
+end
+
+function go.splits(  lo,hi)
+  lo,hi = SAMPLE(THE.file):twain()
+  print(#lo.egs, #hi.egs)
+end
 
 function go.kordered(  s,n) 
   s = ordered(slurp())
@@ -524,7 +551,7 @@ function go.kordered(  s,n)
 
 function go.ksymcuts(  s,xpect,cuts)
   s=ordered(slurp())
-  print(out(s.xs),out(s.ys)) 
+  print(out(s.cols.xs),out(s.cols.ys)) 
   xpect,cuts = symcuts(7,s.egs, "origin") 
   for _,cut in pairs(cuts) do print(xpect, out(cut)) end end
 
@@ -543,15 +570,18 @@ function  go.katcuts(s,cuts,at,ynum)
 --     (_   |   /\  |__)  |   __ /  \ |__) 
 --     __)  |  /--\ | \   |      \__/ |    
 --                                         
-local fails, defaults = 0, copy(THE)           
+local fails,defaults,todos,ok,msg
+fails, defaults = 0, copy(THE)
 go[ THE.debug ]()
-local todos = THE.todo == "all" and keys(go) or {THE.todo}
+
+todos = THE.todo == "all" and keys(go) or {THE.todo}
 for _,todo in pairs(todos) do
   THE = copy(defaults)
-  local ok,msg = pcall( go[todo] )             
-  if ok then io.write(hue(32,"PASS ")..todo.."\n")         
-        else io.write(hue(31,"FAIL ")..todo.." "..msg.."\n")
-             fails=fails+1 end end 
+  ok,msg = pcall( go[todo] )             
+  if ok then btw("%s%s",hue(32,"-- PASS "),todo)         
+        else btw("%s%s %s",hue(31,"-- FAIL "),todo,msg); fails=fails+1 end end 
 
-for k,v in pairs(_ENV) do if not b4[k] then print("?:",k,type(v)) end end 
+btw(hue(33,"-- %s errors"),fails)
+for k,v in pairs(_ENV) do 
+  if not b4[k] then btw(hue(31,"-- rogue? %s %s"),k,type(v)) end end 
 os.exit(fails) 

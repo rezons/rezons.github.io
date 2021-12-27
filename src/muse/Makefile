@@ -1,5 +1,5 @@
 f=muse
-show: ok 
+pdf: ok 
 	a2ps  -Bjr --line-numbers=1                       \
             --borders=no --pro=color --columns 2 -L 90      \
             --right-footer="" --left-footer="" \
@@ -8,6 +8,11 @@ show: ok
 	ps2pdf $f.ps ../../docs/$f.pdf
 	rm $f.ps
 	git add ../../docs/$f.pdf
+
+header:
+	@echo "Type a phrase, followed by new line"; read x; echo $$x \
+	| figlet -W -f straight \
+	| gawk 'BEGIN{for(i=1;i<=80;i++) s=s"-";print "\n"s}{print "--     "$$0}'
 
 ok:
 	mkdir -p ../../docs

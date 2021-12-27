@@ -44,7 +44,7 @@ alias mds="cd $here/src; ../etc/md *.lua; gp"
 
 
 export BASH_SILENCE_DEPRECATION_WARNING=1
-export PATH=/opt/homebrew/bin:$PATH
+export PATH="$PWD:/opt/homebrew/bin:$PATH"
 export EDITOR=$(which pico)
 
 doc() {
