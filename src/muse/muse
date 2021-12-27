@@ -84,8 +84,10 @@ if THE.h then return print(help) end
 --     |  | | __) \__ 
 --                    
 -- meta
-local same                                           
+local same,upto,over                                           
 function same(x,...) return x end                   
+function upto(x,y)   return x < y end
+function over(x,y)   return not(upto(x,y)) end
                                                    
 -- sorting
 local push,sort,ones
@@ -201,13 +203,13 @@ function NUM:dist(x,y)
 
 -- discretization
 local _roots
-function NUM:splits(other,       cuts,cut)
+function NUM:splits(other,tiny,       cuts,cut)
   function cuts(x,s,at) return {
     {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
     {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
   local n1,n2,mu1,mu2=self.n1, other.n, self.mu,other.mu
-  if math.abs(
+  if math.abs(self.mu1 - self.mu2) < tiny then return {} end
   cut = _roots(self:mid(), other:mid(), self.n, other.n, self:spread(), other:spread())
   shout{m1=rnd(self.mu), n1=self.n, cut=rnd(cut),m2=rnd(other.mu), n2=other.n}
   return cuts(cut,self.txt,self.at) end
@@ -256,7 +258,7 @@ function SYM:add(x)
 function SYM:dist(x,y) return  x==y and 0 or 1 end
 
 -- discretization
-function SYM:splits(other,      cut,out)
+function SYM:splits(other,_,      cut,out)
   function cut(_,x) return
     {val=x, at=self.at, txt=fmt("%s==%s",self.txt,x),
      when = function(z) return z==x end} end
@@ -368,17 +370,24 @@ function SAMPLE:distance_farExample(eg1,egs,cols,    tmp)
   return table.unpack(tmp[#tmp*THE.Far//1]) end
 
 -- Unsupervised discretization 
-function SAMPLE:twain(egs,cols,           _,north,south,a,b,c,lo,hi)
-  _,north = self:distance_farExample(any(egs), egs, cols)
-  c,south = self:distance_farExample(north,    egs, cols)
-  for _,eg in pairs(egs) do 
-    a = eg:dist(north, cols)
-    b = eg:dist(south, cols)
-    eg.x = (a^2 + c^2 - b^2)/(2*c) end
-  lo, hi = self:clone(), self:clone()
-  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
-    if n < .5*#egs then lo:add(eg) else hi:add(eg) end end 
-  return lo, hi end 
+function SAMPLE:best()
+  local function div(egs,eval,one,           _,a,b,c,two,want,better)
+    if #egs < #(self.egs)^THE.epsilon then return eval,self:clone(egs) end 
+    c,two = self:distance_farExample(one, egs, self.cols.xs)
+    for _,eg in pairs(egs) do 
+      a = eg:dist(one, self.cols.xs)
+      b = eg:dist(two, self.cols.xs)
+      eg.x = (a^2 + c^2 - b^2)/(2*c) end
+    want = one:better(two,self.cols.ys) and upto or over
+    better  = {}
+    for n,eg in pairs(sort(egs,function(a,b) return a.x < b.x end)) do
+      if want(n,.5*#egs) then push(better,eg) else push(rest,eg) end end
+    div(better,eval+1,two)
+  end 
+  local _,one = self:distance_farExample(any(self.egs), self.egs, self.cols.xs)
+  local rest = {}
+  local eval,best = div(some(self.egs, THE.little),2, one)
+  return eval,best, some(rest,best*THE.most) end
 
 function SAMPLE:mid(cols)
   return map(cols or self.cols.all,function(_,col) return col:mid() end) end
