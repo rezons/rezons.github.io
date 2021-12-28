@@ -102,7 +102,8 @@ function sample.add(i, eg)
   if i.names then data(eg) else i.names = headers(eg) end
   return i end
 
-function sample.dist(i,eg1,eg2)
+local cluster={}
+function cluster.dist(i,eg1,eg2)
   local d,n,inc,sym1,num1 = 0,1E-9
   function sym1(a,b) return a=="?" and b=="?" and 1 or a==b and 0 or 1 end 
   function num1(a,b)
