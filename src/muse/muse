@@ -39,6 +39,7 @@ OPTIONS:
   -file     X   Where to read data                        = ../../data/auto93.csv
   -h            Show help                                 = false
   -little   X   size of subset of a list                  = 1024
+  -more     X   Use more*#best for rest                   = 3.5
   -p        X   distance calc coefficient                 = 2
   -round    X   Control for rounding numbers              = 2
   -seed     X   Random number seed;                       = 10019
@@ -208,12 +209,12 @@ function NUM:splits(other,tiny,       cuts,cut)
     {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
     {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
-  local n1,n2,mu1,mu2=self.n1, other.n, self.mu,other.mu
-  if math.abs(self.mu1 - self.mu2) < tiny then return {} end
+  local n1,n2,mu1,mu2 = self.n, other.n, self.mu, other.mu
+  print("mu", math.abs(mu1-mu2))
+  if math.abs(mu1 - mu2) < tiny then return {} end
   cut = _roots(self:mid(), other:mid(), self.n, other.n, self:spread(), other:spread())
   shout{m1=rnd(self.mu), n1=self.n, cut=rnd(cut),m2=rnd(other.mu), n2=other.n}
   return cuts(cut,self.txt,self.at) end
-
 
 function _roots(m1,m2,n1,n2, s1,s2,      default, a,b,c,root1,root2)
   if m1 > m2 then -- make sure our comparison goes the right way
@@ -229,6 +230,54 @@ function _roots(m1,m2,n1,n2, s1,s2,      default, a,b,c,root1,root2)
     if m1<= root2 and root2<=m2 then return root2 end end
   -- else return the weighted sum
   return (n1*m1+n2*m2)/(n1+n2) end
+
+-- Return a list of `spans` {lo=,hi=,col=col}.
+-- Sort the list of pairs `xys` then split it into `spans` of cardinally at
+-- least `tiny`. Ensure that the max-min of each span is more that `trivial`.
+function div(xys, tiny, trivial,col,yklass)
+  xys    = sort(xys, function(a,b) return a.x < b.x end)
+  local tenth=#xys//10
+  trvial = trivial or it.TRIVIAL*math.abs(xys[9*tenth][1] - xys[tenth][1])/2.56
+  tiny   = tiny    or it.TINY*#xys
+  yklass = yklass  or Num
+  local spans,span
+  span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
+  spans = {span}
+  for j,xy in pairs(xys) do
+    local x, y = xy.x, xy.y
+    if   j < #xys - tiny   and     -- enough items remaining after split
+         x ~= xys[j+1].x   and     -- next item is different (so can split here)
+         span.has.n > tiny and     -- span has enough items
+         span.hi - span.lo > trivial -- span is not trivially small  
+    then span = push(spans, {col=col, lo=span.hi, hi=x, has=yklass()})  -- then new span
+    end
+    span.hi = x 
+    span.has:add(y) end
+  first(spans).lo = -math.huge
+  last(spans).hi  =  math.huge
+  return merge(spans) end
+
+function mergeable(a,b,   new,b4)
+  new = a:merge(b)
+  b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
+  if new:spread() <= b4 then return new end 
+end 
+
+--  Merge adjacent spans if the combo is simpler than the parts.
+function merge(b4) 
+  local j, tmp = 0, {}
+  while j < #b4 do
+    j = j + 1
+    local now, after = b4[j], b4[j+1]
+    if after then
+      local simpler = mergeable(now.has, after.has)
+      if simpler then 
+        now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
+        j = j + 1 end end
+    push(tmp,now) end 
+  return #tmp==#b4 and b4 or merge(tmp) -- recurse until nothing merged
+end 
+
 
 --      __          
 --     (_  \_/ |\/| 
@@ -365,29 +414,32 @@ function SAMPLE:neighbors(eg1,egs,cols,        dist_eg2)
   dist_eg2 = function(_,eg2) return {eg1:dist(eg2,cols or self.cols.xs),eg2} end
   return sort(map(egs or self.egs,dist_eg2),ones) end
 
-function SAMPLE:distance_farExample(eg1,egs,cols,    tmp)
+function SAMPLE:distance_farEg(eg1,egs,cols,    tmp)
   tmp = self:neighbors(eg1, egs, cols)
-  return table.unpack(tmp[#tmp*THE.Far//1]) end
+  tmp = tmp[#tmp*THE.Far//1]
+  return tmp[2], tmp[1] end
 
 -- Unsupervised discretization 
 function SAMPLE:best()
-  local function div(egs,eval,one,           _,a,b,c,two,want,better)
-    if #egs < #(self.egs)^THE.epsilon then return eval,self:clone(egs) end 
-    c,two = self:distance_farExample(one, egs, self.cols.xs)
+  local rest,div = {}
+  function div(egs, lvl, one,         tmp,a,b,c,two,want,low,good)
+    tmp = self:clone(egs)
+    say("%s%s\t%s",string.rep("|.. ",lvl),#egs,out(rnds(tmp:mid(tmp.cols.ys),1)))
+    if #egs < 2*(#self.egs)^THE.epsilon then
+      return self:clone(egs), self:clone(some(rest,THE.more*#egs)) end
+    one   = one or self:distance_farEg(any(egs), egs, self.cols.xs)
+    two,c = self:distance_farEg(one,             egs, self.cols.xs)
     for _,eg in pairs(egs) do 
       a = eg:dist(one, self.cols.xs)
       b = eg:dist(two, self.cols.xs)
       eg.x = (a^2 + c^2 - b^2)/(2*c) end
-    want = one:better(two,self.cols.ys) and upto or over
-    better  = {}
+    low  = one:better(two,self.cols.ys) 
+    good = {}
     for n,eg in pairs(sort(egs,function(a,b) return a.x < b.x end)) do
-      if want(n,.5*#egs) then push(better,eg) else push(rest,eg) end end
-    div(better,eval+1,two)
-  end 
-  local _,one = self:distance_farExample(any(self.egs), self.egs, self.cols.xs)
-  local rest = {}
-  local eval,best = div(some(self.egs, THE.little),2, one)
-  return eval,best, some(rest,best*THE.most) end
+      if n < .5*#egs then push(low and good or rest, eg)
+                     else push(low and rest or good, eg) end end 
+    return div(good, lvl+1,two) end 
+  return div(same(self.egs,THE.little), 0) end
 
 function SAMPLE:mid(cols)
   return map(cols or self.cols.all,function(_,col) return col:mid() end) end
@@ -403,56 +455,22 @@ function SAMPLE:sorted()
 --     (_   /\  |\/| |__) |   |_     |  |__) |_  |_  
 --     __) /--\ |  | |    |__ |__    |  | \  |__ |__ 
 --                                                   
--- need to sort first
-
--- how to score
-function SAMPLE:splits(other,both,    guess, divide,cuts,unplaced,place,score)
-  function guess(todos,cuts,      f)
-    for _,todo in pairs(todos) do
-      f=function(_,cut) 
-                return {Row(cut.has:mid()):dist(todo, both.cols.xs),cut} end
-      sort(map(cuts,f),ones)[1][2].has:add(todo) end 
-    return cuts end
-  function divide(cuts,    todos,placed)
-    todos = {}
-    for _,eg in pairs(both.egs) do
-      placed = false  
-      for _,cut in pairs(cuts) do
-        if   cut.when(eg.cells[cut.at]) 
-        then cut.has = cut.has or self:clone()
-             cut.has:add(eg)
-             placed = true 
-             break end end 
-      if not placed then push(todos, eg) end end
-    return guess(todos,cuts) end 
+function SAMPLE:splits(other,both,    place,score)
+  function place(eg,cuts,   x)
+    for _,cut in pairs(cuts) do
+      cut.has = cut.has or self:clone()
+      x = eg.cells[cut.at]
+      if x ~= "?" and cut.when(x) then   return cut.has:add(eg) end end end
   function score(cut,     m,n)
-    m,n = #(cut.has.egs), #both.egs; return -m/n*log(m/n,2) end
-  local best, cutsx, tmp = math.huge
+    m,n = #(cut.has.egs), #both.egs; print(m,n); return -m/n*log(m/n,2) end
+  local best, cutsx, cuts, tmp = math.huge
   for pos,col in pairs(both.cols.xs) do
-      cutsx = col:splits(other.cols.xs[pos])
-      tmp   = sum(divide(cutsx),score)
-      if tmp < best then best,cuts = tmp,cutsx end end 
+    print("eps", col.at, col:spread()*THE.epsilon)
+    cutsx = col:splits(other.cols.xs[pos], col:spread()*THE.epsilon)
+    for _,eg in pairs(both.egs) do place(eg, cutsx) end
+    tmp  = sum(cutsx, score)
+    if tmp < best then best,cuts = tmp,cutsx end end 
   return cuts end
-
-function SAMPLE:tree(top,lvl)
-  lvl, top = lvl or 0, top or self
-  say("%s%s",string.rep("|.. ",lvl),#self.egs)
-  if #self.egs < (#top.egs)^THE.Tiny then return self end
-  one,two = self:twain(self.egs, top.cols.xs)
-  cuts=one:splits(two,self)
-  shout(map(cuts,function(_,cut) return {cut.txt,#cut.has.egs} end))
-  for _,cut in pairs(cuts) do
-    cut.sub= cut.has:tree(top,lvl+1) end end
-
-function SAMPLE:show(tree,          vals,show1)
-  vals=function(a,b) return a.val < b.val end
-  function show1(tree,pre)
-    if #tree.kids==0 then io.write(fmt(" ==>  %s [%s]",tree.mode, tree.n)) end
-    for _,kid in pairs(sort(tree.kids,vals))  do
-        io.write("\n"..fmt("%s%s",pre, showDiv(i, kid.at, kid.val)))
-         show1(kid.sub, pre.."|.. ") end  
-  end ------------------------
-  show1(tree,""); print("") end
 
 --------------------------------------------------------------------------------
 --      __                __       __  __ 
@@ -554,28 +572,11 @@ function go.far(   s,xs,d,eg2)
     d,eg2 = s:distance_farExample(eg1, s.egs, xs)
     print(rnd(d), out(eg1:cols(xs)), out(eg2:cols(xs))) end end
 
-function go.twain(  s,lo,hi)
-  s =  SAMPLE(THE.file)
-  lo,hi = s:twain(s.egs,  s.cols.xs)
-  print(#lo.egs, #hi.egs)
-end
-
-function go.splits(  s,lo,hi)
-  s =  SAMPLE(THE.file)
-  lo,hi = s:twain(s.egs,  s.cols.xs)
-  for _,cut in pairs(lo:splits(hi,s)) do print(cut.txt) end
-end
-
-function go.splits(  s,lo,hi)
-  s =  SAMPLE(THE.file)
-  lo,hi = s:twain(s.egs,  s.cols.xs)
-  for _,cut in pairs(lo:splits(hi,s)) do print(cut.txt) end
-end
-
-function go.tree(  s,lo,hi)
-  s =  SAMPLE(THE.file):tree()
-end
-
+function go.best(  all,best,rest)
+  all = SAMPLE(THE.file)
+  best,rest = all:best()
+  print(#best.egs, #rest.egs)
+  for _,cut in pairs(best:splits(rest,all)) do print(100,cut.txt) end end
 --      __ ___       __  ___           __  
 --     (_   |   /\  |__)  |   __ /  \ |__) 
 --     __)  |  /--\ | \   |      \__/ |    
