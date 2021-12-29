@@ -48,6 +48,7 @@ OPTIONS:
   -todo     X   Pass/fail tests to run at start time      = pass
                 If "X=all", then run all.
                 If "X=ls" then list all. 
+  -verbose      Show low-level traces.                    = false
 
 Data read from "-file" is a csv file whose first row contains column
 names (and the other row contain data.  If a name contains ":",
@@ -97,13 +98,16 @@ local function ones(a,b) return a[1] < b[1] end
 -- tables
 local copy,keys,map,sum
 function copy(t,   u) u={};for k,v in pairs(t) do u[k]=v         end; return u       end
-function keys(t,   u) u={};for k,_ in pairs(t) do u[1+#u]=k      end; return sort(u) end
 function map(t,f,  u) u={};for _,v in pairs(t) do u[1+#u] =f(v)  end; return u       end
 function sum(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end;return n    end
+function keys(t,   u) 
+  u={};for k,_ in pairs(t) do 
+    if tostring(k):sub(1,1) ~= "_" then u[1+#u]=k end end; 
+  return sort(u) end
 
 -- printing utils
 local fmt  = string.format
-local function say(...) print(string.format(...)) end
+local function say(...) if THE.verbose then print(fmt(...)) end end 
 local function btw(...) io.stderr:write(fmt(...).."\n") end     
 local function hue(n,s) return string.format("\27[1m\27[%sm%s\27[0m",n,s) end
 
@@ -152,19 +156,76 @@ local function some(t,n,    u)
   u={}; for i=1,n do push(u,any(t)) end; return u end
 
 -- objects
+local function is(x)    return getmetatable(x) end
 local function as(mt,x) return setmetatable(x,mt) end
-local function is(s, obj)
+local function of(s, obj)
   obj = {_is=s, __tostring=o}
   obj.__index = obj
   return as({__call=function(_,...) return obj.new(...) end},obj) end
+--      __          
+--     (_  \_/ |\/| 
+--     __)  |  |  | 
+--                  
+local SYM=of"SYM"
+function SYM.new(inits,at,txt,    i)
+  i=  as(SYM,{n=0, at=at or 0, txt=txt or "",  
+                  has={}, mode=nil, most=0})
+  for _,x in pairs(inits or {}) do i:add(x) end
+  return i end
+
+-- Summarizing
+function SYM.merge(i,j,    k)
+  k = SYM({},i.at, i.txt)
+  for x,n in pairs(i.has) do k:add(x,n) end
+  for x,n in pairs(j.has) do k:add(x,n) end
+  return k end
+
+function SYM.mid(i) return i.mode end
+function SYM.spread(i) 
+  return sum(i.has, function(n) return -n/i.n*log(n/i.n,2) end) end
+
+-- update
+function SYM.add(i,x,n)
+  if x ~= "?" then
+    n   = n or 1
+    i.n = n + i.n
+    i.has[x] = (i.has[x] or 0) + n
+    if i.has[x] > i.most then i.mode, i.most = x, i.has[x] end 
+    return x end end
+
+-- querying
+function SYM.dist(i,x,y) return  x==y and 0 or 1 end
+
+-- discretization
+function SYM.splits(i,j,_,      cut,tmp)
+  function cut(x) return
+    {val=x, at=i.at, txt=fmt("%s==%s",i.txt,x),
+     when = function(z) return z==x end} end
+  return map(keys(i:merge(j).has), cut) end
+
+--      __        __  
+--     (_  |_/ | |__) 
+--     __) | \ | |    
+--                    
+-- Columns for values we want to ignore.
+local SKIP=of"SKIP"
+function SKIP.new(inits,at,txt)
+  return as(SKIP,{at=at or 0, txt=txt or ""}) end
+
+function SKIP.mid(i)      return "?" end
+function SKIP.spread(i)   return 0   end
+function SKIP.add(i,x)    return x   end
+function SKIP.splits(i,_) return {}  end
+
 --                    
 --     |\ | /  \ |\/| 
 --     | \| \__/ |  | 
 --                    
-local NUM=is"NUM"
+local NUM=of"NUM"
 function NUM.new(inits,at,txt,     i)
-  i = as(NUM,{n=0, at=at or 0, txt=txt or "",  
+  i = as(NUM,{n=0, at=at or 0, txt=txt or "", 
                  w=(txt or ""):find"-" and -1 or 1,
+                 _has={},
                  mu=0, m2=0, lo=math.huge, hi=-math.huge}) 
   for _,x in pairs(inits or {}) do i:add(x) end
   return i end
@@ -176,6 +237,7 @@ function NUM.spread(i) return (i.m2/(i.n-1))^0.5 end
 -- updating
 function NUM.add(i,x,  d) 
   if x ~= "?" then
+    push(i._has, x)
     i.n  = i.n  + 1
     d       = x       - i.mu
     i.mu = i.mu + d/i.n
@@ -183,6 +245,12 @@ function NUM.add(i,x,  d)
     i.lo = math.min(x, i.lo)
     i.hi = math.max(x, i.hi) end
   return x end
+
+function NUM.merge(i,j,    k)
+  k = NUM({}, i.at, i.txt)
+  for _,v in pairs(i._has) do k:add(v) end
+  for _,v in pairs(j._has) do k:add(v) end
+  return k end
 
 -- querying
 function NUM.norm(i,x)
@@ -195,18 +263,20 @@ function NUM.dist(i,x,y)
   return math.abs(x-y) end
 
 -- discretization
-local _roots
-function NUM.splits(i,j,tiny,       cuts,cut)
+local spans
+function NUM.splits(i,j,       xys,cuts)
   function cuts(x,s,at) return {
     {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
     {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
   end
-  local n1,n2,mu1,mu2 = i.n, j.n, i.mu, other.mu
-  print("mu", math.abs(mu1-mu2))
-  if math.abs(mu1 - mu2) < tiny then return {} end
-  cut = _roots(i:mid(), j:mid(), i.n, j.n, i:spread(), other:spread())
-  out{m1=rnd(i.mu), n1=i.n, cut=rnd(cut),m2=rnd(j.mu), n2=other.n}
-  return cuts(cut,i.txt,i.at) end
+  xys={}
+  for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
+  for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
+  return  spans(sort(xys, function(a,b) return a.x < b.x end),
+                (#xys)^THE.Tiny, 
+                THE.epsilon*(i.n*i:spread() + j.n*j:spread())/(i.n + j.n),
+                i, 
+                SYM) end
 
 --      __
 --     |  \ | \  /
@@ -215,109 +285,50 @@ function NUM.splits(i,j,tiny,       cuts,cut)
 -- Return a list of `spans` {lo=,hi=,col=col}.
 -- Sort the list of pairs `xys` then split it into `spans` of cardinally at
 -- least `tiny`. Ensure that the max-min of each span is more that `trivial`.
-local div={}
-function div.div(xys, tiny, trivial,col,yklass)
-  xys    = sort(xys, function(a,b) return a.x < b.x end)
-  local tenth=#xys//10
-  trvial = trivial or it.TRIVIAL*math.abs(xys[9*tenth][1] - xys[tenth][1])/2.56
-  tiny   = tiny    or it.TINY*#xys
-  yklass = yklass  or Num
-  local spans,span
-  span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
-  spans = {span}
-  for j,xy in pairs(xys) do
-    local x, y = xy.x, xy.y
-    if   j < #xys - tiny   and     -- enough items remaining after split
-         x ~= xys[j+1].x   and     -- next item is different (so can split here)
-         span.has.n > tiny and     -- span has enough items
-         span.hi - span.lo > trivial -- span is not trivially small  
-    then span = push(spans, {col=col, lo=span.hi, hi=x, has=yklass()})  -- then new span
+function spans(xys, tiny, trivial,col,yklass)
+  local function mergeable(a,b,   new,b4)
+    new = a:merge(b)
+    b4  = (a.n*a:spread() + b.n*b:spread()) / new.n
+    if new:spread() <= b4 then return new end 
+  end   
+  local function merge(b4) 
+    local j, tmp = 0, {}
+    while j < #b4 do
+      j = j + 1
+      local now, after = b4[j], b4[j+1]
+      if after then
+        local simpler = mergeable(now.has, after.has)
+        if simpler then 
+          now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
+          j = j + 1 end end
+      push(tmp,now) end 
+    return #tmp==#b4 and b4 or merge(tmp) 
+  end
+  local function div(      spans,span)
+    span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
+    spans = {span}
+    for j,xy in pairs(xys) do
+      local x, y = xy.x, xy.y
+      if   j < #xys - tiny   and     -- enough items remaining after split
+           x ~= xys[j+1].x   and     -- next item is different (so can split here)
+           span.has.n > tiny and     -- span has enough items
+           span.hi - span.lo > trivial -- span is not trivially small  
+      then span = push(spans, {col=col, lo=span.hi, hi=x, has=yklass()})  -- then new span
+      end
+      span.hi = x 
+      span.has:add(y) 
     end
-    span.hi = x 
-    span.has:add(y) end
-  first(spans).lo = -math.huge
-  last(spans).hi  =  math.huge
-  return div.merge(spans) end
-
-function div.mergeable(a,b,   new,b4)
-  new = a:merge(b)
-  b4  = (a.n*a:spread() + b.n*b:sd()) / new.n
-  if new:spread() <= b4 then return new end 
-end 
-
---  Merge adjacent spans if the combo is simpler than the parts.
-function div.merge(b4) 
-  local j, tmp = 0, {}
-  while j < #b4 do
-    j = j + 1
-    local now, after = b4[j], b4[j+1]
-    if after then
-      local simpler = div.mergeable(now.has, after.has)
-      if simpler then 
-        now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
-        j = j + 1 end end
-    push(tmp,now) end 
-  return #tmp==#b4 and b4 or div.merge(tmp) -- recurse until nothing merged
-end 
-
+    spans[1].lo = -math.huge
+    spans[#spans].hi  =  math.huge
+    return spans end
+  return merge(div()) end
 
---      __          
---     (_  \_/ |\/| 
---     __)  |  |  | 
---                  
-local SYM=is"SYM"
-function SYM.new(inits,at,txt,    i)
-  i=  as(SYM,{n=0, at=at or 0, txt=txt or "",  
-                  seen={}, mode=nil, most=0})
-  for _,x in pairs(inits or {}) do i:add(x) end
-  return i end
-
--- Summarizing
-function SYM.mid(i) return i.mode end
-function SYM.spread(i) 
-  return sum(i.seen, function(n) return -n/i.n*log(n/i.n,2) end) end
-
--- update
-function SYM.add(i,x)
-  if x ~= "?" then
-    i.n = 1 + i.n
-    i.seen[x] = (i.seen[x] or 0) + 1
-    if i.seen[x] > i.most then i.mode, i.most = x, i.seen[x] end 
-    return x end end
-
--- querying
-function SYM.dist(i,x,y) return  x==y and 0 or 1 end
-
--- discretization
-function SYM.splits(i,j,_,      cut,tmp)
-  function cut(x) return
-    {val=x, at=i.at, txt=fmt("%s==%s",i.txt,x),
-     when = function(z) return z==x end} end
-  tmp={}
-  for k,_ in pairs(i.seen)  do tmp[k]=k end
-  for k,_ in pairs(j.seen) do tmp[k]=k end
-  return map(sort(tmp),cut) end
-
---      __        __  
---     (_  |_/ | |__) 
---     __) | \ | |    
---                    
--- Columns for values we want to ignore.
-local SKIP=is"SKIP"
-function SKIP.new(inits,at,txt)
-  return as(SKIP,{n=0, at=at or 0, txt=txt or ""}) end
-
-function SKIP.mid(i)      return "?" end
-function SKIP.spread(i)   return 0   end
-function SKIP.add(i,x)    return x   end
-function SKIP.splits(i,_) return {}  end
-
 --      __  __       __ 
 --     /   /  \ |   (_  
 --     \__ \__/ |__ __) 
 --                      
 -- Convert column headers into NUMs and SYMs, etc.
-local COLS=is"COLS"
+local COLS=of"COLS"
 function COLS.new(names,    i, new,what)
   i = as(COLS, {names=names, xs={}, all={}, ys={}})
   for n,x in pairs(names) do
@@ -338,7 +349,7 @@ function COLS.add(i,eg)
 --     |__ \__) 
 --              
 -- One example
-local EG=is"EG"
+local EG=of"EG"
 function EG.new(cells) return as(EG,{cells=cells}) end
 
 -- Sumamrizing
@@ -370,7 +381,7 @@ function EG.better(i,j,cols,     e,n,a,b,s1,s2)
 --     __) /--\ |  | |    |__ |__ 
 --                                
 -- SAMPLEs hold many examples
-local SAMPLE=is"SAMPLE"
+local SAMPLE=of"SAMPLE"
 function SAMPLE.new(inits,    i)
   i = as(SAMPLE, {cols=nil, egs={}})
   if type(inits)=="string" then for eg in csv(inits)   do i:add(eg) end end
@@ -406,7 +417,8 @@ function SAMPLE.best(i)
   local rest,div = {}
   function div(egs, lvl, one,         tmp,a,b,c,two,want,low,good)
     tmp = i:clone(egs)
-    say("%s%s\t%s",string.rep("|.. ",lvl),#egs,o(rnds(tmp:mid(tmp.cols.ys),1)))
+    say("%s%s\t%s",
+          string.rep("|.. ",lvl),#egs,o(rnds(tmp:mid(tmp.cols.ys),1))) 
     if #egs < 2*(#i.egs)^THE.epsilon then
       return i:clone(egs), i:clone(some(rest,THE.more*#egs)) end
     one   = one or i:distance_farEg(any(egs), egs, i.cols.xs)
@@ -460,12 +472,8 @@ function SAMPLE:splits(other,both,    place,score)
 --     |__ / \ /--\ |  | |    |__ |__ __) 
 --                                        
 local go={} 
-function go.ls() 
-  print("\nlua "..arg[0].." -todo ACTION\n\nACTIONS:")
-  for _,k in pairs(keys(go)) do  print("  -todo",k) end end
-
 function go.pass() return true end 
-function go.the() out(THE) end
+function go.the(  s) s=o(THE); say("%s",o(s))  end
 function go.bad(  s) assert(false) end
 
 function go.sort(   u,t)
@@ -513,28 +521,31 @@ function go.sym(    cut,min,w,z)
   w = SYM{"m","m","m","m","b","b","c"}
   z = SYM{"a","a","a","a","b","b","c"}
   assert(1.38 == rnd(z:spread(),2)) 
-  for _,cut in pairs(w:splits(z)) do out(cut) end end
+  for _,cut in pairs(w:splits(z)) do say("%s",o(cut)) end
+  end
 
 function go.sample(   s,egs,xs,ys,scopy)
   s=SAMPLE(THE.file) 
   scopy=s:clone(s.egs)
-  print(s.cols.all[1]:spread(), scopy.cols.all[1]:spread())
+  say("%s %s",s.cols.all[1]:spread(), scopy.cols.all[1]:spread()) 
   xs,ys= s.cols.xs, s.cols.ys
   assert(4 == #xs)
   assert(3 == #ys)
   egs=s:sorted()
-  out(rnds(s:mid(ys),1)); 
-  out(rnds(map(s:spread(ys),function(x) return .35*x end), 1)); print("")
-  for i=1,10 do out(rnds(egs[i]:cols(ys),1)) end; print("")
-  for i=#egs,#egs-10,-1 do out(rnds(egs[i]:cols(ys),1)) end end
+  say(o(rnds(s:mid(ys),1))) 
+  say(o(rnds(map(s:spread(ys),function(x) return .35*x end), 1)));say("")
+  for i=1,10 do say("%s", o(rnds(egs[i]:cols(ys),1))) end;          say("")
+  for i=#egs,#egs-10,-1 do say(o(rnds(egs[i]:cols(ys),1))) end  
+  end
 
 function go.dist(   s,xs,sorted, show )
   s=SAMPLE(THE.file) 
   xs= s.cols.xs
   sorted = s:neighbors(s.egs[1], s.egs,xs)
-  show=function(i) print(rnd(sorted[i][1],2), o(sorted[i][2]:cols(xs))) end
-  for i=1,10               do show(i) end; print("")
-  for i=#sorted-10,#sorted do show(i) end end
+  show=function(i) say("%s %s",rnd(sorted[i][1],2), 
+                               o(sorted[i][2]:cols(xs))) end
+  for i=1,10               do show(i) end; say("")
+  for i=#sorted-10,#sorted do show(i) end  end
 
 function go.far(   s,xs,d,eg2)
   s  = SAMPLE(THE.file) 
@@ -542,13 +553,26 @@ function go.far(   s,xs,d,eg2)
   for k,eg1 in pairs(shuffle(s.egs)) do
     if k > 10 then break end
     eg2,d = s:distance_farEg(eg1, s.egs, xs)
-    print(rnd(d), o(eg1:cols(xs)), o(eg2:cols(xs))) end end
+    say("%s %s %s",rnd(d), o(eg1:cols(xs)), o(eg2:cols(xs))) end end
+
+local goals={
+  optimize=function(b,B,r,R) b=b/B; r=r/R; return b< r and 0 or b^2/(b+r) end,
+  monitor=function(b,B,r,R)  b=b/B; r=r/R; return b< r and 0 or b^2/(b+r) end,
+  explore=function(b,B,r,R)  b=b/B; r=r/B; return 1/(b+r) end 
+}
 
 function go.best(  all,best,rest)
   all = SAMPLE(THE.file)
   best,rest = all:best()
-  print(#best.egs, #rest.egs)
-  for _,cut in pairs(best:splits(rest,all)) do print(100,cut.txt) end end
+  say(o(best.cols.all[1]))
+  say("%s %s",  #best.egs, #rest.egs)
+  say("")
+  for n,col1 in pairs(best.cols.xs) do
+    if is(col1)==NUM then
+      say""
+      for n,cut in pairs(col1:splits(rest.cols.xs[n])) do
+        say(o{n,col1.txt,cut.lo,cut.hi}) end end end
+  end
 --      __ ___       __  ___           __  
 --     (_   |   /\  |__)  |   __ /  \ |__) 
 --     __)  |  /--\ | \   |      \__/ |    
@@ -564,7 +588,7 @@ for _,todo in pairs(todos) do
   if ok then btw("%s%s",hue(32,"-- PASS "),todo)         
         else btw("%s%s %s",hue(31,"-- FAIL "),todo,msg); fails=fails+1 end end 
 
-btw(hue(33,"-- %s errors"),fails)
+btw(hue(33,"-- %s error(s)"),fails)
 for k,v in pairs(_ENV) do 
   if not b4[k] then btw(hue(31,"-- rogue? %s %s"),k,type(v)) end end 
 os.exit(fails) 
