@@ -254,7 +254,7 @@ function SYM.splits(i,j,cuts,      cut,tmp)
       r = j.has[x] or 0
       s = goals[THE.goal]( b/i.n, r/j.n)
       if s then  push(cuts,{score=s,col=i,lo=x,hi=x}) end end end
-  return cuts end
+  return cuts end
 
 --      __        __  
 --     (_  |_/ | |__) 
@@ -378,8 +378,7 @@ function spread_merge(xys, tiny, trivial,col,yklass)
     spans[#spans].hi  =  math.huge
     return spans 
   end
-  return merge(div()) end
-
+  return merge(div()) end
 --      __  __       __ 
 --     /   /  \ |   (_  
 --     \__ \__/ |__ __) 
@@ -400,7 +399,6 @@ function COLS.new(names,    i, new,what)
 -- Updates
 function COLS.add(i,eg)
   return map(i.all, function(col) col:add(eg[col.at]); return x end) end
-
 --      __  __  
 --     |_  / _  
 --     |__ \__) 
@@ -432,7 +430,7 @@ function EG.better(i,j,cols,     e,n,a,b,s1,s2)
     s1 = s1 - e^(col.w * (a-b)/n) 
     s2 = s2 - e^(col.w * (b-a)/n) end
   return s1/n < s2/n end 
-
+
 --      __            __       __ 
 --     (_   /\  |\/| |__) |   |_  
 --     __) /--\ |  | |    |__ |__ 
