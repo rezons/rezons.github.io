@@ -37,6 +37,7 @@ OPTIONS:
   -epsilon  X   ignore differences under epsilon*stdev    = .35  
   -Far      X   How far to look for remove items          = .9
   -file     X   Where to read data                        = ../../data/auto93.csv
+  -goal     X   smile, frown, xplor, doubt                = smile
   -h            Show help                                 = false
   -little   X   size of subset of a list                  = 1024
   -more     X   Use more*#best for rest                   = 3.5
@@ -96,12 +97,15 @@ local function sort(t,f) table.sort(t,f);   return t end
 local function ones(a,b) return a[1] < b[1] end
 
 -- tables
-local copy,keys,map,sum
+local top,copy,keys,map,sum
 function copy(t,   u) u={};for k,v in pairs(t) do u[k]=v         end; return u       end
 function map(t,f,  u) u={};for _,v in pairs(t) do u[1+#u] =f(v)  end; return u       end
 function sum(t,f,  n) n=0 ;for _,v in pairs(t) do n=n+(f or same)(v) end;return n    end
+function top(t,n,  u) 
+  u={}; for k,v in pairs(t) do if k>n then break end; u[#u+1]=v end; return u end
+
 function keys(t,   u) 
-  u={};for k,_ in pairs(t) do 
+  u={}; for k,_ in pairs(t) do 
     if tostring(k):sub(1,1) ~= "_" then u[1+#u]=k end end; 
   return sort(u) end
 
@@ -151,6 +155,7 @@ function rand(lo,hi)
 local function any(t)  return t[randi(1,#t)] end
 local function shuffle(t,   j)
   for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
+
 local function some(t,n,    u)
   if n >= #t then return shuffle(copy(t)) end
   u={}; for i=1,n do push(u,any(t)) end; return u end
@@ -162,6 +167,49 @@ local function of(s, obj)
   obj = {_is=s, __tostring=o}
   obj.__index = obj
   return as({__call=function(_,...) return obj.new(...) end},obj) end
+--      __   __            __
+--     / _  /  \  /\  |   (_
+--     \__) \__/ /--\ |__ __)
+--
+local goals={}
+--function goals.smile(b,r) if b+r>1E-2 and b>r then return b^2/(b+r+1E-31) end end
+--function goals.frown(b,r) if b+r>1E-2 and r>b then return r^2/(b+r+1E-31) end end
+function goals.smile(b,r) if b+r>1E-2 then return b^2/(b+r+1E-31) end end
+function goals.frown(b,r) if b+r>1E-2 then return r^2/(b+r+1E-31) end end
+function goals.xplor(b,r) if b+r>1E-2 then return 1/(b+r+1E-31) end end
+function goals.doubt(b,r) if b+r>1E-2 then return (b+r)/(math.abs(b-r)+1E-31) end end
+
+-- XXXX have to handle breaks in conjuncts
+function select(cuts, best,rest,  lt,merge)
+  local score, parts,merge,fx,show
+  function score(a,b) return a.score >= b.score end
+  function parts(a,b) return a.col.at<b.col.at or a.col.at==b.col.at and a.lo<b.lo end
+  function merge(b4,     j,tmp,now,after) 
+    j, tmp = 0, {}
+    while j < #b4 do
+      j = j + 1
+      now, after = b4[j], b4[j+1]
+      if after then
+        if now.hi == after.lo then
+          now = {col=now.col, lo=now.lo, hi= after.hi}
+          j = j + 1 end end
+      push(tmp,now) end 
+    return #tmp==#b4 and b4 or merge(tmp) 
+  end
+  function fx(cuts)
+    function relevant(eg)
+      for _,cut in pairs(cuts) do
+        local x = eg.cells[cut.col.at]
+        if not(x=="?" or cut.lo <= x and x <= cut.hi) then return nil end end
+      return eg end
+    best1 = #map(best,function(eg) return relevant(eg) end) / #best
+    rest1 = #map(rest,function(eg) return relevant(eg) end) / #rest
+    return best1 / (best1 + rest)
+  end  
+  cuts = sort(cuts,score)
+  for j=1,#cuts do 
+    rule= merge(sort(top(cuts,j),parts))
+    print(j, fx(egs,rule), table.concat(map(rule,show)," and ")) end end
 --      __          
 --     (_  \_/ |\/| 
 --     __)  |  |  | 
@@ -197,11 +245,16 @@ function SYM.add(i,x,n)
 function SYM.dist(i,x,y) return  x==y and 0 or 1 end
 
 -- discretization
-function SYM.splits(i,j,_,      cut,tmp)
-  function cut(x) return
-    {val=x, at=i.at, txt=fmt("%s==%s",i.txt,x),
-     when = function(z) return z==x end} end
-  return map(keys(i:merge(j).has), cut) end
+function SYM.splits(i,j,cuts,      cut,tmp)
+  cuts = cuts or {}
+  xs= keys(i:merge(j).has)
+  if #xs > 1 then
+    for _,x in pairs(xs) do
+      b = i.has[x] or 0
+      r = j.has[x] or 0
+      s = goals[THE.goal]( b/i.n, r/j.n)
+      if s then  push(cuts,{score=s,col=i,lo=x,hi=x}) end end end
+  return cuts end
 
 --      __        __  
 --     (_  |_/ | |__) 
@@ -263,20 +316,23 @@ function NUM.dist(i,x,y)
   return math.abs(x-y) end
 
 -- discretization
-local spans
-function NUM.splits(i,j,       xys,cuts)
-  function cuts(x,s,at) return {
-    {val=x,at=at,txt=fmt("%s <= %s",s,rnd(x)),when=function(z) return z<=x end},
-    {val=x,at=at,txt=fmt("%s > %s" ,s,rnd(x)),when=function(z) return z >x end}}
-  end
-  xys={}
+local spread_merge
+function NUM.splits(i,j,cuts,       xys,tmp,b,r,s)
+  xys, cuts = {},cuts or {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
   for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
-  return  spans(sort(xys, function(a,b) return a.x < b.x end),
-                (#xys)^THE.Tiny, 
-                THE.epsilon*(i.n*i:spread() + j.n*j:spread())/(i.n + j.n),
-                i, 
-                SYM) end
+  tmp = spread_merge(sort(xys, function(a,b) return a.x < b.x end),
+                     (#xys)^THE.Tiny, 
+                     THE.epsilon*(i.n*i:spread() + j.n*j:spread())/(i.n + j.n),
+                     i,
+                     SYM) 
+  if #tmp > 1 then 
+    for _,cut in pairs(tmp) do 
+      b = cut.has.has.best or 0
+      r = cut.has.has.rest or 0
+      s = goals[THE.goal]( b/i.n, r/j.n)
+      if s then cut.score=s; push(cuts,cut) end end end
+  return cuts end
 
 --      __
 --     |  \ | \  /
@@ -285,30 +341,30 @@ function NUM.splits(i,j,       xys,cuts)
 -- Return a list of `spans` {lo=,hi=,col=col}.
 -- Sort the list of pairs `xys` then split it into `spans` of cardinally at
 -- least `tiny`. Ensure that the max-min of each span is more that `trivial`.
-function spans(xys, tiny, trivial,col,yklass)
+function spread_merge(xys, tiny, trivial,col,yklass)
   local function mergeable(a,b,   new,b4)
     new = a:merge(b)
     b4  = (a.n*a:spread() + b.n*b:spread()) / new.n
-    if new:spread() <= b4 then return new end 
+    if new:spread()*1.01 <= b4 then return new end 
   end   
-  local function merge(b4) 
+  local function merge(b4,    j,tmp,simpler,now,after) 
     local j, tmp = 0, {}
     while j < #b4 do
       j = j + 1
-      local now, after = b4[j], b4[j+1]
+      now, after = b4[j], b4[j+1]
       if after then
-        local simpler = mergeable(now.has, after.has)
+        simpler = mergeable(now.has, after.has)
         if simpler then 
           now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
           j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) 
   end
-  local function div(      spans,span)
+  local function div(      spans,span,x,y)
     span  = {col=col,lo=xys[1].x, hi=xys[1].x, has=yklass()}
     spans = {span}
     for j,xy in pairs(xys) do
-      local x, y = xy.x, xy.y
+      x, y = xy.x, xy.y
       if   j < #xys - tiny   and     -- enough items remaining after split
            x ~= xys[j+1].x   and     -- next item is different (so can split here)
            span.has.n > tiny and     -- span has enough items
@@ -320,7 +376,8 @@ function spans(xys, tiny, trivial,col,yklass)
     end
     spans[1].lo = -math.huge
     spans[#spans].hi  =  math.huge
-    return spans end
+    return spans 
+  end
   return merge(div()) end
 
 --      __  __       __ 
@@ -555,23 +612,18 @@ function go.far(   s,xs,d,eg2)
     eg2,d = s:distance_farEg(eg1, s.egs, xs)
     say("%s %s %s",rnd(d), o(eg1:cols(xs)), o(eg2:cols(xs))) end end
 
-local goals={
-  optimize=function(b,B,r,R) b=b/B; r=r/R; return b< r and 0 or b^2/(b+r) end,
-  monitor=function(b,B,r,R)  b=b/B; r=r/R; return b< r and 0 or b^2/(b+r) end,
-  explore=function(b,B,r,R)  b=b/B; r=r/B; return 1/(b+r) end 
-}
-
-function go.best(  all,best,rest)
+function go.best(  all,best,rest,cuts)
   all = SAMPLE(THE.file)
   best,rest = all:best()
   say(o(best.cols.all[1]))
   say("%s %s",  #best.egs, #rest.egs)
   say("")
-  for n,col1 in pairs(best.cols.xs) do
-    if is(col1)==NUM then
-      say""
-      for n,cut in pairs(col1:splits(rest.cols.xs[n])) do
-        say(o{n,col1.txt,cut.lo,cut.hi}) end end end
+  cuts={}
+  local order=function(a,b) return 
+                a.col.at < b.col.at or a.col.at==b.col.at and a.lo < b.lo end
+  for n,col1 in pairs(best.cols.xs) do col1:splits(rest.cols.xs[n],cuts) end
+  for _,cut in pairs(sort(cuts,order)) do
+    say(o{at=cut.col.at, lo=cut.lo, hi=cut.hi, score=cut.score, txt=cut.col.txt}) end
   end
 --      __ ___       __  ___           __  
 --     (_   |   /\  |__)  |   __ /  \ |__) 
