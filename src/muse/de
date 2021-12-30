@@ -27,7 +27,6 @@ local function sort(t,f)    table.sort(t,f);   return t end
 local function keys(t,   u) u={};for k,_ in pairs(t) do u[1+#u]=k     end; return u end
 local function map(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(v) end; return u end
 
-
 local function csv(file,   x,line)
   function line(x,  t)
     t={}; for y in x:gmatch"([^,]+)" do t[1+#t]=tonumber(y) or y end; return t end
@@ -37,19 +36,19 @@ local function csv(file,   x,line)
 local function o(t,   u,key)
   function key(k) return string.format(":%s %s", k, o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
-  return "{"..table.contact(#t>0 and map(t,o) or map(sort(keys(t)),key)," ").."}" end 
+  return "{"..table.concat(#t>0 and map(t,o) or map(sort(keys(t)),key)," ").."}" end 
 
-local function isa(x,y) x.__index=x; return setmetatable(y,x) end 
+local function new(x,y) x.__index=x; return setmetatable(y,x) end 
 
 local SAMPLE={}
 function SAMPLE.new() 
-  return isa(SAMPLE, {head=nil,w={},egs={},num={},sym={},goal={},ngoals=0}) end
+  return new(SAMPLE, {head=nil,w={},egs={},num={},sym={},goal={},ngoals=0}) end
 function SAMPLE.norm(i,num,x,    lo,hi)
   lo,hi = num.lo, num.hi
   return math.abs(lo-hi)<1E-32 and 0 or (x-lo)/(hi-lo) end
 
-function SAMPLE.better(i, eg1,eg2,smpl,   e,n,a,b,s1,s2)
-  s1,s2,e,n = 0,0, 2.71828,i.ys
+function SAMPLE.better(i, eg1,eg2,  e,n,a,b,s1,s2)
+  s1,s2,e,n = 0,0, 2.71828,#i.ngoals
   for col,w in pairs(i.goal) do
     num = i.num[col]
     a  = i:norm(num, eg1.has[num.at])
