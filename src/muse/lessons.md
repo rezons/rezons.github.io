@@ -47,3 +47,4 @@ LEARNING
 - num,sym
 - dimensional it reduction
 - semi-supervised learning
+- check out the options. more than you can imagine
