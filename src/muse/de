@@ -119,6 +119,5 @@ function SAMPLE.label(i, egs,n,one,    egs,n,one,two,a,b,c,lo,hi)
   for n,eg in pairs(sort(egs,function(a,b) return a.x < b.x end)) do
     table.insert(n <= .5*#egs and lo or hi, eg) end
   i:label(one:better(two,i) and lo or hi, n*2, two) end 
-
 ----------------------------------------------------------------------------------------
 for k,v in pairs(_ENV) do if not b4[k] then print("Rogue?",k,type(v)) end end 
