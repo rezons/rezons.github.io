@@ -2,23 +2,28 @@
 -- vim : filetype=lua ts=2 sw=2 et :
 local THE, help= {}, [[de OPTIONS
 
-  -Debug     on error, dump stack and exit : false
-  -dull   F  small effect= stdev*dull      : .35
-  -file   S  read data from file: ../../data/auto93.csv
-  -h         show help                     : false
-  -p      I  distance coefficient          : 2
-  -seed   I  random number seed            : 10019
-  -Small  F  splits at #t^small            : .5
-  -todo   S  start-up action ("all"=do all): pass ]]
+  -Debug     on error, dump stack and exit  : false
+  -dull   F  small effect= stdev*dull       : .35
+  -file   S  read data from file : ../../data/auto93.csv
+  -h         show help                      : false
+  -p      I  distance coefficient           : 2
+  -round  I  round floats to "round" places : 3
+  -seed   I  random number seed             : 10019
+  -Small  F  splits at #t^small             : .5
+  -todo   S  start-up action                : pass
+             -todo ALL = run all
+             -todo LS  = list all
+  -verbose   show details                   : false]]
 
-local function eden()  
+local function settings()  
   help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(flag,x) 
     for n,word in ipairs(arg) do 
       if flag:match("^"..word:sub(2)..".*") then 
-        x = x == "false" and "true" or arg[n+1] end end
-    THE[flag] = tonumber(x) or x end) end
+        x = x=="false" and "true" or tonumber(arg[n+1]) or arg[n+1] end end 
+    if x=="false" then x=false elseif x=="true" then x=true else x=tonumber(x) or x end
+    THE[flag] = x end) end
 
-eden(help)
+settings()
 if THE.h then print(help) end
 ----------------------------------------------------------------------------------------
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
@@ -31,10 +36,13 @@ local function map(t,f,  u) u={};for k,v in pairs(t) do u[1+#u] =f(v) end; retur
 
 local function csv(file,   x,line)
   function line(x,  t)
-    t={}; for y in x:gmatch"([^,]+)" do t[1+#t]=tonumber(y) or y end; return t end
+     t={}
+     for y in x:gsub("%s+",""):gmatch"([^,]+)" do t[1+#t]=tonumber(y) or y end; return t end
    file = io.input(file) 
    return function() x=io.read(); if x then return line(x) else io.close(file) end end end
 
+local function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / n end
+local function say(...) if THE.verbose then print(string.format(...)) end end
 local function o(t,   u,key)
   function key(k) return string.format(":%s %s", k, o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
@@ -71,12 +79,15 @@ function NUM.norm(i,x)
 local EG=klass"EG"
 function EG.new(t) return new(EG, {has=t}) end
 
-function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
+function EG.cols(i,cols) return map(keys(cols), function(x) return i.has[x] end) end
+function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1,a1,b1)
   function dist1(num,a,b)
     if   num 
-    then if     a=="?" then num:norm(b); a=b>.5 and 0 or 1
-         elseif b=="?" then num:norm(a); b=a>.5 and 0 or 1
+    then a1,b1=a,b
+         if     a=="?" then b=num:norm(b); a=b>.5 and 0 or 1
+         elseif b=="?" then a=num:norm(a); b=a>.5 and 0 or 1
          else   a,b = num:norm(a), num:norm(b) end
+         print(a,rnd(a1),b,rnd(b1))
          return math.abs(a-b) 
     else return a==b and 0 or 1 end
   end
@@ -89,7 +100,7 @@ function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
   return (d/n)^(1/THE.p) end
 
 function EG.better(eg1,eg2,smpl,    num,e,n,a,b,s1,s2)
-  s1,s2,e,n = 0,0,2.71828,#smpl.nys
+  s1,s2,e,n = 0,0,2.71828,smpl.nys
   for col,_ in pairs(smpl.ys) do
     num = smpl.num[col]
     a   = num:norm(eg1.has[col])
@@ -100,8 +111,11 @@ function EG.better(eg1,eg2,smpl,    num,e,n,a,b,s1,s2)
 
 ----------------------------------------------------------------------------------------
 local SAMPLE=klass"SAMPLE"
-function SAMPLE.new() 
-  return new(SAMPLE, {head=nil,w={},egs={},num={},sym={},xs={},ys={},nys=0}) end
+function SAMPLE.new(inits,   i) 
+  i= new(SAMPLE, {head=nil,w={},egs={},num={},sym={},xs={},ys={},nys=0}) 
+  if type(inits)=="table"  then for _,eg in pairs(inits) do i:add(eg) end end
+  if type(inits)=="string" then for eg in csv(inits)   do i:add(eg) end end 
+  return i end
 
 function SAMPLE.skip(i,x)  return x:find":" end
 function SAMPLE.nump(i,x)  return not i:skip(x) and x:find"^[A-Z].*" end
@@ -115,7 +129,7 @@ function SAMPLE.add(i,eg)
                        else i.xs[n]  = s end  
          if i:nump(s)  then i.num[n] = NUM(n,s)
                        else i.sym[n] = {txt=s} end end
-  else i.egs[1+#i.egs] = Row.new(eg); 
+  else i.egs[1+#i.egs] = EG(eg); 
        for n,num in pairs(i.num) do num:add(eg[n]) end end 
   return i end
 
@@ -127,7 +141,7 @@ function SAMPLE.far(i,eg1,egs,    dist,tmp)
 function SAMPLE.label(i, egs,n,one,    egs,n,one,two,a,b,c,lo,hi)
   egs,n = egs or i.egs, 1
   for _,eg in pairs(egs) do eg.klass= n end
-  if #egs < 2*#i.egs^THE.epsilon then return end
+  if #egs < 2*(#i.egs)^THE.Small then return end
   one   = one or i:far(any(egs),egs)
   two,c = i:far(one, egs)
   for _eg in pairs(egs) do
@@ -141,13 +155,48 @@ function SAMPLE.label(i, egs,n,one,    egs,n,one,two,a,b,c,lo,hi)
   i:label(one:better(two,i) and lo or hi, n*2, two) end 
 
 ----------------------------------------------------------------------------------------
-local fails=0
-local function asserts(test,msg) 
-  if not test then 
-    fails=fails+1; print("!!!! FAIL",msg)
-    if THE.debug then assert(test,msg) else  print("!!!! FAIL",msg) end end end
+local go = {}
+local fails = 0
+local function main() go[THE.todo](); rogues(); os.exit(fails) end
+local function azzert(test,msg) 
+  if test then print("  PASS : "..msg) else
+    fails=fails+1
+    print("  FAIL : "..msg)
+    if THE.Debug then assert(test,msg) end end end
 
-local go={}
-function go.sample(s) s=SAMPLE() print(o(s)) end
-rogues()
-os.exit(fails)
+function go.ALL()
+  for _,k in pairs(keys(go)) do 
+    if k:match"^[a-z]" then settings(); print("\n"..k); go[k]() end end end
+
+function go.LS()       
+  for _,k in pairs(keys(go)) do 
+    if k:match"^[a-z]" then print("  -t "..k) end end end
+
+function go.pass(s) azzert(true,  "can handle success?")  end
+function go.fail(s) azzert(false, "can handle failure?") end
+function go.sample(s,  egs) 
+  s=SAMPLE(THE.file)
+  print(o(s.num))
+  azzert(398==#s.egs, "got enough rows?")
+  azzert(s.num[4].w==-1,"minimizing goals are -1?") end
+
+function go.dominate(s,  egs) 
+  s=SAMPLE(THE.file)
+  egs = sort(s.egs, function(a,b) return a:better(b,s) end)
+  for i=1,5 do say(o(egs[i]:cols(s.ys))) end; say("")
+  for i=#egs-5,#egs do say(o(egs[i]:cols(s.ys))) end
+  azzert(egs[1]:better(egs[#egs],s), "y-sort working?") end
+
+function go.distance(   x,s,dist,tmp) 
+  s=SAMPLE(THE.file)
+  print(s.egs[1]:dist(s.egs[1],s))
+  dist = function(eg2) return {eg2,s.egs[1]:dist(eg2,s)} end
+  tmp  = sort(map(s.egs, dist), function(a,b) return a[2] < b[2] end)
+  print("\n\n")
+  a,b = s.egs[1], s.egs[2]
+  say("%s %s %s",o(a.has),o(b.has),rnd(a:dist(b,s)))
+  --for i=1,5         do x=tmp[i]; say("%s %s",rnd(x[2]), o(x[1].has)) end ; say("")
+  --for i=#tmp-5,#tmp do x=tmp[i]; say("%s %s",rnd(x[2]), o(x[1].has)) end 
+  end
+
+main()
