@@ -1,0 +1,331 @@
+#!/usr/bin/env lua
+
+-- vim : filetype=lua ts=2 sw=2 et :
+local THE, help = {}, [[de OPTIONS
+
+  -Debug     on error, dump stack and exit  : false
+  -dull   F  small effect= stdev*dull       : .35
+  -Far    F  where to find far things       : .9
+  -file   S  read data from file : ../../data/auto93.csv
+  -h         show help                      : false
+  -p      I  distance coefficient           : 2
+  -round  I  round floats to "round" places : 3
+  -seed   I  random number seed             : 10019
+  -Small  F  splits at #t^small             : .5
+  -todo   S  start-up action                : pass
+             -todo ALL = run all
+             -todo LS  = list all
+  -verbose   show details                   : false]]
+
+local function read_settings_from_two_blanks_and_1_dash()
+    help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)",
+              function(flag, x) -- flag,x = word1,last word
+        for n, txt in ipairs(arg) do -- check for updates from command line
+            if flag:match("^" .. txt:sub(2) .. ".*") -- allow abbreviations for flags
+            then x = x == "false" and "true" or arg[n + 1] end
+        end -- if boolean flag, then enable it              
+        if x == "false" then
+            x = false
+        elseif x == "true" then
+            x = true
+        else
+            x = tonumber(x) or x
+        end
+        THE[flag] = x
+    end)
+end
+
+----------------------------------------------------------------------------------------
+local b4 = {};
+for k, _ in pairs(_ENV) do b4[k] = k end
+local function rogues()
+    for k, v in pairs(_ENV) do
+        if not b4[k] then print("Rogue?", k, type(v)) end
+    end
+end
+
+local function sort(t, f)
+    table.sort(t, f);
+    return t
+end
+local function keys(t, u)
+    u = {};
+    for k, _ in pairs(t) do u[1 + #u] = k end
+    return u
+end
+local function map(t, f, u)
+    u = {};
+    for k, v in pairs(t) do u[1 + #u] = f(v) end
+    return u
+end
+
+local function csv(file, x, row)
+    function row(x, t)
+        for y in x:gsub("%s+", ""):gmatch "([^,]+)" do
+            t[1 + #t] = tonumber(y) or y
+        end
+        return t
+    end
+    file = io.input(file)
+    return function()
+        x = io.read();
+        if x then
+            return row(x, {})
+        else
+            io.close(file)
+        end
+    end
+end
+
+local function rnd(x, d, n)
+    n = 10 ^ (d or THE.round);
+    return math.floor(x * n + 0.5) / n
+end
+local function say(...) if THE.verbose then print(string.format(...)) end end
+local function o(t, u, key)
+    function key(k) return string.format(":%s %s", k, o(t[k])) end
+    if type(t) ~= "table" then return tostring(t) end
+    u = #t > 0 and map(t, o) or map(sort(keys(t)), key)
+    return (t._is or "") .. "{" .. table.concat(u, " ") .. "}"
+end
+
+local function rand(lo, hi)
+    THE.seed = (16807 * THE.seed) % 2147483647
+    return (lo or 0) + ((hi or 1) - (lo or 0)) * THE.seed / 2147483647
+end
+
+local function randi(lo, hi) return math.floor(0.5 + rand(lo, hi)) end
+local function any(t) return t[randi(1, #t)] end
+local function shuffle(t, j)
+    for i = #t, 2, -1 do
+        j = randi(1, i);
+        t[i], t[j] = t[j], t[i]
+    end
+    return t
+end
+
+local function new(mt, x) return setmetatable(x, mt) end
+local function klass(s, klass)
+    klass = {_is = s, __tostring = o}
+    klass.__index = klass
+    return new({__call = function(_, ...) return klass.new(...) end}, klass)
+end
+
+----------------------------------------------------------------------------------------
+local SYM = klass "SYM"
+function SYM.new(n, s) return new(SYM, {txt = s or "", at = n or 0}) end
+
+local NUM = klass "NUM"
+function NUM.new(n, s)
+    return new(NUM, {
+        txt = s or "",
+        at = n or 0,
+        lo = math.huge,
+        hi = -math.huge,
+        w = (s or ""):find "-" and -1 or 1
+    })
+end
+
+function NUM.add(i, x)
+    if x ~= "?" then
+        i.hi = math.max(i.hi, x);
+        i.lo = math.min(i.lo, x)
+    end
+end
+
+function NUM.norm(i, x)
+    return math.abs(i.lo - i.hi) < 1E-32 and 0 or (x - i.lo) / (i.hi - i.lo)
+end
+
+----------------------------------------------------------------------------------------
+local EG = klass "EG"
+function EG.new(t) return new(EG, {has = t}) end
+
+function EG.cols(i, cols) return
+    map(keys(cols), function(x) return i.has[x] end) end
+function EG.dist(i, j, smpl, a, b, d, n, inc, dist1)
+    function dist1(num, a, b)
+        if num then
+            if a == "?" then
+                b = num:norm(b);
+                a = b > .5 and 0 or 1
+            elseif b == "?" then
+                a = num:norm(a);
+                b = a > .5 and 0 or 1
+            else
+                a, b = num:norm(a), num:norm(b)
+            end
+            return math.abs(a - b)
+        else
+            return a == b and 0 or 1
+        end
+    end
+
+    d, n = 0, 1E-31
+    for col, _ in pairs(smpl.xs) do
+        n = n + 1
+        a, b = i.has[col], j.has[col]
+        inc = a == "?" and b == "?" and 1 or dist1(smpl.num[col], a, b)
+        d = d + inc ^ THE.p
+    end
+    return (d / n) ^ (1 / THE.p)
+end
+
+function EG.better(eg1, eg2, smpl, num, e, n, a, b, s1, s2)
+    s1, s2, e, n = 0, 0, 2.71828, smpl.nys
+    for col, _ in pairs(smpl.ys) do
+        num = smpl.num[col]
+        a = num:norm(eg1.has[col])
+        b = num:norm(eg2.has[col])
+        s1 = s1 - e ^ (num.w * (a - b) / n)
+        s2 = s2 - e ^ (num.w * (b - a) / n)
+    end
+    return s1 / n < s2 / n
+end
+
+----------------------------------------------------------------------------------------
+local SAMPLE = klass "SAMPLE"
+function SAMPLE.new(inits, i)
+    i = new(SAMPLE, {
+        head = nil,
+        w = {},
+        egs = {},
+        num = {},
+        sym = {},
+        xs = {},
+        ys = {},
+        nys = 0
+    })
+    if type(inits) == "table" then for _, eg in pairs(inits) do i:add(eg) end end
+    if type(inits) == "string" then for eg in csv(inits) do i:add(eg) end end
+    return i
+end
+
+function SAMPLE.skip(i, x) return x:find ":" end
+function SAMPLE.nump(i, x) return not i:skip(x) and x:find "^[A-Z].*" end
+function SAMPLE.goalp(i, x) return not i:skip(x) and (x:find "-" or x:find "+") end
+
+function SAMPLE.add(i, eg)
+    if not i.head then
+        i.head = eg
+        for n, s in pairs(eg) do
+            if i:goalp(s) then
+                i.ys[n] = s;
+                i.nys = 1 + i.nys
+            else
+                i.xs[n] = s
+            end
+            if i:nump(s) then
+                i.num[n] = NUM(n, s)
+            else
+                i.sym[n] = SYM(n, s)
+            end
+        end
+    else
+        i.egs[1 + #i.egs] = EG(eg);
+        for n, num in pairs(i.num) do num:add(eg[n]) end
+    end
+    return i
+end
+
+function SAMPLE.far(i, eg1, egs, dist, tmp)
+    dist = function(eg2) return {eg2, eg1:dist(eg2, i)} end
+    tmp = sort(map(egs, dist), function(a, b) return a[2] < b[2] end)
+    return tmp[#tmp * THE.Far // 1]
+end
+
+function SAMPLE.label(i, egs, n, one, egs, n, one, two, a, b, c, lo, hi)
+    egs, n = egs or i.egs, 1
+    for _, eg in pairs(egs) do eg.klass = n end
+    if #egs < 2 * (#i.egs) ^ THE.Small then return end
+    one = one or i:far(any(egs), egs)
+    two, c = i:far(one, egs)
+    for _eg in pairs(egs) do
+        a = eg:dist(one, i)
+        b = eg:dist(two, i)
+        eg.x = (a ^ 2 + c ^ 2 - b ^ 2) / (2 * c)
+    end
+    lo, hi = {}, {}
+    for n, eg in pairs(sort(egs, function(a, b) return a.x < b.x end)) do
+        table.insert(n <= .5 * #egs and lo or hi, eg)
+    end
+    i:label(one:better(two, i) and lo or hi, n * 2, two)
+end
+
+----------------------------------------------------------------------------------------
+local go, nogo = {}, {}
+local fails = 0
+local function main()
+    read_settings_from_two_blanks_and_1_dash()
+    if THE.h then print(help) end
+    go[THE.todo]()
+    rogues()
+    os.exit(fails)
+end
+
+local function azzert(test, msg)
+    if test then
+        print("  PASS : " .. msg)
+    else
+        fails = fails + 1
+        print("  FAIL : " .. msg)
+        if THE.Debug then assert(test, msg) end
+    end
+end
+
+function go.ALL()
+    for _, k in pairs(keys(go)) do
+        if k:match "^[a-z]" then
+            read_settings_from_two_blanks_and_1_dash()
+            print("\n" .. k)
+            go[k]()
+        end
+    end
+end
+
+function go.LS()
+    for _, k in pairs(keys(go)) do
+        if k:match "^[a-z]" then print("  -t " .. k) end
+    end
+end
+
+function go.the(s) say(o(THE)) end
+function go.pass(s) azzert(true, "can you handle success?") end
+function nogo.fail(s) azzert(false, "can you handle failure?") end
+function go.sample(s, egs)
+    s = SAMPLE(THE.file)
+    print(o(s.num))
+    azzert(398 == #s.egs, "got enough rows?")
+    azzert(s.num[4].w == -1, "minimizing goals are -1?")
+end
+
+function go.dominate(s, egs)
+    s = SAMPLE(THE.file)
+    egs = sort(s.egs, function(a, b) return a:better(b, s) end)
+    for i = 1, 5 do say(o(egs[i]:cols(s.ys))) end
+    say("")
+    for i = #egs - 5, #egs do say(o(egs[i]:cols(s.ys))) end
+    azzert(egs[1]:better(egs[#egs], s), "y-sort working?")
+end
+
+function go.distance(s, eg1, dist, tmp, j1, j2, d1, d2)
+    s = SAMPLE(THE.file)
+    eg1 = s.egs[1]
+    dist = function(eg2) return {eg2, eg1:dist(eg2, s)} end
+    tmp = sort(map(s.egs, dist), function(a, b) return a[2] < b[2] end)
+    for j = 1, 30 do
+        j1 = randi(1, #tmp)
+        j2 = randi(1, #tmp)
+        if j1 > j2 then j1, j2 = j2, j1 end
+        d1 = tmp[j1][1]:dist(tmp[1][1], s)
+        d2 = tmp[j2][1]:dist(tmp[1][1], s)
+        azzert(d1 <= d2, "distance ?")
+    end
+end
+
+function go.label(s)
+    s = SAMPLE(THE.file)
+    s:label()
+end
+
+main()
