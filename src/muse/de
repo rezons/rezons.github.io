@@ -49,7 +49,11 @@ local function csv(file,   x,row)
 
 local function green(s)  return "\027[32m"..s.."\027[0m" end
 local function yellow(s)  return "\027[33m"..s.."\027[0m" end
+
 local function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / n end
+local function rnds(t,d)
+  return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
+
 local function say(...) if THE.verbose then print(string.format(...)) end end
 local function o(t,   u,key)
   function key(k) return string.format(":%s %s", yellow(k), o(t[k])) end
@@ -67,6 +71,7 @@ local function some(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
 local function shuffle(t,   j)
   for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
+local function ako(x)    return getmetatable(x) end
 local function new(mt,x) return setmetatable(x,mt) end
 local function klass(s, klass)
   klass = {_is=s, __tostring=o}
@@ -74,6 +79,7 @@ local function klass(s, klass)
   return new({__call=function(_,...) return klass.new(...) end},klass) end
 
 ----------------------------------------------------------------------------------------
+local SYM=klass"SYM"
  
 local NUM=klass"NUM"
 function NUM.new(n,s)  
@@ -87,7 +93,7 @@ function NUM.spread(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end
 function NUM.add(i,x,    d)  
   if x ~= "?" then 
     push(i._has,x)
-    i.n=i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
+    i.n = i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
     i.hi= math.max(i.hi,x)
     i.lo= math.min(i.lo,x) end 
   return x end
@@ -98,19 +104,18 @@ function NUM.norm(i,x)
 function NUM.xpect(i,j) return (i.n*i:spread() + j.n*j:spread())/(i.n+j.n) end
 
 function NUM.merge(i,j,    k)
-  k=NUM(i._has,i.at, i.txt)
-  for _,x in pairs(j._has) do i:add(x) end
+  k=NUM(i.at, i.txt)
+  for _,x in pairs(j._has) do k:add(x) end
   return k end
 
-local bins
-function NUM.bins(i,egs,         x,xys,xstats)
-  xys, xstats = {}, NUM()
-  for _,eg in pairs(egs) do
-    x = eg.has[i.at]
-    if x ~= "?" then push(xys,  {x = xstats:add(x), y=eg.klass}) end end
-  return bins(xys, xstats:spread()*THE.dull, (#xys)^THE.Small, i, NUM) end
+local _bins
+function NUM.bins(i,j,         x,xys,xstats)
+  xys = {}
+  for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
+  for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
+  return _bins(xys, i:xpect(j)*THE.dull, (#xys)^THE.Small, i, SYM) end
 
-function bins(xys,dull,small,col,yklass,      merge,span,spans)
+function _bins(xys,dull,small,col,yklass,      merge,span,spans)
   function merge(b4,    j,tmp,simpler,now,after) 
     j, tmp = 0, {}
     while j < #b4 do
@@ -146,13 +151,12 @@ function SKIP.mid()     return "?" end
 function SKIP.bins(...) return {} end
 
 ---------------------------------------------------------------------------------------
-local SYM=klass"SYM"
 function SYM.new(n,s) 
   return new(SYM, {n=0,has={},txt=s or"", at=n or 0,mode=nil,most=0}) end
 function SYM.add(i,x,n) 
   if x ~= "?" then 
-    n= n or 1
-    i.n=i.n+  n 
+    n        = n or 1
+    i.n      = i.n+  n 
     i.has[x] = n+(i.has[x] or 0) 
     if i.has[x] > i.most then i.most, i.mode = i.has[x], x end end
   return x end
@@ -161,20 +165,22 @@ function SYM.mid(i)     return i.mode end
 function SYM.spread(i,   e)  
   e=0; for _,n in pairs(i.has) do e = e - n/i.n*math.log(n/i.n,2) end; return e end
 
+function SYM.xpect(i,j) return (i.n*i:spread() + j.n*j:spread())/(i.n+j.n) end
+
 function SYM.merge(i,j) 
-  k = SYM({},i.at,i.txt)
+  k = SYM(i.at,i.txt)
   for x,n in pairs(i.has) do k:add(x,n) end
   for x,n in pairs(j.has) do k:add(x,n) end
   return k end
 
-function SYM.bins(i,egs,        here,x)
-  bins = {}
-  for _,eg in pairs(egs) do
-    x=eg.has[i.at]
-    if x ~= "?" then 
-      if not here[x] then here[x] = push(all, {col=i,lo=x,hi=x,has=NUM()}) end
-      here[x].has:add(eg.klass) end end
-  return all end
+function SYM.bins(i,j,        bins,x)
+  t,bins = {},{}
+  for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
+  for x,n in pairs(j.has) do  t[x] = t[x] or SYM(); t[x]:add("rest",n) end
+  for x,stats in pairs(t) do
+    push(bins, {col=i, lo=x,hi=x, has=stats}) end
+  return bins end
+
    
 ----------------------------------------------------------------------------------------
 local EG=klass"EG"
@@ -220,24 +226,28 @@ function SAMPLE.nump(i,  x) return x:find"^[A-Z]" end
 function SAMPLE.goalp(i, x) return x:find"-" or x:find"+" end
 
 function SAMPLE.add(i,eg,    now)
+  eg = eg.has and eg.has or eg
   if not i.head then
     i.head = eg
     for n,s in pairs(eg) do 
       now = (i:skip(s) and SKIP or i:nump(s) and NUM or SYM)(n,s)
       push(i.all, now)
       if not i:skip(s) then 
-        push(i:goalp(s) and i.ys or i.xs,push(i.all, now)) end end 
+        push(i:goalp(s) and i.ys or i.xs, now) end end 
   else 
     push(i.egs, EG(eg))
     for n,one in pairs(i.all) do one:add(eg[one.at]) end end
   return i end
 
-function SAMPLE.clone(i,inits)
+function SAMPLE.clone(i,inits,j)
   j= SAMPLE()
-  j:add(i.head)
+  j:add(copy(i.head))
   for _,x in pairs(inits or {}) do j:add(x) end
   return j end
 
+function SAMPLE.stats(i, cols) 
+  return map(cols or i.all, function(x) return x:mid() end) end
+  
 function SAMPLE.far(i,eg1,egs,    gap,tmp)
   gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
   tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
@@ -262,7 +272,7 @@ function SAMPLE.label(i,       bests,rests,go)
 
   rests= {}
   bests= go(i.egs, (#i.egs)^THE.Small) 
-  return bests, some(rests, #bests*THE.Rest) end
+  return i:clone(bests), i:clone(some(rests, #bests*THE.Rest)) end
 
 ----------------------------------------------------------------------------------------
 local go, nogo = {},{} -- places to store tests
@@ -298,9 +308,15 @@ function nogo.fail(s) azzert(false,"can you handle failure?") end
 function go.pass(s)   azzert(true,  "can you handle success?")  end
 function go.sample(s,  egs) 
   s=SAMPLE(THE.file)
-  print(o(s.xs))
   azzert(398==#s.egs, "got enough rows?")
   azzert(s.ys[1].w==-1,"minimizing goals are -1?") end
+
+function go.clone(s,  t,s1,s2) 
+  s=SAMPLE(THE.file)
+  s1=o(s.ys)
+  t=s:clone(s.egs) 
+  s2=o(t.ys) 
+  azzert(s1==s2, "cloning works?") end
 
 function go.dominate(s,  egs) 
   s=SAMPLE(THE.file)
@@ -326,25 +342,21 @@ function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,one)
 function go.num( m,n)
   m=NUM()
   for i=1,10 do m:add(i) end
-  print(o(m))
   n = copy(m)
   for i=1,10 do n:add(i) end
   azzert(2.95 == rnd(n:spread()),"sd ok?") end
 
-
 -- bring stats back
-function go.label(   s,x,y) 
-  s=SAMPLE(THE.file)
-  x,y = s:label() 
-  print(#x, #y) end
+function go.label(   s,bests,rests)
+  s = SAMPLE(THE.file)
+  bests, rests = s:label() 
+  print("bests", o(rnds(bests:stats(bests.ys))))
+  print("rests", o(rnds(rests:stats(rests.ys))))
+  print(o(THE.seed)) 
+  for n,i in pairs(bests.xs) do
+    j=rests.xs[n]
+    for _,cut in pairs(i:bins(j)) do 
+      print(cut.col.txt, cut.lo, cut.hi) end end end
 
-function go.bins(  s,all)
-  s=SAMPLE(THE.file)
-  all = {}
-  for _,one in pairs(s.num) do if s.xs[one.at] and one.txt=="Cylndrs" then one:bins(s.egs, all) end end
-  --for _,one in pairs(s.sym) do if s.xs[one.at] then one:bins(s.egs, all) end end
-  for _,cut in pairs(sort(all,function(a,b) return a.stats.mu > b.stats.mu  end)) do
-    print(cut.stats.n, rnd(cut.stats.mu), cut.col.txt, cut.lo, cut.hi) end 
-  end 
 
 main()
