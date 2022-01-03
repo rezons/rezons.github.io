@@ -1,7 +1,7 @@
 f=muse
 pdf: ok 
 	a2ps  -Bjr --line-numbers=1                       \
-            --borders=no --pro=color --columns 2 -L 90      \
+            --borders=no --pro=color --columns 2 \
             --right-footer="" --left-footer="" \
             --footer="page %p." \
             --pretty-print=lua.ssh -M letter -o $f.ps $f 
@@ -10,9 +10,7 @@ pdf: ok
 	git add ../../docs/$f.pdf
 
 header:
-	@echo "Type a phrase, followed by new line"; read x; echo $$x \
-	| figlet -W -f straight \
-	| gawk 'BEGIN{for(i=1;i<=80;i++) s=s"-";print "\n"s}{print "--     "$$0}'
+	@read x; echo $$x | figlet -W -f straight | gawk '{print "--    "$$0}'
 
 ok:
 	mkdir -p ../../docs
