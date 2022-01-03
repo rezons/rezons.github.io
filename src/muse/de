@@ -6,6 +6,7 @@ local THE, help= {}, [[de OPTIONS
   -dull   F  small effect= stdev*dull       : .35
   -Far    F  where to find far things       : .9
   -file   S  read data from file : ../../data/auto93.csv
+  -goal   S  smile,frown,xplor,doubt        : smile
   -h         show help                      : false
   -p      I  distance coefficient           : 2
   -Rest   F  size of rest set is Rest*best  : 4
@@ -67,20 +68,72 @@ local function rand(lo,hi)
 
 local function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 local function any(t) return t[randi(1,#t)] end
-local function some(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
+local function many(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
 local function shuffle(t,   j)
   for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
+local function xpect(a,b) return (a.n*a:spread() + b.n*b:spread())/(a.n + b.n) end
+
+local _id=0
 local function ako(x)    return getmetatable(x) end
-local function new(mt,x) return setmetatable(x,mt) end
+local function new(mt,x) _id=_id+1; x._id=_id; return setmetatable(x,mt) end
 local function klass(s, klass)
   klass = {_is=s, __tostring=o}
   klass.__index = klass
   return new({__call=function(_,...) return klass.new(...) end},klass) end
 
-----------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
+local SKIP=klass"SKIP"
+function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
+function SKIP.add(i,x)  return x end
+function SKIP.mid()     return "?" end
+function SKIP.bins(...) return {} end
+
+---------------------------------------------------------------------------------------
 local SYM=klass"SYM"
- 
+
+function SYM.new(n,s) 
+  return new(SYM, {n=0,has={},txt=s or"", at=n or 0,mode=nil,most=0}) end
+function SYM.add(i,x,n) 
+  if x ~= "?" then 
+    n        = n or 1
+    i.n      = i.n+  n 
+    i.has[x] = n+(i.has[x] or 0) 
+    if i.has[x] > i.most then i.most, i.mode = i.has[x], x end end
+  return x end
+
+function SYM.mid(i)     return i.mode end
+function SYM.spread(i,   e)  
+  e=0; for _,n in pairs(i.has) do e = e - n/i.n*math.log(n/i.n,2) end; return e end
+
+function SYM.merge(i,j,    k) 
+  k = SYM(i.at,i.txt)
+  for x,n in pairs(i.has) do k:add(x,n) end
+  for x,n in pairs(j.has) do k:add(x,n) end
+  return k end
+
+function SYM.bins(i,j,        bins,t)
+  t,bins = {},{}
+  for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
+  for x,n in pairs(j.has) do  t[x] = t[x] or SYM(); t[x]:add("rest",n) end
+  for x,stats in pairs(t) do
+    push(bins, {col=i, lo=x,hi=x, has=stats}) end
+  return bins end
+
+function SYM.score(i,goal)
+  local goals={}
+  function goals.smile(b,r) return b>r and 0 or b*b/(b+r +1E-31) end
+  function goals.frown(b,r) return r<b and 0 or r*r/(b+r +1E-31) end
+  function goals.xplor(b,r) return 1/(b+r                +1E-31) end
+  function goals.doubt(b,r) return 1/(math.abs(b-r)      +1E-31) end
+  local best, rest = 0, 0
+  for x,n in pairs(i.has) do 
+    if x==goal then best = best+n/i.n else rest = rest+n/i.n end end
+  if best + rest < 0.01 then return 0 end
+  return goals[THE.goal](best,rest) end
+  
+----------------------------------------------------------------------------------------
 local NUM=klass"NUM"
 function NUM.new(n,s)  
   return new(NUM, {txt=s or"", at=n or 0,lo=math.huge, hi=-math.huge,
@@ -101,8 +154,6 @@ function NUM.add(i,x,    d)
 function NUM.norm(i,x) 
   return math.abs(i.lo - i.hi) < 1E-32 and 0 or (x - i.lo) / (i.hi - i.lo) end
 
-function NUM.xpect(i,j) return (i.n*i:spread() + j.n*j:spread())/(i.n+j.n) end
-
 function NUM.merge(i,j,    k)
   k=NUM(i.at, i.txt)
   for _,x in pairs(j._has) do k:add(x) end
@@ -113,18 +164,18 @@ function NUM.bins(i,j,         x,xys,xstats)
   xys = {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
   for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
-  return _bins(xys, i:xpect(j)*THE.dull, (#xys)^THE.Small, i, SYM) end
+  return _bins(xys, xpect(i,j)*THE.dull, (#xys)^THE.Small, i, SYM) end
 
-function _bins(xys,dull,small,col,yklass,      merge,span,spans)
-  function merge(b4,    j,tmp,simpler,now,after) 
+function _bins(xys,dull,small,col,yklass,      bin,bins,merge,span,spans)
+  function merge(b4,    j,tmp,maybe,now,after) 
     j, tmp = 0, {}
     while j < #b4 do
       j = j + 1
       now, after = b4[j], b4[j+1]
       if after then 
-        simpler = now.has:merge(after.has)
-        if simpler:spread()*1.01 <= now.has:xpect(after.has) then 
-           now = {col=col, lo=now.lo, hi= after.hi, has=simpler} 
+        maybe = now.has:merge(after.has)
+        if maybe:spread()*1.01 <= xpect(now.has, after.has) then 
+           now = {col=col, lo=now.lo, hi= after.hi, has=maybe} 
            j = j + 1 end end
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) end
@@ -143,45 +194,6 @@ function _bins(xys,dull,small,col,yklass,      merge,span,spans)
   bins[#bins].hi =  math.huge
   return merge(bins) end 
 
----------------------------------------------------------------------------------------
-local SKIP=klass"SKIP"
-function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
-function SKIP.add(i,x)  return x end
-function SKIP.mid()     return "?" end
-function SKIP.bins(...) return {} end
-
----------------------------------------------------------------------------------------
-function SYM.new(n,s) 
-  return new(SYM, {n=0,has={},txt=s or"", at=n or 0,mode=nil,most=0}) end
-function SYM.add(i,x,n) 
-  if x ~= "?" then 
-    n        = n or 1
-    i.n      = i.n+  n 
-    i.has[x] = n+(i.has[x] or 0) 
-    if i.has[x] > i.most then i.most, i.mode = i.has[x], x end end
-  return x end
-
-function SYM.mid(i)     return i.mode end
-function SYM.spread(i,   e)  
-  e=0; for _,n in pairs(i.has) do e = e - n/i.n*math.log(n/i.n,2) end; return e end
-
-function SYM.xpect(i,j) return (i.n*i:spread() + j.n*j:spread())/(i.n+j.n) end
-
-function SYM.merge(i,j) 
-  k = SYM(i.at,i.txt)
-  for x,n in pairs(i.has) do k:add(x,n) end
-  for x,n in pairs(j.has) do k:add(x,n) end
-  return k end
-
-function SYM.bins(i,j,        bins,x)
-  t,bins = {},{}
-  for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
-  for x,n in pairs(j.has) do  t[x] = t[x] or SYM(); t[x]:add("rest",n) end
-  for x,stats in pairs(t) do
-    push(bins, {col=i, lo=x,hi=x, has=stats}) end
-  return bins end
-
-   
 ----------------------------------------------------------------------------------------
 local EG=klass"EG"
 function EG.new(t) return new(EG, {klass=0,has=t}) end
@@ -253,26 +265,60 @@ function SAMPLE.far(i,eg1,egs,    gap,tmp)
   tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
   return table.unpack(tmp[#tmp*THE.Far//1] ) end
 
-function SAMPLE.label(i,       bests,rests,go)
-  function go(egs,enough,one,    a,b,c,lo,hi,two,best,rest)
-    for _,eg in pairs(egs) do eg.klass= n end 
-    if #egs < enough then return egs end
+function SAMPLE.split(i,egs)
+  local c,x,here,there,best,rest
+  here    = i:far(any(egs),egs)
+  there,c = i:far(here, egs)
+  for _,eg in pairs(egs) do
+    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
+  best,rest = {},{}
+  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
+    push(n <= .5*#egs and best or rest, eg) end
+  if there:better(here,i) then rest,best = best,here end
+  return i:clone(best), i:clone(rest) end
+
+function SAMPLE.twain(i)
+  local order,best,rest,bins,bin,left,right
+  best,rest = i:split(i.egs)
+  bins = {}
+  for n,bestx in pairs(best.xs) do 
+    for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
+  score= function(a,b) return a.has:score("best") > b.has:score("best") end
+  bin = sort(bins, score)[1]
+  left, right = i:clone(), i:clone()
+  for _,eg in pairs(i.egs) do
+     x = eg.has[ bin.col.at ]
+     if     x~="?"                 then left:add(eg); right:add(eg) 
+     elseif bin.lo<=x and x<bin.hi then left:add(eg)
+     else                               right:add(eg) end end 
+  return left,right end
+
+
+
+
+function SAMPLE.label(i)
+  local rests,bests,nbests,go
+  function go(egs, lvl,one)
+    local a,b,c,lo,hi,two,best,rest
+    if #egs <= nbests then return egs end
     one   = one or i:far(any(egs),egs)
     two,c = i:far(one, egs)
     for _,eg in pairs(egs) do
       a = eg:dist(one, i)
       b = eg:dist(two, i)
       eg.x = (a^2 + c^2 - b^2)/(2*c) end
+    egs = sort(egs,function(a,b) return a.x < b.x end)
     best,rest = {},{}
-    for n,eg in pairs(sort(egs,function(a,b) return a.x < b.x end)) do
-      table.insert(n <= .5*#egs and best or rest, eg) end
+    for n,eg in pairs(egs) do push(n <= .5*#egs and best or rest, eg) end
     if two:better(one,i) then best,rest = rest,best end
-    for _,one in pairs(rest) do push(rests,one) end 
-    return go(best, enough, two) end
+    for _,eg in pairs(rest) do 
+      if rand() < 1/(lvl+1) then push(rests,eg) end end
+    return go(best,lvl, two) end
 
-  rests= {}
-  bests= go(i.egs, (#i.egs)^THE.Small) 
-  return i:clone(bests), i:clone(some(rests, #bests*THE.Rest)) end
+  rests = {}
+  nbests = (#i.egs)^THE.Small
+  bests = go(i.egs,1)
+  return  i:clone(bests), i:clone(many(rests,#bests*THE.Rest)) end
 
 ----------------------------------------------------------------------------------------
 local go, nogo = {},{} -- places to store tests
@@ -347,16 +393,19 @@ function go.num( m,n)
   azzert(2.95 == rnd(n:spread()),"sd ok?") end
 
 -- bring stats back
-function go.label(   s,bests,rests)
+function go.label(   s,bests,rests,j)
   s = SAMPLE(THE.file)
   bests, rests = s:label() 
-  print("bests", o(rnds(bests:stats(bests.ys))))
-  print("rests", o(rnds(rests:stats(rests.ys))))
+  print("bests", #bests.egs, o(rnds(bests:stats(bests.ys))))
+  print("rests", #rests.egs, o(rnds(rests:stats(rests.ys))))
   print(o(THE.seed)) 
+  cuts={}
   for n,i in pairs(bests.xs) do
     j=rests.xs[n]
-    for _,cut in pairs(i:bins(j)) do 
-      print(cut.col.txt, cut.lo, cut.hi) end end end
+    for _,cut in pairs(i:bins(j)) do push(cuts,cut) end end
+  for _,cut in pairs(sort(cuts,function(a,b) 
+                      return a.has:score("best") > b.has:score("best") end)) do
+    print(rnd(cut.has:score("best")), cut.col.txt, cut.lo, cut.hi) end end
 
 
 main()
