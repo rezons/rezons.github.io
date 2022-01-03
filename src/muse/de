@@ -10,14 +10,14 @@ local THE, help= {}, [[de OPTIONS
   -h         show help                      : false
   -p      I  distance coefficient           : 2
   -Rest   F  size of rest set is Rest*best  : 4
-  -round  I  round floats to "round" places : 3
+  -round  I  round floats to "round" places : 2
   -seed   I  random number seed             : 10019
   -Small  F  splits at #t^small             : .5
   -todo   S  start-up action                : pass
              -todo ALL = run all
              -todo LS  = list all
-  -verbose   show details                   : false]]
-
+  -verbose   show details                   : false
+]]  
 local function read_settings_from_2_blanks_and_1_dash()  
   help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)",function(flag,x) -- flag,x = word1,last word
     for n,txt in ipairs(arg) do              -- check for updates from command line
@@ -32,6 +32,7 @@ local function rogues()
   for k,v in pairs(_ENV) do if not b4[k] then print("Rogue?",k,type(v)) end end end
 
 local function push(t,x)    table.insert(t,x); return x end
+local function firsts(a,b)  return a[1] < b[1] end
 local function sort(t,f)    table.sort(t,f);   return t end
 local function map(t,f,  u) u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
 local function keys(t,   u) 
@@ -55,9 +56,10 @@ local function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5) / 
 local function rnds(t,d)
   return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
 
-local function say(...) if THE.verbose then print(string.format(...)) end end
+local fmt = string.format
+local function say(...) if THE.verbose then print(fmt(...)) end end
 local function o(t,   u,key)
-  function key(k) return string.format(":%s %s", yellow(k), o(t[k])) end
+  function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t,o) or map(keys(t),key)
   return green((t._is or "").."{")..table.concat(u, " ")..green("}") end 
@@ -121,17 +123,17 @@ function SYM.bins(i,j,        bins,t)
     push(bins, {col=i, lo=x,hi=x, has=stats}) end
   return bins end
 
-function SYM.score(i,goal)
+function SYM.score(i,goal,tmp)
   local goals={}
-  function goals.smile(b,r) return b>r and 0 or b*b/(b+r +1E-31) end
-  function goals.frown(b,r) return r<b and 0 or r*r/(b+r +1E-31) end
+  function goals.smile(b,r) return r>b and 0 or b*b/(b+r +1E-31) end
+  function goals.frown(b,r) return b<r and 0 or r*r/(b+r +1E-31) end
   function goals.xplor(b,r) return 1/(b+r                +1E-31) end
   function goals.doubt(b,r) return 1/(math.abs(b-r)      +1E-31) end
   local best, rest = 0, 0
   for x,n in pairs(i.has) do 
     if x==goal then best = best+n/i.n else rest = rest+n/i.n end end
   if best + rest < 0.01 then return 0 end
-  return goals[THE.goal](best,rest) end
+  return  goals[THE.goal](best,rest) end
   
 ----------------------------------------------------------------------------------------
 local NUM=klass"NUM"
@@ -251,10 +253,10 @@ function SAMPLE.add(i,eg,    now)
     for n,one in pairs(i.all) do one:add(eg[one.at]) end end
   return i end
 
-function SAMPLE.clone(i,inits,j)
+function SAMPLE.clone(i,inits,    j)
   j= SAMPLE()
   j:add(copy(i.head))
-  for _,x in pairs(inits or {}) do j:add(x) end
+  for _,x in pairs(inits or {}) do  j:add(x) end
   return j end
 
 function SAMPLE.stats(i, cols) 
@@ -265,33 +267,49 @@ function SAMPLE.far(i,eg1,egs,    gap,tmp)
   tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
   return table.unpack(tmp[#tmp*THE.Far//1] ) end
 
-function SAMPLE.split(i,egs)
-  local c,x,here,there,best,rest
-  here    = i:far(any(egs),egs)
+local evals=0
+function SAMPLE.split(i,egs, here)
+  local a,b,c,there,best,rest,tmp
+  egs     = egs or i.egs
+  evals = evals + (here and 1 or 2)
+  here    = here or i:far(any(egs),egs)
   there,c = i:far(here, egs)
+  tmp     = {}
   for _,eg in pairs(egs) do
-    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
+    a = eg:dist(here, i)
+    b = eg:dist(there,i)
+    push(tmp, {(a^2 + c^2 - b^2) / (2*c), eg}) end
   best,rest = {},{}
-  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
-    push(n <= .5*#egs and best or rest, eg) end
-  if there:better(here,i) then rest,best = best,here end
-  return i:clone(best), i:clone(rest) end
+  for n,eg in pairs(sort(tmp, firsts)) do
+    push(n <= .5*#egs and best or rest, eg[2]) end
+  if there:better(here,i) then rest,best = best,rest end
+  return i:clone(best), i:clone(rest),there end
 
-function SAMPLE.twain(i)
-  local order,best,rest,bins,bin,left,right
-  best,rest = i:split(i.egs)
-  bins = {}
+function SAMPLE.twain(i,min,lvl,here,    there)
+  lvl = lvl or 0
+  min = min or 2*(#i.egs)^THE.Small
+  if #i.egs < min then return i end
+  local best,rest,there = i:split(i.egs,here)
+  local bins = {}
   for n,bestx in pairs(best.xs) do 
     for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
-  score= function(a,b) return a.has:score("best") > b.has:score("best") end
-  bin = sort(bins, score)[1]
-  left, right = i:clone(), i:clone()
+  local score = function(a,b) return a.has:score("best") > b.has:score("best") end
+  local bin   = sort(bins, score)[1]
+  print(fmt("%s  %s%s \t%s = (%s,%s)", o(rnds(i:stats(i.ys),0 )),
+                        string.rep("|.. ",lvl), 
+                        #i.egs, bin.col.txt, bin.lo, bin.hi ))
+  local left, right = i:clone(), i:clone()
   for _,eg in pairs(i.egs) do
-     x = eg.has[ bin.col.at ]
-     if     x~="?"                 then left:add(eg); right:add(eg) 
-     elseif bin.lo<=x and x<bin.hi then left:add(eg)
+     local x = eg.has[ bin.col.at ]
+     if     x=="?"                 then left:add(eg); right:add(eg) 
+     elseif bin.lo<=x and x<bin.hi then left:add(eg) 
      else                               right:add(eg) end end 
-  return left,right end
+  if #left.egs  < #i.egs then left:twain(min,  lvl+1, there) end
+  if #right.egs < #i.egs then right:twain(min, lvl+1, there) end
+  end
+  -- print(#right.egs) end
+  --return {cut=cut, left=left:twain(min), right=right:twain(min)} end
+
 
 
 
@@ -393,19 +411,17 @@ function go.num( m,n)
   azzert(2.95 == rnd(n:spread()),"sd ok?") end
 
 -- bring stats back
-function go.label(   s,bests,rests,j)
+function go.label(   s,x)
   s = SAMPLE(THE.file)
-  bests, rests = s:label() 
-  print("bests", #bests.egs, o(rnds(bests:stats(bests.ys))))
-  print("rests", #rests.egs, o(rnds(rests:stats(rests.ys))))
-  print(o(THE.seed)) 
-  cuts={}
-  for n,i in pairs(bests.xs) do
-    j=rests.xs[n]
-    for _,cut in pairs(i:bins(j)) do push(cuts,cut) end end
-  for _,cut in pairs(sort(cuts,function(a,b) 
-                      return a.has:score("best") > b.has:score("best") end)) do
-    print(rnd(cut.has:score("best")), cut.col.txt, cut.lo, cut.hi) end end
-
+  x=  s:twain()
+  print("evals",evals)
+  end
+  -- cuts={}
+  -- for n,i in pairs(bests.xs) do
+  --   j=rests.xs[n]
+  --   for _,cut in pairs(i:bins(j)) do push(cuts,cut) end end
+  -- for _,cut in pairs(sort(cuts,function(a,b) 
+  --                     return a.has:score("best") > b.has:score("best") end)) do
+  --   print(rnd(cut.has:score("best")), cut.col.txt, cut.lo, cut.hi) end end
 
 main()
