@@ -1,13 +1,5 @@
 #!/usr/bin/env lua
 -- vim : filetype=lua ts=2 sw=2 et :
---     ______                             ___              
---    /\__  _\                           /\_ \             
---    \/_/\ \/   __  __    ____    ____  \//\ \       __   
---       \ \ \  /\ \/\ \  /',__\  /',__\   \ \ \    /'__`\ 
---        \ \ \ \ \ \_\ \/\__, `\/\__, `\   \_\ \_ /\  __/ 
---         \ \_\ \ \____/\/\____/\/\____/   /\____\\ \____\
---          \/_/  \/___/  \/___/  \/___/    \/____/ \/____/
---                                                         
 local THE, help= {}, [[tussle [OPTIONS]
 Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
@@ -29,91 +21,65 @@ OPTIONS:
              -todo LS  = list all
   -verbose   show details                   : false
 ]]  
+-- ## Globals
 
-local update_from_cli, read_from_2_blanks_and_1_dash
-function update_from_cli(flag,x) --flip defaults for booleans
-  for n,txt in ipairs(arg) do         
-    if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
-    then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
-  if x=="false" then x=false elseif x=="true" then x=true else x=tonumber(x) or x end
-  THE[flag] = x end
+-- ### Classes:
 
-function read_from_2_blanks_and_1_dash()  
-  help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli) end
+-- A `SAMPLE` holds many `EG`s.
+local EG, SAMPLE
+-- Example columns are either  
+-- `NUM`eric or  `SYM`bolic    
+-- or black holes (for data we want to `SKIP`).
+local NUM
+local SYM
+local SKIP
 
-
---     |\/| .  _  _ 
---     |  | | _) (_ 
---                  
-local b4,rogues,push,firsts,sort,map,keys,copy,csv,green,yellow,rnd,rnds,fmt,say
-local o,rand,randi,any,many,shuffle,xpect,_id,ako,new,klass
+-- ### Globals
 
+-- A global for all the config.
+local THE={} 
+-- Places to store demos/tests.
+local go, nogo = {},{}
+
+-- ### Functions
+
+-- Generated `THE` from the help string
+local coerce,_update_from_cli, read_from_2_blanks_and_1_dash 
+-- Things used to catch rogue variables.
+local b4,rogues 
+-- Table stuff
+local push,firsts,sort,map,keys,copy 
+-- Print Stuff
+local csv,green,yellow,rnd,rnds,fmt,say,o
+-- Random stuff
+local rand,randi,any,many,shuffle
+-- Misc stuff
+local xpect
+-- OO stuff
+local _id,ako,new,klass
+-- ## Stuff that has to go first
+
+-- Catch all the current globals (in `b4`) so
+-- the `rogue` function can report any accidently
+-- created globals.
 b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 function rogues()
   for k,v in pairs(_ENV) do 
     if not b4[k] then print("Rogue?",k,type(v)) end end end
 
-function push(t,x)    table.insert(t,x); return x end
-function firsts(a,b)  return a[1] < b[1] end
-function sort(t,f)    table.sort(t,f);   return t end
-function map(t,f,  u) 
-  u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
-
-function keys(t,   u) 
-  u={}
-  for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
-  return sort(u) end
-
-function copy(t,u) 
-  u={}
-  for k,v in pairs(t) do u[k]=v end; return setmetatable(u, getmetatable(t)) end
-
-function csv(file,   x,row)
-  function row(x,  t)
-     for y in x:gsub("%s+",""):gmatch"([^,]+)" do 
-       push(t,tonumber(y) or y)end; return t end
-   file = io.input(file) 
-   return function() x=io.read()
-                     if x then return row(x,{}) else io.close(file) end end end
-
-function green(s)  return "\027[32m"..s.."\027[0m" end
-function yellow(s)  return "\027[33m"..s.."\027[0m" end
-
-function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5)/n end
-function rnds(t,d)
-  return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
-
-fmt = string.format
-function say(...) if THE.verbose then print(fmt(...)) end end
-function o(t,   u,key)
-  function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
-  if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t,o) or map(keys(t),key)
-  return green((t._is or "").."{")..table.concat(u, " ")..green("}") end 
-
-function rand(lo,hi)
-  THE.seed = (16807 * THE.seed) % 2147483647
-  return (lo or 0) + ((hi or 1) - (lo or 0)) * THE.seed / 2147483647 end
-
-function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-function any(t) return t[randi(1,#t)] end
-function many(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
-function shuffle(t,   j)
-  for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
-
-function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
-
-_id=0
-function ako(x)    return getmetatable(x) end
-function new(mt,x) _id=_id+1; x._id=_id; return setmetatable(x,mt) end
+-- Set up delegation and constructors (and print function) for classes.
 function klass(s, klass)
   klass = {_is=s, __tostring=o}
   klass.__index = klass
-  return new({__call=function(_,...) return klass.new(...) end},klass) end
---                 
---    |\ |      _  
---    | \| |_| ||| 
---                 
+  return setmetatable(klass,{__call=function(_,...) return klass.new(...) end}) end
+
+-- ## NUM
+
+-- **NUM(n?:posint, s?:string) : NUM**    
+-- Creates a new number in column `n` with name `s`.   
+-- Stores on the seen values in `_has`.  
+-- If the name `s` contains "-", then that is a goal to be minimized
+-- with weight `w=-1` (else the weight defaults to `w=1`).
 local NUM=klass"NUM"
 function NUM.new(n,s)  
   return new(NUM, {txt=s or"", at=n or 0,lo=math.huge, hi=-math.huge,
@@ -343,6 +309,88 @@ function SAMPLE.tussling(i,min,lvl,pre)
   if #left.egs  < #i.egs then left:tussling( min, lvl+1,"if ".. pre) end
   if #right.egs < #i.egs then right:tussling(min, lvl+1,"if not "..pre) end
   end 
+-- ## Tricks
+
+--- ### Generate `THE` from `help` String
+
+-- Matches for relevant lines
+function read_from_2_blanks_and_1_dash()  
+  help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", _update_from_cli) end
+-- See if we need to update `flag` from command line.   
+-- Note two tricks:    
+-- (1) We can use abbreviations on command line.     
+--     E.g. `-s` can match the flag `seed`.     
+-- (2) If command line  mentions a boolean flag, this  
+--     code flips the default value for that boolean.
+function _update_from_cli(flag,x) 
+  for n,txt in ipairs(arg) do         
+    if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
+    then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
+  THE[flag] = coerce(x) end
+-- Convert a string `x` to its correct type.
+function coerce(x)
+  if x=="true" then return true end
+  if x=="false" then return false end
+  return tonumber(x) or x end
+
+
+--     |\/| .  _  _ 
+--     |  | | _) (_ 
+--                  
+
+function push(t,x)    table.insert(t,x); return x end
+function firsts(a,b)  return a[1] < b[1] end
+function sort(t,f)    table.sort(t,f);   return t end
+function map(t,f,  u) 
+  u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
+
+function keys(t,   u) 
+  u={}
+  for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
+  return sort(u) end
+
+function copy(t,u) 
+  u={}
+  for k,v in pairs(t) do u[k]=v end; return setmetatable(u, getmetatable(t)) end
+
+function csv(file,   x,row)
+  function row(x,  t)
+     for y in x:gsub("%s+",""):gmatch"([^,]+)" do 
+       push(t,tonumber(y) or y)end; return t end
+   file = io.input(file) 
+   return function() x=io.read()
+                     if x then return row(x,{}) else io.close(file) end end end
+
+function green(s)  return "\027[32m"..s.."\027[0m" end
+function yellow(s)  return "\027[33m"..s.."\027[0m" end
+
+function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5)/n end
+function rnds(t,d)
+  return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
+
+fmt = string.format
+function say(...) if THE.verbose then print(fmt(...)) end end
+function o(t,   u,key)
+  function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
+  if type(t) ~= "table" then return tostring(t) end
+  u = #t>0 and map(t,o) or map(keys(t),key)
+  return green((t._is or "").."{")..table.concat(u, " ")..green("}") end 
+
+function rand(lo,hi)
+  THE.seed = (16807 * THE.seed) % 2147483647
+  return (lo or 0) + ((hi or 1) - (lo or 0)) * THE.seed / 2147483647 end
+
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+function any(t) return t[randi(1,#t)] end
+function many(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
+function shuffle(t,   j)
+  for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
+
+function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
+
+_id=0
+function ako(x)    return getmetatable(x) end
+function new(mt,x) _id=_id+1; x._id=_id; return setmetatable(x,mt) end
 --     __                
 --    |  \  _  _   _   _ 
 --    |__/ (- ||| (_) _) 

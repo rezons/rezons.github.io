@@ -24,3 +24,7 @@ osxbrew:
 osx: osxbrew
 	brew install lua gawk npm
 	npm install -g docco
+
+doc: 
+	docco tussle.lua
+	cp ../../etc/docco.css docs/
