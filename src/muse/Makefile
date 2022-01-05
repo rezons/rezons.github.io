@@ -17,3 +17,10 @@ ok:
 
 bye:
 	git add *;git commit -am save;git push;git status
+
+osxbrew:
+	@which brew>/dev/null || /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+osx: osxbrew
+	brew install lua gawk npm
+	npm install -g docco

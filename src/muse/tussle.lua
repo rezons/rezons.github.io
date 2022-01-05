@@ -306,47 +306,42 @@ function SAMPLE.far(i,eg1,egs,    gap,tmp)
 --     |       _  _ | .  _   _  
 --     |  |_| _) _) | | | ) (_) 
 --                          _/  
-local evals=0
-function SAMPLE.split(i,egs, here)
-  local a,b,c,there,best,rest,tmp,last,mid
+function SAMPLE.split(i, egs)
+  local c,best,rest,here,there
   egs     = egs or i.egs
-  evals = evals + (here and 1 or 2)
-  here    = here or i:far(any(egs),egs)
-  there,c = i:far(here, egs)
-  tmp     = {}
+  here    = i:far(any(egs), egs)
+  there,c = i:far(here,     egs)
   for _,eg in pairs(egs) do
-    a = eg:dist(here, i)
-    b = eg:dist(there,i)
-    push(tmp, {(a^2 + c^2 - b^2) / (2*c), eg}) end
-  best,rest = {},{}
-  egs = sort(tmp, firsts)
-  mid = #egs//2
-  for n,eg in pairs(egs) do push(n <= mid and best or rest, eg[2]) end
-  last = egs[mid][2]
-  if there:better(here,i) then rest,best,last = best,rest,egs[mid+1][2]  end
-  return i:clone(best), i:clone(rest),last end
+    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
+  best,rest = i:clone(), i:clone()
+  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
+    (n <= #egs//2 and best or rest):add(eg) end
+  return best, rest end
 
-function SAMPLE.tussling(i,min,lvl,here,    there)
+function SAMPLE.tussling(i,min,lvl,pre)
   lvl = lvl or 0
   min = min or 2*(#i.egs)^THE.Small
   if #i.egs < min then return i end
-  local best,rest,there = i:split(i.egs,here)
+  local best,rest = i:split(i.egs)
   local bins = {}
   for n,bestx in pairs(best.xs) do 
     for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
   local score = function(a,b) return a.has:score("best") > b.has:score("best") end
   local bin   = sort(bins, score)[1]
-  print(fmt("%s  %s%s \t%s = (%s,%s)", o(rnds(i:stats(i.ys),0 )),
+  print(fmt("%s %-20s%4s : %s", 
+                        o(rnds(i:stats(i.ys),0 )),
                         string.rep("|.. ",lvl), 
-                        #i.egs, bin.col.txt, bin.lo, bin.hi ))
+                        #i.egs, pre or ""))
+  pre = bin.lo == bin.hi and fmt("%s",bin.lo) or fmt("(%s..%s)",bin.lo,bin.hi)
+  pre = fmt("%s = %s", bin.col.txt, pre)
   local left, right = i:clone(), i:clone()
   for _,eg in pairs(i.egs) do
      local x = eg.has[ bin.col.at ]
      if     x=="?"                 then left:add(eg); right:add(eg) 
      elseif bin.lo<=x and x<bin.hi then left:add(eg) 
      else                               right:add(eg) end end 
-  if #left.egs  < #i.egs then left:tussling(min,  lvl+1, there) end
-  if #right.egs < #i.egs then right:tussling(min, lvl+1, there) end
+  if #left.egs  < #i.egs then left:tussling( min, lvl+1,"if ".. pre) end
+  if #right.egs < #i.egs then right:tussling(min, lvl+1,"if not "..pre) end
   end 
 --     __                
 --    |  \  _  _   _   _ 
