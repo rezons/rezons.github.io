@@ -75,7 +75,7 @@ function klass(s, klass)
 
 -- ## NUM
 
--- **NUM(n?:posint, s?:string) : NUM**    
+-- constructor **NUM(n?:posint, s?:string) : NUM**    
 -- Creates a new number in column `n` with name `s`.   
 -- Stores on the seen values in `_has`.  
 -- If the name `s` contains "-", then that is a goal to be minimized
