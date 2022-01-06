@@ -13,7 +13,7 @@ OPTIONS:
   -h         show help                      : false
   -p      I  distance coefficient           : 2
   -Rest   F  size of rest set is Rest*best  : 4
-  -round  I  round floats to "round" places : 2
+  -round  I  round floats to round places : 2
   -seed   I  random number seed             : 10019
   -Small  F  splits at #t^small             : .5
   -todo   S  start-up action                : pass
@@ -287,7 +287,7 @@ function SAMPLE.split(i, egs)
 function SAMPLE.tussling(i,min,lvl,pre)
   lvl = lvl or 0
   min = min or 2*(#i.egs)^THE.Small
-  if #i.egs < min then return i end
+  if #i.egs < 2*min then return i end
   local best,rest = i:split(i.egs)
   local bins = {}
   for n,bestx in pairs(best.xs) do 
@@ -361,8 +361,8 @@ function csv(file,   x,row)
    return function() x=io.read()
                      if x then return row(x,{}) else io.close(file) end end end
 
-function green(s)  return "\027[32m"..s.."\027[0m" end
-function yellow(s)  return "\027[33m"..s.."\027[0m" end
+function green(s)  return #s>0 and "\027[32m"..s.."\027[0m" or "" end
+function yellow(s)  return #s>0 and "\027[33m"..s.."\027[0m" or "" end
 
 function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5)/n end
 function rnds(t,d)
@@ -374,7 +374,7 @@ function o(t,   u,key)
   function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t,o) or map(keys(t),key)
-  return green((t._is or "").."{")..table.concat(u, " ")..green("}") end 
+  return green((t._is or "")).."{"..table.concat(u, " ").."}" end 
 
 function rand(lo,hi)
   THE.seed = (16807 * THE.seed) % 2147483647
