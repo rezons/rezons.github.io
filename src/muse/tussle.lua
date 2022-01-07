@@ -1,10 +1,35 @@
 #!/usr/bin/env lua
--- vim : filetype=lua ts=2 sw=2 et :
-local THE, help= {}, [[tussle [OPTIONS]
+-- vim : filetype=lua ts=2 sw=2 et :    
+-- ## About
+-- - Tussle recursively splits its input data
+-- by finding two points that are very far away 
+-- (the default is  `-Far .9`; i.e. it builds splits using points 90%
+-- as far away as you can go).
+-- - Once its founds two splits, then all variables are discretized (divided
+-- into bins) where each bin has to be bigger than some minimum size
+-- (so `-Small .5` means bins  hold at least N^.5, i.e. square
+-- root, of the number of examoles). 
+--     The "max minus min" values in each
+-- bin has to be more than some trivial size  (and `-dull .35` means that
+-- "trivial size" is more than .35*stddev of each number). 
+--     Also,
+-- if adjacent bins have the same distribution of the two splits, then
+-- those bins will be merged. 
+-- - In practice, this means that numerics end
+-- up falling into two to four bins (and sometimes more).
+-- These bins are all ranked by how well they divide up the splits.
+-- The bin that contains most of one split (and least of the other)
+-- is used to divide the data into two (one with the split, one without).
+
+-- 
+local help= [[
+
+tussle [OPTIONS]
 Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
 
 OPTIONS:
+  -better    Recurse on just best half      : false
   -Debug     on error, dump stack and exit  : false
   -dull   F  small effect= stdev*dull       : .35
   -Far    F  where to find far things       : .9
@@ -21,7 +46,7 @@ OPTIONS:
              -todo LS  = list all
   -verbose   show details                   : false
 ]]  
--- ## Globals
+-- ## Glossary
 
 -- ### Classes:
 
@@ -45,8 +70,8 @@ local go, nogo = {},{}
 
 -- Generated `THE` from the help string
 local coerce,_update_from_cli, read_from_2_blanks_and_1_dash 
--- Things used to catch rogue variables.
-local b4,rogues 
+-- Stuff for checking the code
+local b4,rogues,azzert 
 -- Table stuff
 local push,firsts,sort,map,keys,copy 
 -- Print Stuff
@@ -57,6 +82,9 @@ local rand,randi,any,many,shuffle
 local xpect
 -- OO stuff
 local _id,ako,new,klass
+-- Start-up and main stuff
+local fails, main
+
 -- ## Stuff that has to go first
 
 -- Catch all the current globals (in `b4`) so
@@ -73,39 +101,138 @@ function klass(s, klass)
   klass.__index = klass
   return setmetatable(klass,{__call=function(_,...) return klass.new(...) end}) end
 
--- ## NUM
+-- ## Sample
+SAMPLE=klass"SAMPLE"
+function SAMPLE.new(inits,   i) 
+  i= new(SAMPLE, {head=nil,egs={},all={},num={},sym={},xs={},ys={}}) 
+  if type(inits)=="table"  then for _,eg in pairs(inits) do i:add(eg) end end
+  if type(inits)=="string" then for eg in csv(inits)   do i:add(eg) end end 
+  return i end
 
+function SAMPLE.split(i, egs)
+  local c,best,rest,here,there
+  egs     = egs or i.egs
+  here    = i:far(any(egs), egs)
+  there,c = i:far(here,     egs)
+  for _,eg in pairs(egs) do
+    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
+  best,rest = i:clone(), i:clone()
+  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
+    (n <= #egs//2 and best or rest):add(eg) end
+  return best, rest end
+
+function SAMPLE.tussling(i,min,lvl,pre)
+  lvl = lvl or 0
+  min = min or 2*(#i.egs)^THE.Small
+  if #i.egs < 2*min then return i end
+  local best,rest = i:split(i.egs)
+  local bins = {}
+  for n,bestx in pairs(best.xs) do 
+    for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
+  local score = function(a,b) return a.has:score("best") > b.has:score("best") end
+  local bin   = sort(bins, score)[1]
+  print(fmt("%s %-20s%4s : %s", 
+                        o(rnds(i:stats(i.ys),0 )),
+                        string.rep("|.. ",lvl), 
+                        #i.egs, pre or ""))
+  pre = bin.lo == bin.hi and fmt("%s",bin.lo) or fmt("(%s..%s)",bin.lo,bin.hi)
+  pre = fmt("%s = %s", bin.col.txt, pre)
+  local left, right = i:clone(), i:clone()
+  for _,eg in pairs(i.egs) do
+     local x = eg.has[ bin.col.at ]
+     if     x=="?"                 then left:add(eg); right:add(eg) 
+     elseif bin.lo<=x and x<bin.hi then left:add(eg) 
+     else                               right:add(eg) end end 
+  if #left.egs  < #i.egs then left:tussling( min, lvl+1,"if ".. pre) end
+  if #right.egs < #i.egs then right:tussling(min, lvl+1,"if not "..pre) end
+  end 
+
+function SAMPLE.skip(i,  x) return x:find":" end
+function SAMPLE.nump(i,  x) return x:find"^[A-Z]" end
+function SAMPLE.goalp(i, x) return x:find"-" or x:find"+" end
+
+function SAMPLE.add(i,eg,    now)
+  eg = eg.has and eg.has or eg
+  if not i.head then
+    i.head = eg
+    for n,s in pairs(eg) do 
+      now = (i:skip(s) and SKIP or i:nump(s) and NUM or SYM)(n,s)
+      push(i.all, now)
+      if not i:skip(s) then 
+        push(i:goalp(s) and i.ys or i.xs, now) end end 
+  else 
+    push(i.egs, EG(eg))
+    for n,one in pairs(i.all) do one:add(eg[one.at]) end end
+  return i end
+
+function SAMPLE.clone(i,inits,    j)
+  j= SAMPLE()
+  j:add(copy(i.head))
+  for _,x in pairs(inits or {}) do  j:add(x) end
+  return j end
+
+function SAMPLE.stats(i, cols) 
+  return map(cols or i.all, function(x) return x:mid() end) end
+  
+function SAMPLE.far(i,eg1,egs,    gap,tmp)
+  gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
+  tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
+  return table.unpack(tmp[#tmp*THE.Far//1] ) end
+
+-- ## EG
+-- SAMPLEs store individual EGs (examples).
+EG=klass"EG"
+function EG.new(t) return new(EG, {klass=0,has=t}) end
+
+function EG.cols(i,cols) return map(cols, function(x) return i.has[x.at] end) end
+function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
+  function dist1(num,a,b)
+    if   num 
+    then if     a=="?" then b=num:norm(b); a=b>.5 and 0 or 1
+         elseif b=="?" then a=num:norm(a); b=a>.5 and 0 or 1
+         else   a,b = num:norm(a), num:norm(b) end
+         return math.abs(a-b) 
+    else return a==b and 0 or 1 end end
+
+  d,n = 0,1E-31
+  for col,_ in pairs(smpl.xs) do
+    n   = n+1
+    a,b = i.has[col], j.has[col]
+    inc = a=="?" and b=="?" and 1 or dist1(smpl.num[col],a,b)
+    d   = d + inc^THE.p end
+  return (d/n)^(1/THE.p) end
+
+function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
+  s1,s2,e,n = 0,0,10,#smpl.ys
+  for _,col in pairs(smpl.ys) do
+    a   = col:norm(eg1.has[col.at])
+    b   = col:norm(eg2.has[col.at])
+    s1  = s1 - e^(col.w * (a-b)/n) 
+    s2  = s2 - e^(col.w * (b-a)/n) end
+  return s1/n < s2/n end 
+
+
+-- ## Columns
+-- ### Columns to `SKIP`
+SKIP=klass"SKIP"
+function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
+function SKIP.add(i,x)  return x end
+function SKIP.mid()     return "?" end
+function SKIP.bins(...) return {} end
+
+-- ### `NUM`eric columns
 -- **NUM(n?:posint, s?:string) : NUM**    
 -- Creates a new number in column `n` with name `s`.   
 -- Stores on the seen values in `_has`.  
 -- If the name `s` contains "-", then that is a goal to be minimized
 -- with weight `w=-1` (else the weight defaults to `w=1`).
-local NUM=klass"NUM"
+NUM=klass"NUM"
 function NUM.new(n,s)  
   return new(NUM, {txt=s or"", at=n or 0,lo=math.huge, hi=-math.huge,
                    _has={},
                    n=0,mu=0,m2=0,w=(s or ""):find"-" and -1 or 1}) end
 
-function NUM.mid(i)   return i.mu end
-function NUM.div(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
-
-function NUM.add(i,x,    d)  
-  if x ~= "?" then 
-    push(i._has,x)
-    i.n = i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
-    i.hi= math.max(i.hi,x)
-    i.lo= math.min(i.lo,x) end 
-  return x end
-
-function NUM.norm(i,x) 
-  return math.abs(i.lo - i.hi) < 1E-32 and 0 or (x - i.lo) / (i.hi - i.lo) end
-
-function NUM.merge(i,j,    k)
-  k=NUM(i.at, i.txt)
-  for _,x in pairs(j._has) do k:add(x) end
-  return k end
-
-local _bins,SYM
+local _bins
 function NUM.bins(i,j,         x,xys,xstats)
   xys = {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
@@ -139,20 +266,26 @@ function _bins(xys,dull,small,col,yklass,      bin,bins,merge,span,spans)
   bins[1].lo     = -math.huge
   bins[#bins].hi =  math.huge
   return merge(bins) end 
---     __          
---    (_  |  .  _  
---    __) |( | |_) 
---             |   
-local SKIP=klass"SKIP"
-function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
-function SKIP.add(i,x)  return x end
-function SKIP.mid()     return "?" end
-function SKIP.bins(...) return {} end
+function NUM.mid(i)   return i.mu end
+function NUM.div(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
 
---     __        
---    (_      _  
---    __) \/ ||| 
---        /      
+function NUM.add(i,x,    d)  
+  if x ~= "?" then 
+    push(i._has,x)
+    i.n = i.n+1; d=x-i.mu; i.mu=i.mu+d/i.n; i.m2=i.m2+d*(x-i.mu) 
+    i.hi= math.max(i.hi,x)
+    i.lo= math.min(i.lo,x) end 
+  return x end
+
+function NUM.norm(i,x) 
+  return math.abs(i.lo - i.hi) < 1E-32 and 0 or (x - i.lo) / (i.hi - i.lo) end
+
+function NUM.merge(i,j,    k)
+  k=NUM(i.at, i.txt)
+  for _,x in pairs(j._has) do k:add(x) end
+  return k end
+
+-- ### `SYM`bolic Columns
 SYM=klass"SYM"
 function SYM.new(n,s) 
   return new(SYM, {n=0,has={},txt=s or"", at=n or 0,mode=nil,most=0}) end
@@ -192,126 +325,10 @@ function SYM.score(i,goal,tmp)
   for x,n in pairs(i.has) do 
     if x==goal then best = best+n/i.n else rest = rest+n/i.n end end
   return best + rest < 0.01 and 0 or goals[THE.goal](best,rest) end
---     __     
---    |_   _  
---    |__ (_) 
---        _/  
-local EG=klass"EG"
-function EG.new(t) return new(EG, {klass=0,has=t}) end
 
-function EG.cols(i,cols) return map(cols, function(x) return i.has[x.at] end) end
-function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
-  function dist1(num,a,b)
-    if   num 
-    then if     a=="?" then b=num:norm(b); a=b>.5 and 0 or 1
-         elseif b=="?" then a=num:norm(a); b=a>.5 and 0 or 1
-         else   a,b = num:norm(a), num:norm(b) end
-         return math.abs(a-b) 
-    else return a==b and 0 or 1 end end
-
-  d,n = 0,1E-31
-  for col,_ in pairs(smpl.xs) do
-    n   = n+1
-    a,b = i.has[col], j.has[col]
-    inc = a=="?" and b=="?" and 1 or dist1(smpl.num[col],a,b)
-    d   = d + inc^THE.p end
-  return (d/n)^(1/THE.p) end
-
-function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
-  s1,s2,e,n = 0,0,10,#smpl.ys
-  for _,col in pairs(smpl.ys) do
-    a   = col:norm(eg1.has[col.at])
-    b   = col:norm(eg2.has[col.at])
-    s1  = s1 - e^(col.w * (a-b)/n) 
-    s2  = s2 - e^(col.w * (b-a)/n) end
-  return s1/n < s2/n end 
-
---     __                  
---    (_   _   _   _  |  _ 
---    __) (_| ||| |_) | (- 
---                |        
-local SAMPLE=klass"SAMPLE"
-function SAMPLE.new(inits,   i) 
-  i= new(SAMPLE, {head=nil,egs={},all={},num={},sym={},xs={},ys={}}) 
-  if type(inits)=="table"  then for _,eg in pairs(inits) do i:add(eg) end end
-  if type(inits)=="string" then for eg in csv(inits)   do i:add(eg) end end 
-  return i end
-
-function SAMPLE.skip(i,  x) return x:find":" end
-function SAMPLE.nump(i,  x) return x:find"^[A-Z]" end
-function SAMPLE.goalp(i, x) return x:find"-" or x:find"+" end
-
-function SAMPLE.add(i,eg,    now)
-  eg = eg.has and eg.has or eg
-  if not i.head then
-    i.head = eg
-    for n,s in pairs(eg) do 
-      now = (i:skip(s) and SKIP or i:nump(s) and NUM or SYM)(n,s)
-      push(i.all, now)
-      if not i:skip(s) then 
-        push(i:goalp(s) and i.ys or i.xs, now) end end 
-  else 
-    push(i.egs, EG(eg))
-    for n,one in pairs(i.all) do one:add(eg[one.at]) end end
-  return i end
-
-function SAMPLE.clone(i,inits,    j)
-  j= SAMPLE()
-  j:add(copy(i.head))
-  for _,x in pairs(inits or {}) do  j:add(x) end
-  return j end
-
-function SAMPLE.stats(i, cols) 
-  return map(cols or i.all, function(x) return x:mid() end) end
-  
-function SAMPLE.far(i,eg1,egs,    gap,tmp)
-  gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
-  tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
-  return table.unpack(tmp[#tmp*THE.Far//1] ) end
---    ___                       
---     |       _  _ | .  _   _  
---     |  |_| _) _) | | | ) (_) 
---                          _/  
-function SAMPLE.split(i, egs)
-  local c,best,rest,here,there
-  egs     = egs or i.egs
-  here    = i:far(any(egs), egs)
-  there,c = i:far(here,     egs)
-  for _,eg in pairs(egs) do
-    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
-  best,rest = i:clone(), i:clone()
-  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
-    (n <= #egs//2 and best or rest):add(eg) end
-  return best, rest end
-
-function SAMPLE.tussling(i,min,lvl,pre)
-  lvl = lvl or 0
-  min = min or 2*(#i.egs)^THE.Small
-  if #i.egs < 2*min then return i end
-  local best,rest = i:split(i.egs)
-  local bins = {}
-  for n,bestx in pairs(best.xs) do 
-    for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
-  local score = function(a,b) return a.has:score("best") > b.has:score("best") end
-  local bin   = sort(bins, score)[1]
-  print(fmt("%s %-20s%4s : %s", 
-                        o(rnds(i:stats(i.ys),0 )),
-                        string.rep("|.. ",lvl), 
-                        #i.egs, pre or ""))
-  pre = bin.lo == bin.hi and fmt("%s",bin.lo) or fmt("(%s..%s)",bin.lo,bin.hi)
-  pre = fmt("%s = %s", bin.col.txt, pre)
-  local left, right = i:clone(), i:clone()
-  for _,eg in pairs(i.egs) do
-     local x = eg.has[ bin.col.at ]
-     if     x=="?"                 then left:add(eg); right:add(eg) 
-     elseif bin.lo<=x and x<bin.hi then left:add(eg) 
-     else                               right:add(eg) end end 
-  if #left.egs  < #i.egs then left:tussling( min, lvl+1,"if ".. pre) end
-  if #right.egs < #i.egs then right:tussling(min, lvl+1,"if not "..pre) end
-  end 
 -- ## Tricks
 
---- ### Generate `THE` from `help` String
+-- ### Generate `THE` from `help` String
 
 -- Matches for relevant lines
 function read_from_2_blanks_and_1_dash()  
@@ -333,11 +350,7 @@ function coerce(x)
   if x=="false" then return false end
   return tonumber(x) or x end
 
-
---     |\/| .  _  _ 
---     |  | | _) (_ 
---                  
-
+--- Table Stuff
 function push(t,x)    table.insert(t,x); return x end
 function firsts(a,b)  return a[1] < b[1] end
 function sort(t,f)    table.sort(t,f);   return t end
@@ -391,11 +404,9 @@ function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
 _id=0
 function ako(x)    return getmetatable(x) end
 function new(mt,x) _id=_id+1; x._id=_id; return setmetatable(x,mt) end
---     __                
---    |  \  _  _   _   _ 
---    |__/ (- ||| (_) _) 
---                       
-local go, nogo, azzert = {},{} -- places to store demos/tests
+
+-- ## Desmos                       
+go, nogo = {},{} -- places to store demos/tests
 
 function go.the(s)    say(o(THE)) end -- to disable, change "go" to "nogo"
 function nogo.fail(s) azzert(false,"can you handle failure?") end 
@@ -458,7 +469,7 @@ function go.tussle(   s,x)
 --    |\/|  _  .  _  
 --    |  | (_| | | ) 
 --                   
-local fails = 0        -- counter for failure
+fails = 0        -- counter for failure
 function azzert(test,msg) -- update failure count before calling real assert 
   msg=msg or ""
   if test then print("  PASS : "..msg) 
@@ -466,7 +477,7 @@ function azzert(test,msg) -- update failure count before calling real assert
                print("  FAIL : "..msg)
                if THE.Debug then assert(test,msg) end end end
 
-local function main()  
+function main()  
   read_from_2_blanks_and_1_dash() -- set up system
   if THE.h then print(help); os.exit() end -- maybe show help
   go[THE.todo]()                           -- go, maybe changing failure count
