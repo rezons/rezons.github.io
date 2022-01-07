@@ -1,25 +1,26 @@
 #!/usr/bin/env lua
 -- vim : filetype=lua ts=2 sw=2 et :    
 -- ## About
--- - Tussle recursively splits its input data
+-- Tussle recursively splits its input data
 -- by finding two points that are very far away 
 -- (the default is  `-Far .9`; i.e. it builds splits using points 90%
 -- as far away as you can go).
--- - Once its founds two splits, then all variables are discretized (divided
+-- Once its founds two splits, then all variables are discretized (divided
 -- into bins) where each bin has to be bigger than some minimum size
 -- (so `-Small .5` means bins  hold at least N^.5, i.e. square
 -- root, of the number of examoles). 
---     The "max minus min" values in each
+-- The "max minus min" values in each
 -- bin has to be more than some trivial size  (and `-dull .35` means that
 -- "trivial size" is more than .35*stddev of each number). 
---     Also,
+-- Also,
 -- if adjacent bins have the same distribution of the two splits, then
 -- those bins will be merged. 
--- - In practice, this means that numerics end
+-- In practice, this means that numerics end
 -- up falling into two to four bins (and sometimes more).
 -- These bins are all ranked by how well they divide up the splits.
 -- The bin that contains most of one split (and least of the other)
 -- is used to divide the data into two (one with the split, one without).
+local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 local help= [[
 
 tussle [OPTIONS]
@@ -44,63 +45,38 @@ OPTIONS:
              -todo LS  = list all
   -verbose   show details                   : false
 ]]  
--- ## Glossary
+-- ## Namespace
 
 -- ### Classes:
+-- Create a class. Add in a print function and 
+local function klass(s, klass)
+  klass = {_is=s, __tostring=o}; klass.__index = klass
+  return setmetatable(klass,{__call=function(_,...) return klass.new(...) end}) end
 
 -- A `SAMPLE` holds many `EG`s.
-local EG, SAMPLE
+local EG, SAMPLE = klass"EG", klass"SAMPLE"
 -- Example columns are either  
 -- `NUM`eric or  `SYM`bolic    
 -- or black holes (for data we want to `SKIP`).
-local NUM
-local SYM
-local SKIP
+local NUM  = klass"NUM"
+local SYM  = klass"SYM"
+local SKIP = klass"SKIP"
 
 -- ### Globals
-
--- A global for all the config.
-local THE={} 
--- Places to store demos/tests.
-local go, nogo = {},{}
+local THE={}           -- A global for all the config.
+local go, nogo = {},{} -- Places to store demos/tests.
 
 -- ### Functions
+local coerce, options                     -- make config options
+local push,firsts,sort,map,keys,copy      -- Table stuff
+local csv,green,yellow,rnd,rnds,fmt,say,o -- Print Stuff
+local rand,randi,any,many,shuffle         -- Random stuff
+local xpect                               -- Misc stuff
+local ako,new                             -- OO stuff
+local fails, main, azzert                 -- Start-up and main stuff
 
--- Generated `THE` from the help string
-local coerce,_update_from_cli, read_from_2_blanks_and_1_dash 
--- Stuff for checking the code
-local b4,rogues,azzert 
--- Table stuff
-local push,firsts,sort,map,keys,copy 
--- Print Stuff
-local csv,green,yellow,rnd,rnds,fmt,say,o
--- Random stuff
-local rand,randi,any,many,shuffle
--- Misc stuff
-local xpect
--- OO stuff
-local _id,ako,new,klass
--- Start-up and main stuff
-local fails, main
-
--- ## Stuff that has to go first
-
--- Catch all the current globals (in `b4`) so
--- the `rogue` function can report any accidently
--- created globals.
-b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
-function rogues()
-  for k,v in pairs(_ENV) do 
-    if not b4[k] then print("Rogue?",k,type(v)) end end end
-
--- Set up delegation and constructors (and print function) for classes.
-function klass(s, klass)
-  klass = {_is=s, __tostring=o}
-  klass.__index = klass
-  return setmetatable(klass,{__call=function(_,...) return klass.new(...) end}) end
 
 -- ## Sample
-SAMPLE=klass"SAMPLE"
 function SAMPLE.new(inits,   i) 
   i= new(SAMPLE, {head=nil,egs={},all={},num={},sym={},xs={},ys={}}) 
   if type(inits)=="table"  then for _,eg in pairs(inits) do i:add(eg) end end
@@ -179,7 +155,6 @@ function SAMPLE.far(i,eg1,egs,    gap,tmp)
 
 -- ## EG
 -- SAMPLEs store individual EGs (examples).
-EG=klass"EG"
 function EG.new(t) return new(EG, {klass=0,has=t}) end
 
 function EG.cols(i,cols) return map(cols, function(x) return i.has[x.at] end) end
@@ -212,7 +187,6 @@ function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
 
 -- ## Columns
 -- ### Columns to `SKIP`
-SKIP=klass"SKIP"
 function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
 function SKIP.add(i,x)  return x end
 function SKIP.mid()     return "?" end
@@ -224,7 +198,6 @@ function SKIP.bins(...) return {} end
 -- Stores on the seen values in `_has`.  
 -- If the name `s` contains "-", then that is a goal to be minimized
 -- with weight `w=-1` (else the weight defaults to `w=1`).
-NUM=klass"NUM"
 function NUM.new(n,s)  
   return new(NUM, {txt=s or"", at=n or 0,lo=math.huge, hi=-math.huge,
                    _has={},
@@ -284,7 +257,6 @@ function NUM.merge(i,j,    k)
   return k end
 
 -- ### `SYM`bolic Columns
-SYM=klass"SYM"
 function SYM.new(n,s) 
   return new(SYM, {n=0,has={},txt=s or"", at=n or 0,mode=nil,most=0}) end
 function SYM.add(i,x,n) 
@@ -329,19 +301,22 @@ function SYM.score(i,goal,tmp)
 -- ### Generate `THE` from `help` String
 
 -- Matches for relevant lines
-function read_from_2_blanks_and_1_dash()  
-  help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", _update_from_cli) end
 -- See if we need to update `flag` from command line.   
 -- Note two tricks:    
 -- (1) We can use abbreviations on command line.     
 --     E.g. `-s` can match the flag `seed`.     
 -- (2) If command line  mentions a boolean flag, this  
 --     code flips the default value for that boolean.
-function _update_from_cli(flag,x) 
-  for n,txt in ipairs(arg) do         
-    if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
-    then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
-  THE[flag] = coerce(x) end
+function options(txt,   t,update_from_cli)  
+  function update_from_cli(flag,x) 
+    for n,txt in ipairs(arg) do         
+      if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
+      then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
+    t[flag] = coerce(x) end
+
+  t={}
+  txt:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli) 
+  return t end
 -- Convert a string `x` to its correct type.
 function coerce(x)
   if x=="true" then return true end
@@ -366,8 +341,7 @@ function copy(t,u)
 
 function csv(file,   x,row)
   function row(x,  t)
-     for y in x:gsub("%s+",""):gmatch"([^,]+)" do 
-       push(t,tonumber(y) or y)end; return t end
+     for y in x:gsub("%s+",""):gmatch"([^,]+)" do push(t,coerce(y)) end; return t end
    file = io.input(file) 
    return function() x=io.read()
                      if x then return row(x,{}) else io.close(file) end end end
@@ -463,29 +437,32 @@ function go.tussle(   s,x)
   --                     return a.has:score("best") > b.has:score("best") end)) do
   --   print(rnd(cut.has:score("best")), cut.col.txt, cut.lo, cut.hi) end end
 
---                   
---    |\/|  _  .  _  
---    |  | (_| | | ) 
---                   
-fails = 0        -- counter for failure
-function azzert(test,msg) -- update failure count before calling real assert 
+-- ## Start up
+-- ### Unit Test Support
+-- Initialize failure count
+fails = 0        
+-- **azzert(test:bool, mst:string) : nil**    
+-- Update failure count before calling real assert 
+function azzert(test,msg) 
   msg=msg or ""
   if test then print("  PASS : "..msg) 
           else fails=fails+1
                print("  FAIL : "..msg)
                if THE.Debug then assert(test,msg) end end end
-
+-- **main() : nil**    
+-- Ini
 function main()  
-  read_from_2_blanks_and_1_dash() -- set up system
+  THE = options(help) -- set up system
   if THE.h then print(help); os.exit() end -- maybe show help
   go[THE.todo]()                           -- go, maybe changing failure count
-  rogues()                                 -- report any stray globals 
+  for k,v in pairs(_ENV) do                -- report any stray globals
+    if not b4[k] then print("Rogue?",k,type(v)) end end 
   os.exit(fails) end                       -- exit, reporting the failure counts
 
 function go.ALL() -- run all tests, resetting the system before each test
   for _,k in pairs(keys(go)) do 
     if k:match"^[a-z]" then 
-      read_from_2_blanks_and_1_dash()  
+      THE = options(help)  
       print("\n"..k)
       go[k]() end end end
 
