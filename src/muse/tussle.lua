@@ -1,25 +1,35 @@
 #!/usr/bin/env lua
 -- vim : filetype=lua ts=2 sw=2 et :    
 -- ## About
--- Tussle recursively splits its input data
--- by finding two points that are very far away 
--- (the default is  `-Far .9`; i.e. it builds splits using points 90%
--- as far away as you can go).
--- Once its founds two splits, then all variables are discretized (divided
--- into bins) where each bin has to be bigger than some minimum size
--- (so `-Small .5` means bins  hold at least N^.5, i.e. square
--- root, of the number of examoles). 
--- The "max minus min" values in each
--- bin has to be more than some trivial size  (and `-dull .35` means that
--- "trivial size" is more than .35*stddev of each number). 
--- Also,
--- if adjacent bins have the same distribution of the two splits, then
--- those bins will be merged. 
--- In practice, this means that numerics end
--- up falling into two to four bins (and sometimes more).
--- These bins are all ranked by how well they divide up the splits.
--- The bin that contains most of one split (and least of the other)
--- is used to divide the data into two (one with the split, one without).
+-- Tussle is a ["DUO" algorithm](https://arxiv.org/abs/1812.01550)
+-- (data mining using/used by optimizers) that seeks to learn the
+-- most it can about some  model `y=f(x)`, while at the same time, asking the fewest
+-- questions about `x` or `y`.  Examples are divided in two (on their `x` value) then
+-- discretion seeks the attribute range that best distinguishes that division. Data is split
+-- on that range and the process repeats recursively to return a binary decision tree that
+-- queries one attribute range per split.  If called with the `-best` flag, Tussle evaluates
+-- two distant examples per split, pruning the split with the worst example (so N examples
+-- can be pruned after a small (log(N)) number of examples.
+-- 
+-- Tussle divides its data using recursive [FASTMAP random
+-- projections](https://dl.acm.org/doi/10.1145/568271.223812).  Different to most classifiers
+-- or regression algorithms, Tussle allows ranks examples on a multi-objective criteria using
+-- [Zitler's IBEA](https://www.simonkuenzli.ch/docs/ZK04.pdf) predicate (which is known to be
+-- effective for 
+-- [multi- to many- goals](https://fada.birzeit.edu/bitstream/20.500.11889/4528/1/dcb6eddbdac1c26b605ce3dff62e27167848.pdf).
+-- Also, except for the handful of `y` queries used by the optional  `-best` flag, this is an
+-- [unsupervised algorithm](https://raw.githubusercontent.com/nzjohng/publications/master/papers/jss2020.pdf).
+-- Tussle can be used  when example labels are suspect since, even if called with `-best`,
+-- humans only have to check a very small number of labels (in this way, Tussle is like a
+-- semi-supervised learner that takes most advantage of a very small number of labels).
+-- 
+-- Other applications of Tussle include [explaining](https://arxiv.org/pdf/2006.00093.pdf)
+-- complex models (in a succinct manner). Unlike other explanation that discuss the impact of
+-- single variables on a class, Tussle offers explanations for combinations of multiple
+-- factors that influence multiple goals.  Tussle can also optimize any simulation process
+-- here is to expensive to evaluate too many examples. Further,for [interactive search-based
+-- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Tussle lets a human work with
+-- an AI, without the human being overwhelmed by too many questions.
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 local help= [[
 
@@ -28,7 +38,7 @@ Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
 
 OPTIONS:
-  -better    Recurse on just best half      : false
+  -best      Recurse on just best half      : false
   -Debug     on error, dump stack and exit  : false
   -dull   F  small effect= stdev*dull       : .35
   -Far    F  where to find far things       : .9
