@@ -20,7 +20,7 @@
 -- These bins are all ranked by how well they divide up the splits.
 -- The bin that contains most of one split (and least of the other)
 -- is used to divide the data into two (one with the split, one without).
--- 
+--  
 local help= [[
 
 tussle [OPTIONS]
