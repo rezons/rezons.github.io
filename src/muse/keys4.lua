@@ -1,39 +1,46 @@
-#!/usr/bin/env lua
--- vim : filetype=lua ts=2 sw=2 et :    
 -- ## About
--- Tussle is a ["DUO" algorithm](https://arxiv.org/abs/1812.01550)
+-- Keys4 is a ["DUO" algorithm](https://arxiv.org/abs/1812.01550)
 -- (data mining using/used by optimizers) that seeks to learn the
 -- most it can about some  model `y=f(x)`, while at the same time, asking the fewest
--- questions about `x` or `y`.  Examples are divided in two (on their `x` value) then
+-- questions about `x` or `y`.  
+--  
+-- Keys4 assumes the presence of ["keys"](http://menzies.us/pdf/07strange.pdf)
+-- in the data;
+-- i.e. a small set of variables which, if set, greatly reduces the variance of
+-- the rest of the system. For such systems, inference and explanation and control
+-- is a simple matter of (a) random sampling; (b) then focusing on a few variables that
+-- are most different in the sample,
+--  
+-- In Keys4, examples are divided in two (on their `x` value) then
 -- discretion seeks the attribute range that best distinguishes that division. Data is split
 -- on that range and the process repeats recursively to return a binary decision tree that
--- queries one attribute range per split.  If called with the `-best` flag, Tussle evaluates
+-- queries one attribute range per split.  If called with the `-best` flag, Keys4 evaluates
 -- two distant examples per split, pruning the split with the worst example (so N examples
 -- can be pruned after a small (log(N)) number of examples.
 -- 
--- Tussle divides its data using recursive [FASTMAP random
+-- Keys4 divides its data using recursive [FASTMAP random
 -- projections](https://dl.acm.org/doi/10.1145/568271.223812).  Different to most classifiers
--- or regression algorithms, Tussle allows ranks examples on a multi-objective criteria using
+-- or regression algorithms, Keys4 allows ranks examples on a multi-objective criteria using
 -- [Zitler's IBEA](https://www.simonkuenzli.ch/docs/ZK04.pdf) predicate (which is known to be
 -- effective for 
 -- [multi- to many- goals](https://fada.birzeit.edu/bitstream/20.500.11889/4528/1/dcb6eddbdac1c26b605ce3dff62e27167848.pdf).
 -- Also, except for the handful of `y` queries used by the optional  `-best` flag, this is an
 -- [unsupervised algorithm](https://raw.githubusercontent.com/nzjohng/publications/master/papers/jss2020.pdf).
--- Tussle can be used  when example labels are suspect since, even if called with `-best`,
--- humans only have to check a very small number of labels (in this way, Tussle is like a
+-- Keys4 can be used  when example labels are suspect since, even if called with `-best`,
+-- humans only have to check a very small number of labels (in this way, Keys4 is like a
 -- semi-supervised learner that takes most advantage of a very small number of labels).
 -- 
--- Other applications of Tussle include [explaining](https://arxiv.org/pdf/2006.00093.pdf)
+-- Other applications of Keys4 include [explaining](https://arxiv.org/pdf/2006.00093.pdf)
 -- complex models (in a succinct manner). Unlike other explanation that discuss the impact of
--- single variables on a class, Tussle offers explanations for combinations of multiple
--- factors that influence multiple goals.  Tussle can also optimize any simulation process
+-- single variables on a class, Keys4 offers explanations for combinations of multiple
+-- factors that influence multiple goals.  Keys4 can also optimize any simulation process
 -- here is to expensive to evaluate too many examples. Further,for [interactive search-based
--- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Tussle lets a human work with
+-- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Keys4 lets a human work with
 -- an AI, without the human being overwhelmed by too many questions.
-local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
-local help= [[
+--   
+local MINE={b4={}, help=[[
 
-tussle [OPTIONS]
+keys4 [OPTIONS]
 Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
 
@@ -54,37 +61,42 @@ OPTIONS:
              -todo ALL = run all
              -todo LS  = list all
   -verbose   show details                   : false
-]]  
+]]}  
+for k,_ in pairs(_ENV) do MINE.b4[k]=k end
 -- ## Namespace
 
--- ### Classes:
--- Create a class. Add in a print function and 
+-- ### Classes
+-- Our class print themselves with the `o` function, 
+-- and delegate methods to `klass` and 
+-- set the creation method `XX(..)` to be `XX.new(...)`.
 local function klass(s, klass)
-  klass = {_is=s, __tostring=o}; klass.__index = klass
+  klass = {_is=s, __tostring=o}; 
+  klass.__index = klass
   return setmetatable(klass,{__call=function(_,...) return klass.new(...) end}) end
 
 -- A `SAMPLE` holds many `EG`s.
 local EG, SAMPLE = klass"EG", klass"SAMPLE"
--- Example columns are either  
--- `NUM`eric or  `SYM`bolic    
--- or black holes (for data we want to `SKIP`).
-local NUM  = klass"NUM"
-local SYM  = klass"SYM"
-local SKIP = klass"SKIP"
+-- Example columns are either  `NUM`eric or  `SYM`bolic  or black holes (for data we want to `SKIP`).
+local NUM, SYM, SKIP  = klass"NUM", klass"SYM", klass"SKIP"
 
 -- ### Globals
-local THE={}           -- A global for all the config.
-local go, nogo = {},{} -- Places to store demos/tests.
+-- Internal options (not controlled by command-line).
+MINE.go    = {} -- where to store demos/tests
+MINE.nogo  = {} -- where to store disabled demos/tests
+MINE.oid   = 0  -- object id counter
+MINE.fails = 0  -- counter for runtime errors
 
--- ### Functions
+-- Config options, set from `MY` help string via   
+-- `YOUR = options(MINE.help)`
+local YOUR = {}  
+-- ### Misc functions
 local coerce, options                     -- make config options
-local push,firsts,sort,map,keys,copy      -- Table stuff
+local push,firsts,sort,map,slots,copy     -- table stuff
 local csv,green,yellow,rnd,rnds,fmt,say,o -- Print Stuff
 local rand,randi,any,many,shuffle         -- Random stuff
 local xpect                               -- Misc stuff
-local ako,new                             -- OO stuff
-local fails, main, azzert                 -- Start-up and main stuff
-
+local ako, new                            -- OO stuff
+local main, azzert                        -- Start-up and main stuff
 
 -- ## Sample
 function SAMPLE.new(inits,   i) 
@@ -107,7 +119,7 @@ function SAMPLE.split(i, egs)
 
 function SAMPLE.tussling(i,min,lvl,pre)
   lvl = lvl or 0
-  min = min or 2*(#i.egs)^THE.Small
+  min = min or 2*(#i.egs)^YOUR.Small
   if #i.egs < 2*min then return i end
   local best,rest = i:split(i.egs)
   local bins = {}
@@ -161,7 +173,7 @@ function SAMPLE.stats(i, cols)
 function SAMPLE.far(i,eg1,egs,    gap,tmp)
   gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
   tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
-  return table.unpack(tmp[#tmp*THE.Far//1] ) end
+  return table.unpack(tmp[#tmp*YOUR.Far//1] ) end
 
 -- ## EG
 -- SAMPLEs store individual EGs (examples).
@@ -182,8 +194,8 @@ function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
     n   = n+1
     a,b = i.has[col], j.has[col]
     inc = a=="?" and b=="?" and 1 or dist1(smpl.num[col],a,b)
-    d   = d + inc^THE.p end
-  return (d/n)^(1/THE.p) end
+    d   = d + inc^YOUR.p end
+  return (d/n)^(1/YOUR.p) end
 
 function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
   s1,s2,e,n = 0,0,10,#smpl.ys
@@ -218,7 +230,7 @@ function NUM.bins(i,j,         x,xys,xstats)
   xys = {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
   for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
-  return _bins(xys, xpect(i,j)*THE.dull, (#xys)^THE.Small, i, SYM) end
+  return _bins(xys, xpect(i,j)*YOUR.dull, (#xys)^YOUR.Small, i, SYM) end
 
 function _bins(xys,dull,small,col,yklass,      bin,bins,merge,span,spans)
   function merge(b4,    j,tmp,maybe,now,after) 
@@ -304,11 +316,11 @@ function SYM.score(i,goal,tmp)
   local best, rest = 0, 0
   for x,n in pairs(i.has) do 
     if x==goal then best = best+n/i.n else rest = rest+n/i.n end end
-  return best + rest < 0.01 and 0 or goals[THE.goal](best,rest) end
+  return best + rest < 0.01 and 0 or goals[YOUR.goal](best,rest) end
 
 -- ## Tricks
 
--- ### Generate `THE` from `help` String
+-- ### Generate `YOUR` from `help` String
 
 -- Matches for relevant lines
 -- See if we need to update `flag` from command line.   
@@ -317,7 +329,8 @@ function SYM.score(i,goal,tmp)
 --     E.g. `-s` can match the flag `seed`.     
 -- (2) If command line  mentions a boolean flag, this  
 --     code flips the default value for that boolean.
-function options(txt,   t,update_from_cli)  
+function options(help_string)
+  local t,update_from_cli  
   function update_from_cli(flag,x) 
     for n,txt in ipairs(arg) do         
       if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
@@ -325,7 +338,7 @@ function options(txt,   t,update_from_cli)
     t[flag] = coerce(x) end
 
   t={}
-  txt:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli) 
+  help_string:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli) 
   return t end
 -- Convert a string `x` to its correct type.
 function coerce(x)
@@ -340,7 +353,7 @@ function sort(t,f)    table.sort(t,f);   return t end
 function map(t,f,  u) 
   u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
 
-function keys(t,   u) 
+function slots(t,   u) 
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
   return sort(u) end
@@ -359,61 +372,92 @@ function csv(file,   x,row)
 function green(s)  return #s>0 and "\027[32m"..s.."\027[0m" or "" end
 function yellow(s)  return #s>0 and "\027[33m"..s.."\027[0m" or "" end
 
-function rnd(x,d,  n) n=10^(d or THE.round); return math.floor(x*n+0.5)/n end
+function rnd(x,d,  n) n=10^(d or YOUR.round); return math.floor(x*n+0.5)/n end
 function rnds(t,d)
   return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
 
 fmt = string.format
-function say(...) if THE.verbose then print(fmt(...)) end end
+function say(...) if YOUR.verbose then print(fmt(...)) end end
 function o(t,   u,key)
   function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
-  u = #t>0 and map(t,o) or map(keys(t),key)
+  u = #t>0 and map(t,o) or map(slots(t),key)
   return green((t._is or "")).."{"..table.concat(u, " ").."}" end 
 
 function rand(lo,hi)
-  THE.seed = (16807 * THE.seed) % 2147483647
-  return (lo or 0) + ((hi or 1) - (lo or 0)) * THE.seed / 2147483647 end
+  YOUR.seed = (16807 * YOUR.seed) % 2147483647
+  return (lo or 0) + ((hi or 1) - (lo or 0)) * YOUR.seed / 2147483647 end
 
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 function any(t) return t[randi(1,#t)] end
 function many(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
+
 function shuffle(t,   j)
   for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
+--- ### Maths stuff
+
+-- **xpect(a=(NUM|SYM), b=(NUM|SYM)) : num**   
+-- Expected value of two diversities from populations `a.n, b.n`.
 function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
 
-_id=0
-function ako(x)    return getmetatable(x) end
-function new(mt,x) _id=_id+1; x._id=_id; return setmetatable(x,mt) end
+-- ### OO stuff
 
--- ## Desmos                       
-go, nogo = {},{} -- places to store demos/tests
+-- **ako(x:klass) : klass**   
+-- To test for class type, use e.g. `ako(X)==NUM`.
+function ako(x) return getmetatable(x) end
+-- Instance creation; e.g. `new(NUM,{n=0})`.
+function new(mt,x) 
+  MINE.oid=MINE.oid+1; x._oid=MINE.oid -- Everyone gets a unique id.
+  return setmetatable(x,mt) end        -- Methods now delegate to `mt`.
 
-function go.the(s)    say(o(THE)) end -- to disable, change "go" to "nogo"
-function nogo.fail(s) azzert(false,"can you handle failure?") end 
+-- ## Demos
+
+-- `go,nogo` are places to store demos (and disables demos).
+local go, nogo = MINE.go, MINE.nogo
+
+-- Show config options.
+function go.the(s)    say(o(YOUR)) end -- to disable, change "go" to "nogo"
+
+-- Testing if tests work
 function go.pass(s)   azzert(true,  "can you handle success?")  end
+
+-- Test we can handle failing tests.
+function nogo.fail(s) azzert(false,"can you handle failure?") end 
+
+-- Can we read data from a disk file.
 function go.sample(s,  egs) 
-  s=SAMPLE(THE.file)
+  s=SAMPLE(YOUR.file)
   azzert(398==#s.egs, "got enough rows?")
   azzert(s.ys[1].w==-1,"minimizing goals are -1?") end
 
+-- Generate a new table, with the same structure.
 function go.clone(s,  t,s1,s2) 
-  s=SAMPLE(THE.file)
+  s=SAMPLE(YOUR.file)
   s1=o(s.ys)
   t=s:clone(s.egs) 
   s2=o(t.ys) 
   azzert(s1==s2, "cloning works?") end
 
+-- Numbers demi
+function go.num( m,n)
+  m=NUM()
+  for i=1,10 do m:add(i) end
+  n = copy(m)
+  for i=1,10 do n:add(i) end
+  azzert(2.95 == rnd(n:div()),"sd ok?") end
+
+-- Checking we can sort on multiple goals.
 function go.dominate(s,  egs) 
-  s=SAMPLE(THE.file)
+  s=SAMPLE(YOUR.file)
   egs = sort(s.egs, function(a,b) return a:better(b,s) end)
   for i=1,5 do say(o(egs[i]:cols(s.ys))) end; say("")
   for i=#egs-5,#egs do say(o(egs[i]:cols(s.ys))) end
   azzert(egs[1]:better(egs[#egs],s), "y-sort working?") end
 
+-- Checking if distances stuff.
 function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,one)
-  s=SAMPLE(THE.file)
+  s=SAMPLE(YOUR.file)
   eg1=s.egs[1]
   dist = function(eg2) return {eg2,eg1:dist(eg2,s)} end
   tmp  = sort(map(s.egs, dist), function(a,b) return a[2] < b[2] end)
@@ -426,58 +470,51 @@ function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,one)
     d2 = tmp[j2][1]:dist(one,s)
     azzert(d1 <= d2,"distance ?") end end
 
-function go.num( m,n)
-  m=NUM()
-  for i=1,10 do m:add(i) end
-  n = copy(m)
-  for i=1,10 do n:add(i) end
-  azzert(2.95 == rnd(n:div()),"sd ok?") end
-
--- bring stats back
+-- Demo of main functionality.
 function go.tussle(   s,x)
-  s = SAMPLE(THE.file)
-  x=  s:tussling()
-  print("evals",evals)
+  s = SAMPLE(YOUR.file)
+  s:tussling()
   end
-  -- cuts={}
-  -- for n,i in pairs(bests.xs) do
-  --   j=rests.xs[n]
-  --   for _,cut in pairs(i:bins(j)) do push(cuts,cut) end end
-  -- for _,cut in pairs(sort(cuts,function(a,b) 
-  --                     return a.has:score("best") > b.has:score("best") end)) do
-  --   print(rnd(cut.has:score("best")), cut.col.txt, cut.lo, cut.hi) end end
 
 -- ## Start up
--- ### Unit Test Support
--- Initialize failure count
-fails = 0        
--- **azzert(test:bool, mst:string) : nil**    
--- Update failure count before calling real assert 
-function azzert(test,msg) 
-  msg=msg or ""
-  if test then print("  PASS : "..msg) 
-          else fails=fails+1
-               print("  FAIL : "..msg)
-               if THE.Debug then assert(test,msg) end end end
--- **main() : nil**    
--- Ini
-function main()  
-  THE = options(help) -- set up system
-  if THE.h then print(help); os.exit() end -- maybe show help
-  go[THE.todo]()                           -- go, maybe changing failure count
-  for k,v in pairs(_ENV) do                -- report any stray globals
-    if not b4[k] then print("Rogue?",k,type(v)) end end 
-  os.exit(fails) end                       -- exit, reporting the failure counts
 
-function go.ALL() -- run all tests, resetting the system before each test
-  for _,k in pairs(keys(go)) do 
+-- Lost the "public" tests (those with lower case names), 
+function go.LS() 
+  for _,k in pairs(slots(go)) do 
+    if k:match"^[a-z]" then  print("  -t "..k) end end end
+
+-- Run the "public" tests (those with lower case names), 
+function go.ALL() 
+  for _,k in pairs(slots(go)) do 
     if k:match"^[a-z]" then 
-      THE = options(help)  
+      YOUR = options(MINE.help)  
       print("\n"..k)
       go[k]() end end end
 
-function go.LS() -- list all tests      
-  for _,k in pairs(keys(go)) do 
-    if k:match"^[a-z]" then print("  -t "..k) end end end
+-- Initialize failure count
+MINE.fails=0
+-- **azzert(test:bool, msg:str) : nil**    
+-- Wrap the real assert is something that updates failure counts.
+function azzert(test,msg) 
+  msg=msg or ""
+  if test then print("  PASS : "..msg) 
+          else MINE.fails = MINE.fails+1
+               print("  FAIL : "..msg)
+               if YOUR.Debug then assert(test,msg) end end end
 
-main()
+-- **main(help:txt) : nil**    
+-- [1] Build `YOUR` from the help string.  
+-- [2] Maybe print the help text.   
+-- [3] Run the `todo` function.    
+-- [4] Hunt for any stray globals.    
+-- [5] Return the number of fails generated.
+function main(help)  
+  YOUR = options(MINE.help)                                  -- [1] 
+  if YOUR.h then print(MINE.help); os.exit() end             -- [2]
+  if YOUR.todo and go[YOUR.todo] then go[YOUR.todo]() end    -- [3]
+  for k,v in pairs(_ENV) do                                  -- [4]
+    if not MINE.b4[k] then print("Rogue?",k,type(v)) end end 
+  os.exit(MINE.fails) end                                    -- [5]
+
+-- Let's go.
+main(MINE.help)

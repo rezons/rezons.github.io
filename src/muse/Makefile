@@ -26,5 +26,5 @@ osx: osxbrew
 	npm install -g docco
 
 doc: 
-	docco tussle.lua
+	docco keys4.lua
 	cp ../../etc/docco.css docs/
