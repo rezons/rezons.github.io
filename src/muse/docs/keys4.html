@@ -612,12 +612,7 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
   YOUR.seed = (<span class="hljs-number">16807</span> * YOUR.seed) % <span class="hljs-number">2147483647</span>
   <span class="hljs-keyword">return</span> (lo <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>) + ((hi <span class="hljs-keyword">or</span> <span class="hljs-number">1</span>) - (lo <span class="hljs-keyword">or</span> <span class="hljs-number">0</span>)) * YOUR.seed / <span class="hljs-number">2147483647</span> <span class="hljs-keyword">end</span>
 
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">randi</span><span class="hljs-params">(lo,hi)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.<span class="hljs-built_in">floor</span>(<span class="hljs-number">0.5</span> + rand(lo,hi)) <span class="hljs-keyword">end</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">any</span><span class="hljs-params">(t)</span></span> <span class="hljs-keyword">return</span> t[randi(<span class="hljs-number">1</span>,#t)] <span class="hljs-keyword">end</span>
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">many</span><span class="hljs-params">(t,n,  u)</span></span> u={};<span class="hljs-keyword">for</span> j=<span class="hljs-number">1</span>,n <span class="hljs-keyword">do</span> push(u,any(t)) <span class="hljs-keyword">end</span>; <span class="hljs-keyword">return</span> u <span class="hljs-keyword">end</span>
-
-<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">shuffle</span><span class="hljs-params">(t,   j)</span></span>
-  <span class="hljs-keyword">for</span> i=#t,<span class="hljs-number">2</span>,<span class="hljs-number">-1</span> <span class="hljs-keyword">do</span> j=randi(<span class="hljs-number">1</span>,i); t[i],t[j]=t[j],t[i] <span class="hljs-keyword">end</span>; <span class="hljs-keyword">return</span> t <span class="hljs-keyword">end</span></pre></div></div>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">randi</span><span class="hljs-params">(lo,hi)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">math</span>.<span class="hljs-built_in">floor</span>(<span class="hljs-number">0.5</span> + rand(lo,hi)) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -628,12 +623,14 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-19">&#x00a7;</a>
               </div>
-              <ul>
-<li><h3 id="maths-stuff">Maths stuff</h3>
-</li>
-</ul>
+              <p><strong>any(t: list, n?:int) : (any | list)</strong><br>If called with one argument, return any item picked at random.
+If called with two arguements, reutrn that maany <code>any</code>.</p>
 
             </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">any</span><span class="hljs-params">(t,  n)</span></span> 
+  <span class="hljs-keyword">if</span> n <span class="hljs-keyword">then</span> u={};<span class="hljs-keyword">for</span> j=<span class="hljs-number">1</span>,n <span class="hljs-keyword">do</span> push(u,any(t)) <span class="hljs-keyword">end</span>; <span class="hljs-keyword">return</span> u 
+       <span class="hljs-keyword">else</span> <span class="hljs-keyword">return</span> t[randi(<span class="hljs-number">1</span>,#t)] <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -644,11 +641,12 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-20">&#x00a7;</a>
               </div>
-              <p><strong>xpect(a=(NUM|SYM), b=(NUM|SYM)) : num</strong><br>Expected value of two diversities from populations <code>a.n, b.n</code>.</p>
+              <p><strong>shuffle(t: list) : list</strong><br>Random shuffles top-level of <code>t</code>. </p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">xpect</span><span class="hljs-params">(a,b)</span></span> <span class="hljs-keyword">return</span> (a.n*a:div()+ b.n*b:div())/(a.n+b.n) <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">shuffle</span><span class="hljs-params">(t,   j)</span></span>
+  <span class="hljs-keyword">for</span> i=#t,<span class="hljs-number">2</span>,<span class="hljs-number">-1</span> <span class="hljs-keyword">do</span> j=randi(<span class="hljs-number">1</span>,i); t[i],t[j]=t[j],t[i] <span class="hljs-keyword">end</span>; <span class="hljs-keyword">return</span> t <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -659,7 +657,10 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-21">&#x00a7;</a>
               </div>
-              <h3 id="oo-stuff">OO stuff</h3>
+              <ul>
+<li><h3 id="maths-stuff">Maths stuff</h3>
+</li>
+</ul>
 
             </div>
             
@@ -672,11 +673,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-22">&#x00a7;</a>
               </div>
-              <p><strong>ako(x:klass) : klass</strong><br>To test for class type, use e.g. <code>ako(X)==NUM</code>.</p>
+              <p><strong>xpect(a=(NUM|SYM), b=(NUM|SYM)) : num</strong><br>Sum of diversities, weighted by population size.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ako</span><span class="hljs-params">(x)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">getmetatable</span>(x) <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">xpect</span><span class="hljs-params">(a,b)</span></span> <span class="hljs-keyword">return</span> (a.n*a:div()+ b.n*b:div())/(a.n+b.n) <span class="hljs-keyword">end</span></pre></div></div>
             
         </li>
         
@@ -686,6 +687,34 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               
               <div class="sswrap ">
                 <a class="ss" href="#section-23">&#x00a7;</a>
+              </div>
+              <h3 id="oo-stuff">OO stuff</h3>
+
+            </div>
+            
+        </li>
+        
+        
+        <li id="section-24">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-24">&#x00a7;</a>
+              </div>
+              <p><strong>ako(x:klass) : klass</strong><br>To test for class type, use e.g. <code>ako(X)==NUM</code>.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">ako</span><span class="hljs-params">(x)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">getmetatable</span>(x) <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-25">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-25">&#x00a7;</a>
               </div>
               <p>Instance creation; e.g. <code>new(NUM,{n=0})</code>.</p>
 
@@ -698,45 +727,15 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-24">
-            <div class="annotation">
-              
-              <div class="sswrap ">
-                <a class="ss" href="#section-24">&#x00a7;</a>
-              </div>
-              <h2 id="demos">Demos</h2>
-
-            </div>
-            
-        </li>
-        
-        
-        <li id="section-25">
-            <div class="annotation">
-              
-              <div class="sswrap ">
-                <a class="ss" href="#section-25">&#x00a7;</a>
-              </div>
-              <p><code>go,nogo</code> are places to store demos (and disables demos).</p>
-
-            </div>
-            
-            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> go, nogo = MINE.go, MINE.nogo</pre></div></div>
-            
-        </li>
-        
-        
         <li id="section-26">
             <div class="annotation">
               
               <div class="sswrap ">
                 <a class="ss" href="#section-26">&#x00a7;</a>
               </div>
-              <p>Show config options.</p>
+              <h2 id="demos">Demos</h2>
 
             </div>
-            
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.the</span><span class="hljs-params">(s)</span></span>    say(o(YOUR)) <span class="hljs-keyword">end</span> <span class="hljs-comment">-- to disable, change &quot;go&quot; to &quot;nogo&quot;</span></pre></div></div>
             
         </li>
         
@@ -747,11 +746,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-27">&#x00a7;</a>
               </div>
-              <p>Testing if tests work</p>
+              <p><code>go,nogo</code> are places to store demos (and disables demos).</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.pass</span><span class="hljs-params">(s)</span></span>   azzert(<span class="hljs-literal">true</span>,  <span class="hljs-string">&quot;can you handle success?&quot;</span>)  <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> go, nogo = MINE.go, MINE.nogo</pre></div></div>
             
         </li>
         
@@ -762,11 +761,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               <div class="sswrap ">
                 <a class="ss" href="#section-28">&#x00a7;</a>
               </div>
-              <p>Test we can handle failing tests.</p>
+              <p>Show config options.</p>
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">nogo.fail</span><span class="hljs-params">(s)</span></span> azzert(<span class="hljs-literal">false</span>,<span class="hljs-string">&quot;can you handle failure?&quot;</span>) <span class="hljs-keyword">end</span></pre></div></div>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.the</span><span class="hljs-params">(s)</span></span>    say(o(YOUR)) <span class="hljs-keyword">end</span> <span class="hljs-comment">-- to disable, change &quot;go&quot; to &quot;nogo&quot;</span></pre></div></div>
             
         </li>
         
@@ -776,6 +775,36 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
               
               <div class="sswrap ">
                 <a class="ss" href="#section-29">&#x00a7;</a>
+              </div>
+              <p>Testing if tests work</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.pass</span><span class="hljs-params">(s)</span></span>   azzert(<span class="hljs-literal">true</span>,  <span class="hljs-string">&quot;can you handle success?&quot;</span>)  <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-30">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-30">&#x00a7;</a>
+              </div>
+              <p>Test we can handle failing tests.</p>
+
+            </div>
+            
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">nogo.fail</span><span class="hljs-params">(s)</span></span> azzert(<span class="hljs-literal">false</span>,<span class="hljs-string">&quot;can you handle failure?&quot;</span>) <span class="hljs-keyword">end</span></pre></div></div>
+            
+        </li>
+        
+        
+        <li id="section-31">
+            <div class="annotation">
+              
+              <div class="sswrap ">
+                <a class="ss" href="#section-31">&#x00a7;</a>
               </div>
               <p>Can we read data from a disk file.</p>
 
@@ -789,11 +818,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-30">
+        <li id="section-32">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-30">&#x00a7;</a>
+                <a class="ss" href="#section-32">&#x00a7;</a>
               </div>
               <p>Generate a new table, with the same structure.</p>
 
@@ -809,11 +838,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-31">
+        <li id="section-33">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-31">&#x00a7;</a>
+                <a class="ss" href="#section-33">&#x00a7;</a>
               </div>
               <p>Numbers demi</p>
 
@@ -829,11 +858,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-32">
+        <li id="section-34">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-32">&#x00a7;</a>
+                <a class="ss" href="#section-34">&#x00a7;</a>
               </div>
               <p>Checking we can sort on multiple goals.</p>
 
@@ -849,11 +878,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-33">
+        <li id="section-35">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-33">&#x00a7;</a>
+                <a class="ss" href="#section-35">&#x00a7;</a>
               </div>
               <p>Checking if distances stuff.</p>
 
@@ -876,11 +905,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-34">
+        <li id="section-36">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-34">&#x00a7;</a>
+                <a class="ss" href="#section-36">&#x00a7;</a>
               </div>
               <p>Demo of main functionality.</p>
 
@@ -894,11 +923,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-35">
+        <li id="section-37">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-35">&#x00a7;</a>
+                <a class="ss" href="#section-37">&#x00a7;</a>
               </div>
               <h2 id="start-up">Start up</h2>
 
@@ -907,11 +936,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-36">
+        <li id="section-38">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-36">&#x00a7;</a>
+                <a class="ss" href="#section-38">&#x00a7;</a>
               </div>
               <p>Lost the “public” tests (those with lower case names), </p>
 
@@ -924,11 +953,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-37">
+        <li id="section-39">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-37">&#x00a7;</a>
+                <a class="ss" href="#section-39">&#x00a7;</a>
               </div>
               <p>Run the “public” tests (those with lower case names), </p>
 
@@ -944,11 +973,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-38">
+        <li id="section-40">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-38">&#x00a7;</a>
+                <a class="ss" href="#section-40">&#x00a7;</a>
               </div>
               <p>Initialize failure count</p>
 
@@ -959,31 +988,31 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-39">
+        <li id="section-41">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-39">&#x00a7;</a>
+                <a class="ss" href="#section-41">&#x00a7;</a>
               </div>
-              <p><strong>azzert(test:bool, msg:str) : nil</strong><br>Wrap the real assert is something that updates failure counts.</p>
+              <p><strong>azzert(test:bool, msg:str) : nil</strong><br>Wrapper around the assert function.<br>[1] Updates the failure counts.<br>[2] Only call the real <code>assert</code> if `-debug” on cli.</p>
 
             </div>
             
             <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">azzert</span><span class="hljs-params">(test,msg)</span></span> 
   msg=msg <span class="hljs-keyword">or</span> <span class="hljs-string">&quot;&quot;</span>
   <span class="hljs-keyword">if</span> test <span class="hljs-keyword">then</span> <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;  PASS : &quot;</span>..msg) 
-          <span class="hljs-keyword">else</span> MINE.fails = MINE.fails+<span class="hljs-number">1</span>
+          <span class="hljs-keyword">else</span> MINE.fails = MINE.fails+<span class="hljs-number">1</span>                       <span class="hljs-comment">-- [1]</span>
                <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;  FAIL : &quot;</span>..msg)
-               <span class="hljs-keyword">if</span> YOUR.Debug <span class="hljs-keyword">then</span> <span class="hljs-built_in">assert</span>(test,msg) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span></pre></div></div>
+               <span class="hljs-keyword">if</span> YOUR.Debug <span class="hljs-keyword">then</span> <span class="hljs-built_in">assert</span>(test,msg) <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-keyword">end</span> <span class="hljs-comment">-- [2]</span></pre></div></div>
             
         </li>
         
         
-        <li id="section-40">
+        <li id="section-42">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-40">&#x00a7;</a>
+                <a class="ss" href="#section-42">&#x00a7;</a>
               </div>
               <p><strong>main(help:txt) : nil</strong><br>[1] Build <code>YOUR</code> from the help string.<br>[2] Maybe print the help text.<br>[3] Run the <code>todo</code> function.<br>[4] Hunt for any stray globals.<br>[5] Return the number of fails generated.</p>
 
@@ -1000,11 +1029,11 @@ fmt = <span class="hljs-built_in">string</span>.<span class="hljs-built_in">form
         </li>
         
         
-        <li id="section-41">
+        <li id="section-43">
             <div class="annotation">
               
               <div class="sswrap ">
-                <a class="ss" href="#section-41">&#x00a7;</a>
+                <a class="ss" href="#section-43">&#x00a7;</a>
               </div>
               <p>Let’s go.</p>
 

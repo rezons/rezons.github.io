@@ -384,21 +384,33 @@ function o(t,   u,key)
   u = #t>0 and map(t,o) or map(slots(t),key)
   return green((t._is or "")).."{"..table.concat(u, " ").."}" end 
 
+-- **randi(lo: num, hi:num): num**   
+-- Return a random float between `lo` and '`hi` (inclusive).
+-- To generate the same sequence of rands, reset `YOUR.seed`.
 function rand(lo,hi)
   YOUR.seed = (16807 * YOUR.seed) % 2147483647
   return (lo or 0) + ((hi or 1) - (lo or 0)) * YOUR.seed / 2147483647 end
 
+-- **randi(lo: int, hi:int): int**   
+-- Return a random integer between `lo` and '`hi` (inclusive).
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-function any(t) return t[randi(1,#t)] end
-function many(t,n,  u) u={};for j=1,n do push(u,any(t)) end; return u end
 
+-- **any(t: list, n?:int) : (any | list)**    
+-- If called with one argument, return any item picked at random.
+-- If called with two arguements, reutrn that maany `any`.
+function any(t,  n) 
+  if n then u={};for j=1,n do push(u,any(t)) end; return u 
+       else return t[randi(1,#t)] end end
+
+-- **shuffle(t: list) : list**    
+-- Random shuffles top-level of `t`. 
 function shuffle(t,   j)
   for i=#t,2,-1 do j=randi(1,i); t[i],t[j]=t[j],t[i] end; return t end
 
 --- ### Maths stuff
 
 -- **xpect(a=(NUM|SYM), b=(NUM|SYM)) : num**   
--- Expected value of two diversities from populations `a.n, b.n`.
+-- Sum of diversities, weighted by population size.
 function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
 
 -- ### OO stuff
@@ -414,6 +426,8 @@ function new(mt,x)
 -- ## Demos
 
 -- `go,nogo` are places to store demos (and disables demos).
+-- Anything with a lower case name is
+-- "public" and should be executed as part of the `-todo ALL` command.
 local go, nogo = MINE.go, MINE.nogo
 
 -- Show config options.
@@ -478,7 +492,7 @@ function go.tussle(   s,x)
 
 -- ## Start up
 
--- Lost the "public" tests (those with lower case names), 
+-- List the "public" tests (those with lower case names), 
 function go.LS() 
   for _,k in pairs(slots(go)) do 
     if k:match"^[a-z]" then  print("  -t "..k) end end end
@@ -494,13 +508,15 @@ function go.ALL()
 -- Initialize failure count
 MINE.fails=0
 -- **azzert(test:bool, msg:str) : nil**    
--- Wrap the real assert is something that updates failure counts.
+-- Wrapper around the assert function.    
+-- [1] Updates the failure counts.    
+-- [2] Only call the real `assert` if `-debug" on cli.
 function azzert(test,msg) 
   msg=msg or ""
   if test then print("  PASS : "..msg) 
-          else MINE.fails = MINE.fails+1
+          else MINE.fails = MINE.fails+1                       -- [1]
                print("  FAIL : "..msg)
-               if YOUR.Debug then assert(test,msg) end end end
+               if YOUR.Debug then assert(test,msg) end end end -- [2]
 
 -- **main(help:txt) : nil**    
 -- [1] Build `YOUR` from the help string.  

@@ -129,7 +129,7 @@ All functions have help text with type hints. In those hints,
 |------|-----------------------------------|
 | \|   | or                                |
 | ?    | optional                          |
-| type | one of "num,str,bool,list"        |
+| type | one of "int,num,str,bool,list"    |
 | any  | any of the above                  |
 | klass| any of the current instance types |
 
@@ -138,6 +138,9 @@ All functions have help text with type hints. In those hints,
 - Define all local names before they are used (so we can access them in any order).
 - No tabs
 - 2 spaces for indent
+- No lines containing just "end"
+- Create classes using `klass`.
+- Create instances using `KLASS(...)`
 
 ## Local Stuff
 
