@@ -129,9 +129,13 @@ All functions have help text with type hints. In those hints,
 |------|-----------------------------------|
 | \|   | or                                |
 | ?    | optional                          |
-| type | one of "int,num,str,bool,list"    |
-| any  | any of the above                  |
-| klass| any of the current instance types |
+| any  | anything                          |
+| str  | string                            |
+| int  | integer                           |
+| num  | float                             |
+| bool | boolean                           |
+| fun  | function                          |
+| KLASS| any of the current instance types |
 
 ## Syntax
 
@@ -141,6 +145,7 @@ All functions have help text with type hints. In those hints,
 - No lines containing just "end"
 - Create classes using `klass`.
 - Create instances using `KLASS(...)`
+- use "i" for self
 
 ## Local Stuff
 

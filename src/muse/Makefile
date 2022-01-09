@@ -26,5 +26,5 @@ osx: osxbrew
 	npm install -g docco
 
 doc: 
-	docco keys4.lua
+	docco keys.lua
 	cp ../../etc/docco.css docs/

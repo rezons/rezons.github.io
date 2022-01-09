@@ -1,47 +1,46 @@
--- ## About
--- Keys4 is a ["DUO" algorithm](https://arxiv.org/abs/1812.01550)
+-- Keys is a ["DUO" algorithm](https://arxiv.org/abs/1812.01550)
 -- (data mining using/used by optimizers) that seeks to learn the
 -- most it can about some  model `y=f(x)`, while at the same time, asking the fewest
 -- questions about `x` or `y`.  
 --  
--- Keys4 assumes the presence of ["keys"](http://menzies.us/pdf/07strange.pdf)
+-- Keys assumes the presence of ["keys"](http://menzies.us/pdf/07strange.pdf)
 -- in the data;
 -- i.e. a small set of variables which, if set, greatly reduces the variance of
 -- the rest of the system. For such systems, inference and explanation and control
 -- is a simple matter of (a) random sampling; (b) then focusing on a few variables that
 -- are most different in the sample,
 --  
--- In Keys4, examples are divided in two (on their `x` value) then
+-- In Keys, examples are divided in two (on their `x` value) then
 -- discretion seeks the attribute range that best distinguishes that division. Data is split
 -- on that range and the process repeats recursively to return a binary decision tree that
--- queries one attribute range per split.  If called with the `-best` flag, Keys4 evaluates
+-- queries one attribute range per split.  If called with the `-best` flag, Keys evaluates
 -- two distant examples per split, pruning the split with the worst example (so N examples
 -- can be pruned after a small (log(N)) number of examples.
 -- 
--- Keys4 divides its data using recursive [FASTMAP random
+-- Keys divides its data using recursive [FASTMAP random
 -- projections](https://dl.acm.org/doi/10.1145/568271.223812).  Different to most classifiers
--- or regression algorithms, Keys4 allows ranks examples on a multi-objective criteria using
+-- or regression algorithms, Keys allows ranks examples on a multi-objective criteria using
 -- [Zitler's IBEA](https://www.simonkuenzli.ch/docs/ZK04.pdf) predicate (which is known to be
 -- effective for 
 -- [multi- to many- goals](https://fada.birzeit.edu/bitstream/20.500.11889/4528/1/dcb6eddbdac1c26b605ce3dff62e27167848.pdf).
 -- Also, except for the handful of `y` queries used by the optional  `-best` flag, this is an
 -- [unsupervised algorithm](https://raw.githubusercontent.com/nzjohng/publications/master/papers/jss2020.pdf).
--- Keys4 can be used  when example labels are suspect since, even if called with `-best`,
--- humans only have to check a very small number of labels (in this way, Keys4 is like a
+-- Keys can be used  when example labels are suspect since, even if called with `-best`,
+-- humans only have to check a very small number of labels (in this way, Keys is like a
 -- semi-supervised learner that takes most advantage of a very small number of labels).
 -- 
--- Other applications of Keys4 include [explaining](https://arxiv.org/pdf/2006.00093.pdf)
+-- Other applications of Keys include [explaining](https://arxiv.org/pdf/2006.00093.pdf)
 -- complex models (in a succinct manner). Unlike other explanation that discuss the impact of
--- single variables on a class, Keys4 offers explanations for combinations of multiple
--- factors that influence multiple goals.  Keys4 can also optimize any simulation process
+-- single variables on a class, Keys offers explanations for combinations of multiple
+-- factors that influence multiple goals.  Keys can also optimize any simulation process
 -- here is to expensive to evaluate too many examples. Further,for [interactive search-based
--- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Keys4 lets a human work with
+-- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Keys lets a human work with
 -- an AI, without the human being overwhelmed by too many questions.
 --   
 local MINE={b4={}, help=[[
 
-keys4 [OPTIONS]
-Optimizes N items using just O(log(N)) evaluations.
+lua keys.lua  [OPTIONS]
+keys v4.0. Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
 
 OPTIONS:
@@ -98,30 +97,85 @@ local xpect                               -- Misc stuff
 local ako, new                            -- OO stuff
 local main, azzert                        -- Start-up and main stuff
 
--- ## Sample
+-- ## SAMPLE
+-- SAMPLEs are tools that:
+-- (a) know the structure of the examples  (e.g.. which columns
+-- are numbers, which are discrete, which are dependent
+-- (the `ys` columns), and which are independent (the `xs` columns);     
+-- (b) store examples;       
+-- (c) summarize the columns of those examples;     
+-- (d) cluster the examples into two groups;    
+-- (e) contrast the two halves as a set of bins on all the columns.
+--     
+-- These contrasts are modeled as `bins`; i.e. tuples
+-- that ranges from `lo` to `hi;
+-- For discrete data, the `lo` is the same as `hi` while for
+-- numeric data, those boundaries are numeric.
+-- SAMPLEs recursively cluster the data by finding the best bin
+-- that distinguishes the two clusters. All the data that matches
+-- that bin becomes one branch, and everything else goes into the
+-- other branch.
+
+-- ### Creation
+
+-- **SAMPLE.new(inits? :str|list) :SAMPLE**    
+-- When creating a new SAMPLE, if `inits` is a string, then read
+-- its contents from that file name. Else, if `inits` is a list,
+-- the read the rows from that list.
 function SAMPLE.new(inits,   i) 
-  i= new(SAMPLE, {head=nil,egs={},all={},num={},sym={},xs={},ys={}}) 
+  i= new(SAMPLE, {head=nil,egs={},all={},xs={},ys={}}) 
   if type(inits)=="table"  then for _,eg in pairs(inits) do i:add(eg) end end
   if type(inits)=="string" then for eg in csv(inits)   do i:add(eg) end end 
   return i end
 
-function SAMPLE.split(i, egs)
-  local c,best,rest,here,there
-  egs     = egs or i.egs
-  here    = i:far(any(egs), egs)
-  there,c = i:far(here,     egs)
-  for _,eg in pairs(egs) do
-    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end
-  best,rest = i:clone(), i:clone()
-  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do
-    (n <= #egs//2 and best or rest):add(eg) end
-  return best, rest end
+-- **SAMPLE:clone(inits? :str|list) :SAMPLE**    
+-- Return a SAMPLE with the same structure, perhaps 
+-- initialized with data rows from `inits`.
+function SAMPLE.clone(i,inits,    j)
+  j= SAMPLE():add(i.head)
+  for _,x in pairs(inits or {}) do  j:add(x) end
+  return j end
 
-function SAMPLE.tussling(i,min,lvl,pre)
+-- ### Cluster and Contrast
+
+-- **SAMPLE:cluster(egs)**    
+-- Divide the examples by 
+-- projecting all examples onto a line drawn between two
+-- distant examples, called `here` and `there`, separated by distance `c`.
+-- If an example has  distance `a,b` to `here,there`, 
+-- then we can project that example to some distance `x=(a^2+c^2-b^2)/2c` 
+-- between `here` and `there`. This code   
+-- [1] find the distant points;
+-- [2] projects everyone else onto a line between those points
+-- [3] sorts everyone according to that distance;
+-- [4] divides at the median point.
+function SAMPLE.cluster(i, egs)
+  local c,heres,theres,here,there
+  egs     = egs or i.egs
+  here    = i:far(any(egs), egs) -- [1] pick "any" then "here" is far from "any"
+  there,c = i:far(here,     egs) -- [1] "there" is far from "here"
+  for _,eg in pairs(egs) do
+    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end -- [2]
+  heres,theres = i:clone(), i:clone()
+  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do -- [3]
+    (n <= #egs//2 and heres or theres):add(eg) end                    -- [4]
+  return heres, theres end
+
+-- **SAMPLE:far(eg1: EG, egs: list of EG) :EG,num**      
+function SAMPLE.far(i,eg1,egs,    gap,tmp)
+  gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
+  tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
+  return table.unpack(tmp[#tmp*YOUR.Far//1] ) end
+
+-- **SAMPLE:contrast()**    
+-- Find two clusters then, using the columns from each cluster, find
+-- the bins that most distinguish them. Recures  on each half. If `-best` is
+-- set, only recurse on the best half. 
+function SAMPLE.contrast(i,     min,lvl,pre)
   lvl = lvl or 0
   min = min or 2*(#i.egs)^YOUR.Small
   if #i.egs < 2*min then return i end
-  local best,rest = i:split(i.egs)
+  local best,rest = i:cluster(i.egs)
   local bins = {}
   for n,bestx in pairs(best.xs) do 
     for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
@@ -139,61 +193,54 @@ function SAMPLE.tussling(i,min,lvl,pre)
      if     x=="?"                 then left:add(eg); right:add(eg) 
      elseif bin.lo<=x and x<bin.hi then left:add(eg) 
      else                               right:add(eg) end end 
-  if #left.egs  < #i.egs then left:tussling( min, lvl+1,"if ".. pre) end
-  if #right.egs < #i.egs then right:tussling(min, lvl+1,"if not "..pre) end
-  end 
+  if #left.egs  < #i.egs then left:contrast( min, lvl+1,"if ".. pre) end
+  if #right.egs < #i.egs then right:contrast(min, lvl+1,"if not "..pre) end
+  end
 
-function SAMPLE.skip(i,  x) return x:find":" end
-function SAMPLE.nump(i,  x) return x:find"^[A-Z]" end
-function SAMPLE.goalp(i, x) return x:find"-" or x:find"+" end
+-- ### Update 
 
-function SAMPLE.add(i,eg,    now)
-  eg = eg.has and eg.has or eg
-  if not i.head then
+-- The first row of data has names that can take on various roles.
+
+-- **SAMPLE:add(eg): SAMPLE**   
+-- If this is row1, there is not `head`, so create the column types.
+-- All the columns are stored in `all` and all the ones we are not
+-- ignoring are in `xs` (for the independent columns) and `ys` (for the
+-- dependent columns).
+function SAMPLE.add(i,eg,    now,skip,nump,goalp)
+  skip  = function(x) return x:find":" end              
+  nump  = function(x) return x:find"^[A-Z]" end        
+  goalp = function(x) return x:find"-" or x:find"+" end
+  eg = eg.has and eg.has or eg    -- If data is buried inside, the expose it.
+  if not i.head then              -- First row. Create the right columns
     i.head = eg
     for n,s in pairs(eg) do 
-      now = (i:skip(s) and SKIP or i:nump(s) and NUM or SYM)(n,s)
+      now = (skip(s) and SKIP or nump(s) and NUM or SYM)(n,s)
       push(i.all, now)
-      if not i:skip(s) then 
-        push(i:goalp(s) and i.ys or i.xs, now) end end 
-  else 
-    push(i.egs, EG(eg))
-    for n,one in pairs(i.all) do one:add(eg[one.at]) end end
+      if not skip(s) then 
+        push(goalp(s) and i.ys or i.xs, now) end end 
+  else                            -- ever non-first row
+    push(i.egs, EG(eg))           -- add a new example
+    for n,one in pairs(i.all) do  
+      one:add(eg[one.at]) end end -- update the columns with the eg data
   return i end
 
-function SAMPLE.clone(i,inits,    j)
-  j= SAMPLE()
-  j:add(copy(i.head))
-  for _,x in pairs(inits or {}) do  j:add(x) end
-  return j end
 
+-- **:stats(cols: list): list**  
+-- Return expected value of `cols` (defaults to `i.all`).
 function SAMPLE.stats(i, cols) 
   return map(cols or i.all, function(x) return x:mid() end) end
   
-function SAMPLE.far(i,eg1,egs,    gap,tmp)
-  gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
-  tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
-  return table.unpack(tmp[#tmp*YOUR.Far//1] ) end
-
 -- ## EG
 -- SAMPLEs store individual EGs (examples).
 function EG.new(t) return new(EG, {klass=0,has=t}) end
 
 function EG.cols(i,cols) return map(cols, function(x) return i.has[x.at] end) end
 function EG.dist(i,j,smpl,   a,b,d,n,inc,dist1)
-  function dist1(num,a,b)
-    if   num 
-    then if     a=="?" then b=num:norm(b); a=b>.5 and 0 or 1
-         elseif b=="?" then a=num:norm(a); b=a>.5 and 0 or 1
-         else   a,b = num:norm(a), num:norm(b) end
-         return math.abs(a-b) 
-    else return a==b and 0 or 1 end end
-
   d,n = 0,1E-31
-  for col,_ in pairs(smpl.xs) do
+  for _,col in pairs(smpl.xs) do
     n   = n+1
-    a,b = i.has[col], j.has[col]
-    inc = a=="?" and b=="?" and 1 or dist1(smpl.num[col],a,b)
+    a,b = i.has[col.at], j.has[col.at]
+    inc = a=="?" and b=="?" and 1 or col:dist(a,b)
     d   = d + inc^YOUR.p end
   return (d/n)^(1/YOUR.p) end
 
@@ -208,6 +255,7 @@ function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
 
 
 -- ## Columns
+-- 
 -- ### Columns to `SKIP`
 function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
 function SKIP.add(i,x)  return x end
@@ -224,6 +272,12 @@ function NUM.new(n,s)
   return new(NUM, {txt=s or"", at=n or 0,lo=math.huge, hi=-math.huge,
                    _has={},
                    n=0,mu=0,m2=0,w=(s or ""):find"-" and -1 or 1}) end
+
+function NUM.dist(i,a,b)
+  if     a=="?" then b= i:norm(b); a=b>.5 and 0 or 1
+  elseif b=="?" then a= i:norm(a); b=a>.5 and 0 or 1
+  else   a,b = i:norm(a), i:norm(b) end
+  return math.abs(a-b) end
 
 local _bins
 function NUM.bins(i,j,         x,xys,xstats)
@@ -289,9 +343,14 @@ function SYM.add(i,x,n)
     if i.has[x] > i.most then i.most, i.mode = i.has[x], x end end
   return x end
 
-function SYM.mid(i)     return i.mode end
+function SYM.mid(i) 
+  return i.mode end
+
 function SYM.div(i,   e)  
   e=0; for _,n in pairs(i.has) do e = e - n/i.n*math.log(n/i.n,2) end; return e end
+
+function SYM.dist(i,a,b)
+  return a==b and 0 or 1 end
 
 function SYM.merge(i,j,    k) 
   k = SYM(i.at,i.txt)
@@ -299,6 +358,7 @@ function SYM.merge(i,j,    k)
   for x,n in pairs(j.has) do k:add(x,n) end
   return k end
 
+-- **:bins(i:SYM, j:SYM) :num**   
 function SYM.bins(i,j,        bins,t)
   t,bins = {},{}
   for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
@@ -307,8 +367,13 @@ function SYM.bins(i,j,        bins,t)
     push(bins, {col=i, lo=x,hi=x, has=stats}) end
   return bins end
 
-function SYM.score(i,goal,tmp)
+-- **:score(i:SYM, goal:string): num**   
+-- Assess a distribution where one of the slots 
+-- is `goal` and everything else is undesirable.
+function SYM.score(i,goal)
+  local div = function(p) return -p*math.log(p,2) + 1E-31 end
   local goals={}
+  function goals.div(b,r)   return 1 / (div(b) + div(r))         end
   function goals.smile(b,r) return r>b and 0 or b*b/(b+r +1E-31) end
   function goals.frown(b,r) return b<r and 0 or r*r/(b+r +1E-31) end
   function goals.xplor(b,r) return 1/(b+r                +1E-31) end
@@ -320,48 +385,45 @@ function SYM.score(i,goal,tmp)
 
 -- ## Tricks
 
--- ### Generate `YOUR` from `help` String
+-- ### Table Stuff
 
--- Matches for relevant lines
--- See if we need to update `flag` from command line.   
--- Note two tricks:    
--- (1) We can use abbreviations on command line.     
---     E.g. `-s` can match the flag `seed`.     
--- (2) If command line  mentions a boolean flag, this  
---     code flips the default value for that boolean.
-function options(help_string)
-  local t,update_from_cli  
-  function update_from_cli(flag,x) 
-    for n,txt in ipairs(arg) do         
-      if   flag:match("^"..txt:sub(2)..".*") -- allow abbreviations for flags
-      then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
-    t[flag] = coerce(x) end
-
-  t={}
-  help_string:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli) 
-  return t end
--- Convert a string `x` to its correct type.
-function coerce(x)
-  if x=="true" then return true end
-  if x=="false" then return false end
-  return tonumber(x) or x end
-
---- Table Stuff
-function push(t,x)    table.insert(t,x); return x end
-function firsts(a,b)  return a[1] < b[1] end
-function sort(t,f)    table.sort(t,f);   return t end
+-- **push(t:list, x:any) : any**   
+-- Insert `x` at the end of `t`, the return `x`. 
+function push(t,x)    
+  table.insert(t,x); return x end
+-- **firsts(t1:list, t2:list) : bool**    
+-- Used in sorting: returns true if the first of `a` is less than the first of `b`.
+function firsts(a,b)  
+  return a[1] < b[1] end
+-- **sort(t:list, f?:fun) : list**    
+-- Sort a list, in-place. Return the sorted list. `fun` defaults to   
+-- `function (x,y) return x < y end`.
+function sort(t,f)    
+  table.sort(t,f);   return t end
+-- **map(t:list, f?:fun) : list**    
+-- Return a list, all items filtered through `f`.
 function map(t,f,  u) 
   u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
 
+-- **slots(t: list): list**  
+-- Returns the slot names of `t`, sorted. Ignores any "private" slots;
+-- i.e. those starting with "_".
 function slots(t,   u) 
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
   return sort(u) end
 
+-- **copy(t: list): list**  
+-- Return a shallow copy of `t`.
 function copy(t,u) 
   u={}
   for k,v in pairs(t) do u[k]=v end; return setmetatable(u, getmetatable(t)) end
 
+-- ### File Stuff
+
+-- Iterator **csv(file:str) : list**  
+-- After pruning whitespace, for any non-empty rows divided on comma,
+-- with any number strings coerced to numbers.
 function csv(file,   x,row)
   function row(x,  t)
      for y in x:gsub("%s+",""):gmatch"([^,]+)" do push(t,coerce(y)) end; return t end
@@ -369,20 +431,75 @@ function csv(file,   x,row)
    return function() x=io.read()
                      if x then return row(x,{}) else io.close(file) end end end
 
+-- ### String stuff
+
+-- **coerce(x:str) : any**   
+-- Convert a string `x` to its correct type.
+function coerce(x)
+  if x=="true" then return true end
+  if x=="false" then return false end
+  return tonumber(x) or x end
+
+-- **options(help: str): list**    
+-- Generate a table of values from a help string.    
+-- [1] For all lines starring with "  -":   
+-- [2] The first and last word are is a flag and a default.   
+-- [3] Update that flag from any command line info.     
+-- For shorthand convenience:    
+-- [4a] allow abbreviations for flags     
+-- [4b] Boolean flags get toggled.     
+-- [5] Return a table with all the flags and values.
+function options(help_string)
+  local t,update_from_cli  
+  function update_from_cli(flag,x)           -- [2]
+    for n,txt in ipairs(arg) do              -- [3]        
+      if   flag:match("^"..txt:sub(2)..".*") -- [4a]
+      then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end -- [4b]
+    t[flag] = coerce(x) end
+
+  t={}
+  help_string:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", update_from_cli)  -- [1]
+  return t end   -- [5]
+-- **green(s:str): str**  
+-- **yellow(s:str): str**  
+-- Return `s` wrapped in color codes.
 function green(s)  return #s>0 and "\027[32m"..s.."\027[0m" or "" end
 function yellow(s)  return #s>0 and "\027[33m"..s.."\027[0m" or "" end
 
-function rnd(x,d,  n) n=10^(d or YOUR.round); return math.floor(x*n+0.5)/n end
-function rnds(t,d)
-  return map(t,function(x) return type(x)=="number" and rnd(x,d) or x end) end
+-- **rnd(x:any, d?:int) : list**    
+-- If `x` is not a string, just return it.
+-- Else, round the number `x` to `d` decimal places (default= `YOUR.round`).
+function rnd(x,d,  n) 
+  if type(x)=="number" then n=10^(d or YOUR.round); x= math.floor(x*n+0.5)/n end
+  return x end
 
+-- **rnds(t:list, d?:int) : list**    
+-- Round a list of things to `d` decimal places (default= `YOUR.round`).
+function rnds(t,d) 
+  return map(t,function(x) return  rnd(x,d) end) end
+
+-- ### Printing stuff
+
+-- **fmt(...): str**    
+-- Short hand for `string.format`.
 fmt = string.format
-function say(...) if YOUR.verbose then print(fmt(...)) end end
+
+-- **say(...) : nil**  
+-- If `YOUR.verbose` is set, then call `fmt` on the args, then print it.
+function say(...) 
+  if YOUR.verbose then print(fmt(...)) end end
+
+-- **o(t:list) : str**  
+-- Convert a nested tree to a string. If `t` is a simple numeric list,
+-- show each item without its slot name. Else, print each
+-- `:slot value`, sorted alphabetically on slot name.
 function o(t,   u,key)
   function key(k) return fmt(":%s %s", yellow(k), o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t,o) or map(slots(t),key)
   return green((t._is or "")).."{"..table.concat(u, " ").."}" end 
+
+-- ### Random Stuff
 
 -- **randi(lo: num, hi:num): num**   
 -- Return a random float between `lo` and '`hi` (inclusive).
@@ -393,7 +510,8 @@ function rand(lo,hi)
 
 -- **randi(lo: int, hi:int): int**   
 -- Return a random integer between `lo` and '`hi` (inclusive).
-function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+function randi(lo,hi) 
+  return math.floor(0.5 + rand(lo,hi)) end
 
 -- **any(t: list, n?:int) : (any | list)**    
 -- If called with one argument, return any item picked at random.
@@ -409,15 +527,17 @@ function shuffle(t,   j)
 
 --- ### Maths stuff
 
--- **xpect(a=(NUM|SYM), b=(NUM|SYM)) : num**   
+-- **xpect(a=NUM|SYM, b=NUM|SYM) : num**   
 -- Sum of diversities, weighted by population size.
-function xpect(a,b) return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
+function xpect(a,b) 
+  return (a.n*a:div()+ b.n*b:div())/(a.n+b.n) end
 
 -- ### OO stuff
 
 -- **ako(x:klass) : klass**   
 -- To test for class type, use e.g. `ako(X)==NUM`.
-function ako(x) return getmetatable(x) end
+function ako(x) 
+  return getmetatable(x) end
 -- Instance creation; e.g. `new(NUM,{n=0})`.
 function new(mt,x) 
   MINE.oid=MINE.oid+1; x._oid=MINE.oid -- Everyone gets a unique id.
@@ -485,9 +605,9 @@ function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,one)
     azzert(d1 <= d2,"distance ?") end end
 
 -- Demo of main functionality.
-function go.tussle(   s,x)
+function go.contrast(   s,x)
   s = SAMPLE(YOUR.file)
-  s:tussling()
+  s:contrast()
   end
 
 -- ## Start up
