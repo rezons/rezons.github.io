@@ -67,7 +67,7 @@ an AI, without the human being overwhelmed by too many questions.</p>
             <div class="content"><div class='highlight'><pre><span class="hljs-keyword">local</span> MINE={b4={}, help=<span class="hljs-string">[[
 
 lua keys.lua  [OPTIONS]
-keys v4.0. Optimizes N items using just O(log(N)) evaluations.
+keys v4β Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies &lt;timm@ieee.org&gt;, unlicense.org
 
 OPTIONS:
@@ -76,7 +76,7 @@ OPTIONS:
   -dull   F  small effect= stdev*dull       : .35
   -Far    F  where to find far things       : .9
   -file   S  read data from file : ../../data/auto93.csv
-  -goal   S  smile,frown,xplor,doubt        : smile
+  -goal   S  smile,frown,xplor,doubt,div    : smile
   -h         show help                      : false
   -p      I  distance coefficient           : 2
   -Rest   F  size of rest set is Rest*best  : 4
@@ -676,7 +676,7 @@ is <code>goal</code> and everything else is undesirable.</p>
             <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">SYM.score</span><span class="hljs-params">(i,goal)</span></span>
   <span class="hljs-keyword">local</span> div = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(p)</span></span> <span class="hljs-keyword">return</span> -p*<span class="hljs-built_in">math</span>.<span class="hljs-built_in">log</span>(p,<span class="hljs-number">2</span>) + <span class="hljs-number">1E-31</span> <span class="hljs-keyword">end</span>
   <span class="hljs-keyword">local</span> goals={}
-  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goals.div</span><span class="hljs-params">(b,r)</span></span>   <span class="hljs-keyword">return</span> <span class="hljs-number">1</span> / (div(b) + div(r))         <span class="hljs-keyword">end</span>
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goals.div</span><span class="hljs-params">(b,r)</span></span>   <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>/(<span class="hljs-number">1</span>- (b^<span class="hljs-number">2</span>+r^<span class="hljs-number">2</span>)) <span class="hljs-keyword">end</span>
   <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goals.smile</span><span class="hljs-params">(b,r)</span></span> <span class="hljs-keyword">return</span> r&gt;b <span class="hljs-keyword">and</span> <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> b*b/(b+r +<span class="hljs-number">1E-31</span>) <span class="hljs-keyword">end</span>
   <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goals.frown</span><span class="hljs-params">(b,r)</span></span> <span class="hljs-keyword">return</span> b&lt;r <span class="hljs-keyword">and</span> <span class="hljs-number">0</span> <span class="hljs-keyword">or</span> r*r/(b+r +<span class="hljs-number">1E-31</span>) <span class="hljs-keyword">end</span>
   <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">goals.xplor</span><span class="hljs-params">(b,r)</span></span> <span class="hljs-keyword">return</span> <span class="hljs-number">1</span>/(b+r                +<span class="hljs-number">1E-31</span>) <span class="hljs-keyword">end</span>
@@ -1342,7 +1342,7 @@ Anything with a lower case name is
 
             </div>
             
-            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.distance</span><span class="hljs-params">(   s,eg1,dist,tmp,j1,j2,d1,d2,one)</span></span>
+            <div class="content"><div class='highlight'><pre><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">go.distance</span><span class="hljs-params">(   s,eg1,dist,tmp,j1,j2,d1,d2,d3,one)</span></span>
   s=SAMPLE(YOUR.file)
   eg1=s.egs[<span class="hljs-number">1</span>]
   dist = <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(eg2)</span></span> <span class="hljs-keyword">return</span> {eg2,eg1:dist(eg2,s)} <span class="hljs-keyword">end</span>

@@ -40,7 +40,7 @@
 local MINE={b4={}, help=[[
 
 lua keys.lua  [OPTIONS]
-keys v4.0. Optimizes N items using just O(log(N)) evaluations.
+keys v4β Optimizes N items using just O(log(N)) evaluations.
 (c)2022, Tim Menzies <timm@ieee.org>, unlicense.org
 
 OPTIONS:
@@ -55,7 +55,7 @@ OPTIONS:
   -Rest   F  size of rest set is Rest*best  : 4
   -round  I  round floats to round places : 2
   -seed   I  random number seed             : 10019
-  -Small  F  splits at #t^small             : .5
+  -Small  F  splits at #t^Small             : .5
   -todo   S  start-up action                : pass
              -todo ALL = run all
              -todo LS  = list all
@@ -105,15 +105,15 @@ local main, azzert                        -- Start-up and main stuff
 -- (b) store examples;       
 -- (c) summarize the columns of those examples;     
 -- (d) cluster the examples into two groups;    
--- (e) contrast the two halves as a set of bins on all the columns.
+-- (e) contrast the two halves as a set of ranges on all the columns.
 --     
--- These contrasts are modeled as `bins`; i.e. tuples
+-- These contrasts are modeled as `ranges`; i.e. tuples
 -- that ranges from `lo` to `hi;
 -- For discrete data, the `lo` is the same as `hi` while for
 -- numeric data, those boundaries are numeric.
--- SAMPLEs recursively cluster the data by finding the best bin
+-- SAMPLEs recursively cluster the data by finding the best range
 -- that distinguishes the two clusters. All the data that matches
--- that bin becomes one branch, and everything else goes into the
+-- that range becomes one branch, and everything else goes into the
 -- other branch.
 
 -- ### Creation
@@ -137,29 +137,42 @@ function SAMPLE.clone(i,inits,    j)
   return j end
 
 -- ### Cluster and Contrast
+-- When we recurse, each sub-cluster will become its own SAMPLE.
+-- As we recurse, we will be looking at examples that are 
+-- become increasingly close and hence increasingly indistinguishable.  
+-- So if ever we do something to test for termination, we do not
+-- use the local SAMPLE (since there is little there to show differences).
+-- Instead, we use the `top` most SAMPLE.
+--
 
--- **SAMPLE:cluster(egs)**    
+-- **i:SAMPLE:cluster()**  
 -- Divide the examples by 
 -- projecting all examples onto a line drawn between two
--- distant examples, called `here` and `there`, separated by distance `c`.
--- If an example has  distance `a,b` to `here,there`, 
--- then we can project that example to some distance `x=(a^2+c^2-b^2)/2c` 
--- between `here` and `there`. This code   
--- [1] find the distant points;
+-- distant examples, called `one` and `two` (which are separated by distance `c`).
+-- For an example with  distance `a,b` to `one,two`,
+-- this is projected to some distance `x=(a^2+c^2-b^2)/2c` 
+-- between `one` and `two`. This code   
+-- [1] find the `one,two` distant points;
 -- [2] projects everyone else onto a line between those points
 -- [3] sorts everyone according to that distance;
 -- [4] divides at the median point.
-function SAMPLE.cluster(i, egs)
-  local c,heres,theres,here,there
-  egs     = egs or i.egs
-  here    = i:far(any(egs), egs) -- [1] pick "any" then "here" is far from "any"
-  there,c = i:far(here,     egs) -- [1] "there" is far from "here"
-  for _,eg in pairs(egs) do
-    eg.x = (eg:dist(here,i)^2 + c^2 - eg:dist(there,i)^2) / (2*c) end -- [2]
-  heres,theres = i:clone(), i:clone()
-  for n,eg in pairs(sort(egs, function(a,b) return a.x < b.x end)) do -- [3]
-    (n <= #egs//2 and heres or theres):add(eg) end                    -- [4]
-  return heres, theres end
+-- [5] return data, divided in two.   
+function SAMPLE.cluster(i)
+  local zero,one,two,ones,twos,both,a,b,c 
+  zero  = any(i.egs)
+  one   = i:far(zero, i.egs) -- [1] pick "any" then "one" is far from "any"
+  two,c = i:far(one,  i.egs) -- [1] "two" is far from "one"
+  ones,twos = {},{}  -- "ones","twos" are things closest to "one","two"
+  both = {}          -- "both" is a list of pairs {"x","eg"}
+  for _,eg in pairs(i.egs) do
+    a    = eg:dist(one,i)
+    b    = eg:dist(two,i)
+    push(both, {(a^2 + c^2 - b^2) / (2*c),  -- [2] first: the "x" distance
+                eg}                         --     second: the actual example
+        ) end
+  for n,pair in pairs(sort(both, firsts)) do         -- [3]
+    push(n <= #both//2 and ones or twos, pair[2]) end-- [4] node: uses pair[2] 
+  return ones, twos end                              -- [5]
 
 -- **SAMPLE:far(eg1: EG, egs: list of EG) :EG,num**      
 function SAMPLE.far(i,eg1,egs,    gap,tmp)
@@ -169,32 +182,33 @@ function SAMPLE.far(i,eg1,egs,    gap,tmp)
 
 -- **SAMPLE:contrast()**    
 -- Find two clusters then, using the columns from each cluster, find
--- the bins that most distinguish them. Recures  on each half. If `-best` is
+-- the ranges that most distinguish them. Recurse  on each half. If `-best` is
 -- set, only recurse on the best half. 
-function SAMPLE.contrast(i,     min,lvl,pre)
-  lvl = lvl or 0
-  min = min or 2*(#i.egs)^YOUR.Small
-  if #i.egs < 2*min then return i end
-  local best,rest = i:cluster(i.egs)
-  local bins = {}
+-- To handle the "increasingly close" issue (described above), when 
+-- splitting the data, use the `top` SAMPLE.
+function SAMPLE.contrast(i,     top,lvl,pre)
+  lvl, top = lvl or 0, top or i
+  if #i.egs < 2*(#top.egs)^YOUR.Small then return i end
+  local best, rest = top:cluster(i.egs)
+  best, rest = i:clone(best), i:clone(rest)
+  local ranges = {}
   for n,bestx in pairs(best.xs) do 
-    for _,bin in pairs(bestx:bins(rest.xs[n])) do push(bins, bin) end end
-  local score = function(a,b) return a.has:score("best") > b.has:score("best") end
-  local bin   = sort(bins, score)[1]
+    push(ranges, bestx:ranges(rest.xs[n])) end
+  ranges = sort(ranges,first)[1]
   print(fmt("%s %-20s%4s : %s", 
                         o(rnds(i:stats(i.ys),0 )),
                         string.rep("|.. ",lvl), 
                         #i.egs, pre or ""))
-  pre = bin.lo == bin.hi and fmt("%s",bin.lo) or fmt("(%s..%s)",bin.lo,bin.hi)
-  pre = fmt("%s = %s", bin.col.txt, pre)
+  pre = range.lo == range.hi and fmt("%s",range.lo) or fmt("(%s..%s)",range.lo,range.hi)
+  pre = fmt("%s = %s", range.col.txt, pre)
   local left, right = i:clone(), i:clone()
   for _,eg in pairs(i.egs) do
-     local x = eg.has[ bin.col.at ]
+     local x = eg.has[ range.col.at ]
      if     x=="?"                 then left:add(eg); right:add(eg) 
-     elseif bin.lo<=x and x<bin.hi then left:add(eg) 
+     elseif range.lo<=x and x<range.hi then left:add(eg) 
      else                               right:add(eg) end end 
-  if #left.egs  < #i.egs then left:contrast( min, lvl+1,"if ".. pre) end
-  if #right.egs < #i.egs then right:contrast(min, lvl+1,"if not "..pre) end
+  if #left.egs  < #i.egs then left:contrast( top, lvl+1,"if ".. pre) end
+  if #right.egs < #i.egs then right:contrast(top, lvl+1,"if not "..pre) end
   end
 
 -- ### Update 
@@ -260,7 +274,7 @@ function EG.better(eg1,eg2,smpl,    e,n,a,b,s1,s2)
 function SKIP.new(n,s)  return new(SKIP, {txt=s or"", at=n or 0}) end
 function SKIP.add(i,x)  return x end
 function SKIP.mid()     return "?" end
-function SKIP.bins(...) return {} end
+function SKIP.ranges(...) return {math.huge,{}} end
 
 -- ### `NUM`eric columns
 -- **NUM(n?:posint, s?:string) : NUM**    
@@ -279,14 +293,17 @@ function NUM.dist(i,a,b)
   else   a,b = i:norm(a), i:norm(b) end
   return math.abs(a-b) end
 
-local _bins
-function NUM.bins(i,j,         x,xys,xstats)
+local _ranges
+function NUM.ranges(i,j,         x,xys,ranges,xpect,n)
   xys = {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
   for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
-  return _bins(xys, xpect(i,j)*YOUR.dull, (#xys)^YOUR.Small, i, SYM) end
+  ranges = _ranges(xys, xpect(i,j)*YOUR.dull, (#xys)^YOUR.Small, i, SYM) 
+  xpect, n = 0, #xys
+  for _,r in pairs(ranges) do xpect = xpect + r.has.n/n * r.has:div()  end
+  return {xpect,ranges} end
 
-function _bins(xys,dull,small,col,yklass,      bin,bins,merge,span,spans)
+function _ranges(xys,dull,small,col,yklass,      range,ranges,merge,span,spans)
   function merge(b4,    j,tmp,maybe,now,after) 
     j, tmp = 0, {}
     while j < #b4 do
@@ -300,19 +317,19 @@ function _bins(xys,dull,small,col,yklass,      bin,bins,merge,span,spans)
       push(tmp,now) end 
     return #tmp==#b4 and b4 or merge(tmp) end
 
-  bin  = {col=col, lo=xys[1].x, hi=xys[1].x, has=yklass()}
-  bins = {bin}
+  range  = {col=col, lo=xys[1].x, hi=xys[1].x, has=yklass()}
+  ranges = {range}
   for j,xy in pairs(sort(xys, function(a,b) return a.x < b.x end)) do
     if   j < #xys - small   and   -- enough items remaining after split
          xy.x ~= xys[j+1].x  and  -- next item is different (so can split here)
-         bin.has.n > small and   -- bin has enough items
-         bin.hi - bin.lo > dull -- bin is not trivially small  
-    then bin = push(bins, {col=col, lo=bin.hi, hi=xy.x, has=yklass()}) end  
-    bin.hi = xy.x 
-    bin.has:add(xy.y) end 
-  bins[1].lo     = -math.huge
-  bins[#bins].hi =  math.huge
-  return merge(bins) end 
+         range.has.n > small and   -- range has enough items
+         range.hi - range.lo > dull -- range is not trivially small  
+    then range = push(ranges, {col=col, lo=range.hi, hi=xy.x, has=yklass()}) end  
+    range.hi = xy.x 
+    range.has:add(xy.y) end 
+  ranges[1].lo     = -math.huge
+  ranges[#ranges].hi =  math.huge
+  return merge(ranges) end 
 function NUM.mid(i)   return i.mu end
 function NUM.div(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
 
@@ -358,14 +375,16 @@ function SYM.merge(i,j,    k)
   for x,n in pairs(j.has) do k:add(x,n) end
   return k end
 
--- **:bins(i:SYM, j:SYM) :num**   
-function SYM.bins(i,j,        bins,t)
-  t,bins = {},{}
+-- **i:SYM:ranges(j:SYM) :num**   
+function SYM.ranges(i,j,        ranges,t,n,xpect)
+  t,ranges = {},{}
   for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
   for x,n in pairs(j.has) do  t[x] = t[x] or SYM(); t[x]:add("rest",n) end
   for x,stats in pairs(t) do
-    push(bins, {col=i, lo=x,hi=x, has=stats}) end
-  return bins end
+    push(ranges, {col=i, lo=x,hi=x, has=stats}) end
+  xpect, n = 0, i.has.n + j.has.n
+  for _,r in pairs(ranges) do xpect = xpect + r.n/n * r:div()  end
+  return {xpect,ranges} end
 
 -- **:score(i:SYM, goal:string): num**   
 -- Assess a distribution where one of the slots 
@@ -385,6 +404,10 @@ function SYM.score(i,goal)
 
 -- ## Tricks
 
+-- ### Meta Stuff
+-- **same(x:any, ...): x**   
+function same(x,...) return x end
+
 -- ### Table Stuff
 
 -- **push(t:list, x:any) : any**   
@@ -403,7 +426,14 @@ function sort(t,f)
 -- **map(t:list, f?:fun) : list**    
 -- Return a list, all items filtered through `f`.
 function map(t,f,  u) 
+  f= f or same
   u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
+
+-- **sum(t:list, f?:fun) : list**    
+-- Return a list, all items filtered through `f`.
+function sum(t,f,  n) 
+  f=f or same
+  n=0; for _,x in pairs(t) do n=n + f(x) end; return n end
 
 -- **slots(t: list): list**  
 -- Returns the slot names of `t`, sorted. Ignores any "private" slots;
