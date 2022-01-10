@@ -75,6 +75,8 @@ local function klass(s, klass)
 
 -- A `SAMPLE` holds many `EG`s.
 local EG, SAMPLE = klass"EG", klass"SAMPLE"
+-- RANGEs highlight the difference between to SAMPLEs
+local RANGE = klass"RANGE"
 -- Example columns are either  `NUM`eric or  `SYM`bolic  or black holes (for data we want to `SKIP`).
 local NUM, SYM, SKIP  = klass"NUM", klass"SYM", klass"SKIP"
 
@@ -96,6 +98,13 @@ local rand,randi,any,many,shuffle         -- Random stuff
 local xpect                               -- Misc stuff
 local ako, new                            -- OO stuff
 local main, azzert                        -- Start-up and main stuff
+
+-- ## RANGE
+-- **RANGE.new(col:NUM|SYM, lo:num, hi?:num, has:SYM)**  
+-- Create a new range. If called without `hi` then `lo` is set to `hi`
+-- (which is useful if this is a `range` for some discrete variables).
+function RANGE.new(col,lo,hi,has)
+  return new(RANGE,{col=col, lo=lo, hi=hi or col, has=has or SYM()}) end
 
 -- ## SAMPLE
 -- SAMPLEs are tools that:
@@ -293,13 +302,16 @@ function NUM.dist(i,a,b)
   else   a,b = i:norm(a), i:norm(b) end
   return math.abs(a-b) end
 
-local _ranges
+local _ranges, _xpects
 function NUM.ranges(i,j,         x,xys,ranges,xpect,n)
   xys = {}
   for _,x in pairs(i._has) do push(xys, {x=x, y="best"}) end
   for _,x in pairs(j._has) do push(xys, {x=x, y="rest"}) end
-  ranges = _ranges(xys, xpect(i,j)*YOUR.dull, (#xys)^YOUR.Small, i, SYM) 
-  xpect, n = 0, #xys
+  return _xpects(#xys, 
+                 _ranges(xys, xpect(i,j)*YOUR.dull, (#xys)^YOUR.Small, i, SYM)) end
+
+function _xpects(n,ranges)
+  xpect = 0
   for _,r in pairs(ranges) do xpect = xpect + r.has.n/n * r.has:div()  end
   return {xpect,ranges} end
 
@@ -381,10 +393,8 @@ function SYM.ranges(i,j,        ranges,t,n,xpect)
   for x,n in pairs(i.has) do  t[x] = t[x] or SYM(); t[x]:add("best",n) end
   for x,n in pairs(j.has) do  t[x] = t[x] or SYM(); t[x]:add("rest",n) end
   for x,stats in pairs(t) do
-    push(ranges, {col=i, lo=x,hi=x, has=stats}) end
-  xpect, n = 0, i.has.n + j.has.n
-  for _,r in pairs(ranges) do xpect = xpect + r.n/n * r:div()  end
-  return {xpect,ranges} end
+    push(ranges, {col=i, lo=x, hi=x, has=stats}) end
+  return _xpects(i.has.n + j.has.n, ranges) end
 
 -- **:score(i:SYM, goal:string): num**   
 -- Assess a distribution where one of the slots 
