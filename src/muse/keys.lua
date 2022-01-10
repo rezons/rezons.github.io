@@ -49,7 +49,7 @@ OPTIONS:
   -dull   F  small effect= stdev*dull       : .35
   -Far    F  where to find far things       : .9
   -file   S  read data from file : ../../data/auto93.csv
-  -goal   S  smile,frown,xplor,doubt        : smile
+  -goal   S  smile,frown,xplor,doubt,div    : smile
   -h         show help                      : false
   -p      I  distance coefficient           : 2
   -Rest   F  size of rest set is Rest*best  : 4
@@ -373,7 +373,7 @@ function SYM.bins(i,j,        bins,t)
 function SYM.score(i,goal)
   local div = function(p) return -p*math.log(p,2) + 1E-31 end
   local goals={}
-  function goals.div(b,r)   return 1 / (div(b) + div(r))         end
+  function goals.div(b,r)   return 1/(1- (b^2+r^2)) end
   function goals.smile(b,r) return r>b and 0 or b*b/(b+r +1E-31) end
   function goals.frown(b,r) return b<r and 0 or r*r/(b+r +1E-31) end
   function goals.xplor(b,r) return 1/(b+r                +1E-31) end
@@ -590,7 +590,7 @@ function go.dominate(s,  egs)
   azzert(egs[1]:better(egs[#egs],s), "y-sort working?") end
 
 -- Checking if distances stuff.
-function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,one)
+function go.distance(   s,eg1,dist,tmp,j1,j2,d1,d2,d3,one)
   s=SAMPLE(YOUR.file)
   eg1=s.egs[1]
   dist = function(eg2) return {eg2,eg1:dist(eg2,s)} end
