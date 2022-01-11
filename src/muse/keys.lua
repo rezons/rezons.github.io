@@ -183,10 +183,11 @@ function SAMPLE.cluster(i)
     push(n <= #both//2 and ones or twos, pair[2]) end-- [4] node: uses pair[2] 
   return ones, twos end                              -- [5]
 
+-- XXX shuffle first few
 -- **SAMPLE:far(eg1: EG, egs: list of EG) :EG,num**      
-function SAMPLE.far(i,eg1,egs,    gap,tmp)
-  gap = function(eg2) return {eg2, eg1:dist(eg2,i)} end
-  tmp = sort(map(egs, gap), function(a,b) return a[2] < b[2] end)
+function SAMPLE.far(i,eg1,egs,    fun,tmp)
+  fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
+  tmp = sort(map(egs, fun), function(a,b) return a[2] < b[2] end)
   return table.unpack(tmp[#tmp*YOUR.Far//1] ) end
 
 -- **SAMPLE:contrast()**    
