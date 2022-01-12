@@ -37,7 +37,7 @@
 -- software engineering](https://arxiv.org/pdf/2110.02922.pdf), Keys lets a human work with
 -- an AI, without the human being overwhelmed by too many questions.
 --   
-local MINE={b4={}, help=[[
+local MINE={help=[[
 
 lua keys.lua  [OPTIONS]
 keys v4β Optimizes N items using just O(log(N)) evaluations.
@@ -61,7 +61,6 @@ OPTIONS:
              -todo LS  = list all
   -verbose   show details                   : false
 ]]}  
-for k,_ in pairs(_ENV) do MINE.b4[k]=k end
 -- ## Namespace
 
 -- ### Classes
@@ -95,9 +94,9 @@ local coerce, options                     -- make config options
 local push,firsts,sort,map,slots,copy     -- table stuff
 local csv,green,yellow,rnd,rnds,fmt,say,o -- Print Stuff
 local rand,randi,any,many,shuffle         -- Random stuff
-local xpect                               -- Misc stuff
+local same,xpect                          -- Misc stuff
 local ako, new                            -- OO stuff
-local main, azzert                        -- Start-up and main stuff
+local main, rogues, azzert                -- Start-up and main stuff
 
 -- ## RANGE
 -- **RANGE.new(col:NUM|SYM, lo:num, hi?:num, has:SYM)**  
@@ -440,12 +439,6 @@ function map(t,f,  u)
   f= f or same
   u={};for k,v in pairs(t) do push(u,f(v)) end; return u end
 
--- **sum(t:list, f?:fun) : list**    
--- Return a list, all items filtered through `f`.
-function sum(t,f,  n) 
-  f=f or same
-  n=0; for _,x in pairs(t) do n=n + f(x) end; return n end
-
 -- **slots(t: list): list**  
 -- Returns the slot names of `t`, sorted. Ignores any "private" slots;
 -- i.e. those starting with "_".
@@ -584,6 +577,18 @@ function new(mt,x)
   MINE.oid=MINE.oid+1; x._oid=MINE.oid -- Everyone gets a unique id.
   return setmetatable(x,mt) end        -- Methods now delegate to `mt`.
 
+-- ### Linting code
+
+-- **rogues()**  
+-- Report as suspect anything not pre-defined in standard LUA.
+function rogues(    b4,s)
+  b4, s = {}, [[os print require io utf8 string next setmetatable
+    rawget package warn xpcall dofile table tostring type math loadfile
+    coroutine pairs debug _VERSION ipairs arg rawlen collectgarbage assert
+    load rawequal pcall error tonumber getmetatable _G select rawset]]
+  for k in s:gmatch"[%S]+" do b4[k]=k end 
+  for k,v in pairs(_ENV) do if not b4[k] then print("?",k,type(v)) end end end
+
 -- ## Demos
 
 -- `go,nogo` are places to store demos (and disables demos).
@@ -686,12 +691,11 @@ function azzert(test,msg)
 -- [4] Hunt for any stray globals.    
 -- [5] Return the number of fails generated.
 function main(help)  
-  YOUR = options(MINE.help)                                  -- [1] 
-  if YOUR.h then print(MINE.help); os.exit() end             -- [2]
-  if YOUR.todo and go[YOUR.todo] then go[YOUR.todo]() end    -- [3]
-  for k,v in pairs(_ENV) do                                  -- [4]
-    if not MINE.b4[k] then print("Rogue?",k,type(v)) end end 
-  os.exit(MINE.fails) end                                    -- [5]
+  YOUR = options(MINE.help)                               -- [1] 
+  if YOUR.h then print(MINE.help); os.exit() end          -- [2]
+  if YOUR.todo and go[YOUR.todo] then go[YOUR.todo]() end -- [3]
+  rogues()                                                -- [4]
+  os.exit(MINE.fails) end                                 -- [5]
 
 -- Let's go.
 main(MINE.help)
