@@ -658,19 +658,6 @@ function go.contrast(   s,x)
 
 -- ## Start up
 
--- List the "public" tests (those with lower case names), 
-function go.LS() 
-  for _,k in pairs(slots(go)) do 
-    if k:match"^[a-z]" then  print("  -t "..k) end end end
-
--- Run the "public" tests (those with lower case names), 
-function go.ALL() 
-  for _,k in pairs(slots(go)) do 
-    if k:match"^[a-z]" then 
-      YOUR = options(MINE.help)  
-      print("\n"..k)
-      go[k]() end end end
-
 -- Initialize failure count
 MINE.fails=0
 -- **azzert(test:bool, msg:str) : nil**    
@@ -687,15 +674,30 @@ function azzert(test,msg)
 -- **main(help:txt) : nil**    
 -- [1] Build `YOUR` from the help string.  
 -- [2] Maybe print the help text.   
--- [3] Run the `todo` function.    
--- [4] Hunt for any stray globals.    
--- [5] Return the number of fails generated.
-function main(help)  
-  YOUR = options(MINE.help)                               -- [1] 
-  if YOUR.h then print(MINE.help); os.exit() end          -- [2]
-  if YOUR.todo and go[YOUR.todo] then go[YOUR.todo]() end -- [3]
-  rogues()                                                -- [4]
-  os.exit(MINE.fails) end                                 -- [5]
+-- [3] Run any built-in `todo` function ("ls" and "all")
+-- [4] Run any other `todo` functions (from the command line)
+-- [4a] resetting YOUR to the defaults before each run.
+-- [5] Hunt for any stray globals.    
+-- [6] Return the number of fails generated.
+function main(mine,your,     reset)
+  reset= function() for k,v in pairs(options(mine.help)) do your[k]=v end end
+  reset()                                    -- [1] 
+  if     your.h
+  then   print(mine.help)                    -- [2]
+         os.exit() 
+  elseif your.todo == "ls"                   -- [3]
+  then   for _,k in pairs(slots(mine.go)) do 
+           print("  -t "..k) end 
+  elseif your.todo == "all"                  -- [3]
+  then   for _,k in pairs(slots(mine.go)) do
+           reset()                           -- [4a]
+           print("\n"..k)
+           mine.go[k]() end 
+  elseif your.todo and mine.go[your.todo]
+  then   mine.go[your.todo]()                -- [4]
+  end
+  rogues()                                   -- [5]
+  os.exit(mine.fails) end                    -- [6]
 
 -- Let's go.
-main(MINE.help)
+main(MINE,YOUR)
