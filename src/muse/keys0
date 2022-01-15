@@ -79,38 +79,41 @@ local NUM,RANGE,SAMPLE,SYM = klass"NUM", klass"RANGE", klass"SAMPLE", klass"SYM"
 -- - add :div() to range (so now xpect works for those as well)
 -------------------------------------------------------------------------------
 local SAMPLE=klass"SAMPLE"
-function SAMPLE.new() return new(SAMPLE,{n=0,has={},ok=false,max=your.ample}) end
+function SAMPLE.new() return new(SAMPLE,{n=0, all={}, max=your.ample}) end
 
-function SAMPLE.add(i,x,     r,pos)
-  i.n, r = i.n+1, rand
-  if #i.has<i.max then pos=#i.has+1 elseif r()<#i.has/i.n then pos=#i.has*r() end
-  if pos then i.has[pos//1] = x; i.ok=false end end 
+function SAMPLE.add(i,x,     pos)
+  i.n= i.n + 1
+  if     #i.all < i.max      then pos= #i.all + 1 
+  elseif rand() < #i.all/i.n then pos= #i.all * rand() end
+  if pos then i.all[pos//1]= x end end 
 
-function SAMPLE.all(i)
-  if not i.ok then table.sort(i.has); i.ok=true end; return i.has end 
-
-function SAMPLE.div(i,p) return (i:per(.9) - i:per(.1))/2.54 end
-
-function SAMPLE.mid(i,p) return i:per(.5) end
-
-function SAMPLE.per(i,p,  a) a=i:all(); p=p*#a//1; return a[math.min(#a,p)] end
-
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 function NUM.new(at,s,   i)  
-  i= new(NUM,{n=0,at=at or 0, txt=s or "",has=SAMPLE(),
+  i= new(NUM,{n=0,at=at or 0, txt=s or "",_has=SAMPLE(),
               mu=0,m2=0,lo=math.huge,hi=-math.huge})
   i.w = i.txt:find"-" and -1 or 1
   return i end
 
 function NUM.add(i,x,  d)  
   if x~="?" then
-    i.n = i.n + 1
+    i.n  = i.n + 1
     d    = x    - i.mu
     i.mu = i.mu + d/i.n
     i.m2 = i.m2 + d*(x-i.mu) 
     i.has:add(x)
     i.lo = math.min(i.lo,x); i.hi = math.max(i.hi,x) end
   return x end
+
+function NUM.bestRanges(i,b4)
+  local j,tmp,now,after,maybe = 0, {}
+  while j < #b4 do
+    j = j + 1
+    now, after = b4[j], b4[j+1]
+    if after then
+      maybe = now:merge(after)
+      if maybe then now=maybe; j=j+1 end end
+    push(tmp,now) end
+  return #tmp==#b4 and b4 or i:bestRanges(tmp) end 
 
 function NUM.dist(i,x,y)
   if     x=="?" and y=="?" then return 1
@@ -121,40 +124,36 @@ function NUM.dist(i,x,y)
 
 function NUM.div(i) return i.n<2 and 0 or (i.m2/(i.n-1))^0.5 end 
 
+function NUM.merged(i,j) 
+  k= NUM(i.at, i.txt)
+  for _,x in pairs(i._has,all) do k:add(x) end
+  for _,x in pairs(j._has.akk) do k:add(x) end
+  return k end
+
 function NUM.mid(i) return i.mu end
 
 function NUM.norm(i,x) return i.hi-i.lo<1E-9 and 0 or (x-i.lo)/(i.hi-i.lo) end
 
-function NUM.ranges(i,j,is,ys)
-  local xys,ranges,merge,div
-  function merge(b4,   j,tmp,now,after,maybe)
-    j, tmp = 0, {}
-    while j < #b4 do
-      j = j + 1
-      now, after = b4[j], b4[j+1]
-      if after then
-        maybe = now:merge(after)
-        if maybe then now=maybe; j=j+1 end end
-      push(tmp,now) end
-    return #tmp==#b4 and b4 or merge(tmp) 
-  end -----------------------------------
-  function div(xys,dull,tiny,     range,ranges)
-    range  = RANGE(i,xys[1].x)
-    ranges = {range}
-    for k,xy in pairs(sort(xys, function(a,b) return a.x < b.x end)) do
-      if   k < #xys - tiny    and xy.x ~= xys[k+1].x and 
-           range.has.n > tiny and range.hi - range.lo > dull
-      then range = push(ranges, RANGE(i, range.hi, xy.x)) end
-      range.hi = xy.x
-      range.has:add(xy.y) end
-    ranges[1].lo     = -math.huge
-    ranges[#ranges].hi =  math.huge
-    return ranges 
-  end ------------------
-  xys = {}
-  for _,x in pairs(is) do push(xys, {x=x, y="best"}) end
-  for _,x in pairs(js) do push(xys, {x=x, y="rest"}) end
-  return merge(div(xys, xpects{i,j}*your.dull, (#xys)^your.Tiny)) end
+function NUM.ranges(i,j, yklass)
+  local xys, dull, tiny, range,out
+  yklass = yklass or SYM
+  xys    = {}
+  for _,x in pairs(i._has.all) do push(xys, {x=x, y="best"}) end
+  for _,x in pairs(j,_has.all) do push(xys, {x=x, y="rest"}) end
+  xys    = sort(xys, function(a,b) return a.x < b.x end)
+  dull   = xpects{i,j}*your.dull
+  tiny   = (#xys)^your.Tiny 
+  range  = RANGE(i,xys[1].x, xys[1].x, yklass())
+  out = {range}
+  for k,xy in pairs(xys) do
+    if   k < #xys - tiny    and xy.x ~= xys[k+1].x and 
+         range.has.n > tiny and range.hi - range.lo > dull
+    then range = push(out, RANGE(i, range.hi, xy.x, yklass())) 
+    end
+    range:add(xy.x, xy.y) end
+  out[1].lo       = -math.huge
+  out[#ranges].hi =  math.huge
+  return out end
 
 -------------------------------------------------------------------------------
 function SYM.new(at,s) 
@@ -165,6 +164,8 @@ function SYM.add(i,x,count)
   i.has[x] = count + (i.has[x] or 0)
   if i.has[x] > i.most then i.most,i.mode = i.has[x], x end 
   return x end
+
+function SYM.bestRanges(i, ranges) return ranges end
 
 function SYM.dist(i,x,y) return x=="?" and y=="?" and 1 or x==y and 0 or 1 end
 
@@ -180,13 +181,13 @@ function SYM.merged(i,j,     k)
 function SYM.mid(i) return i.mode end
 
 function SYM.ranges(i,j,        ranges,t,n,xpect)
-  t,ranges = {},{}
+  t,out = {},{}
   for x,n in pairs(i.has) do t[x]= t[x] or SYM(); t[x]:add("best",n) end
   for x,n in pairs(j.has) do t[x]= t[x] or SYM(); t[x]:add("rest",n) end
-  for x,stats in pairs(t) do push(ranges, RANGE(i,x,x,stats)) end
-  return ranges end
+  for x,stats in pairs(t) do push(out, RANGE(i,x,x,stats)) end
+  return out end
 
---------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 function EG.new(t) return new(EG, {cooked={}, has=t}) end
 
 function EG.better(eg1,eg2,egs)
@@ -207,10 +208,10 @@ function EG.dist(i,j,egs,    a,b,d,n)
     d   = d + col:dist(a,b) ^ your.p end 
   return (d/n) ^ (1/your.p) end
 
---------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 function RANGE.new(col,lo,hi,has) 
   lo = lo or -math.huge
-  return new(RANGE, {score=nil,col=col, lo=lo, hi=hi or lo, has=has or SYM()}) end
+  return new(RANGE, {n=0,score=nil,col=col, lo=lo, hi=hi or lo, has=has or SYM()}) end
 
 function RANGE.__tostring(i) 
   if i.lo == i.hi       then return fmt("%s == %s",i.col.txt,i.lo) end
@@ -218,13 +219,22 @@ function RANGE.__tostring(i)
   if i.ho ==  math.huge then return fmt("%s >= %s",i.col.txt,i.lo) end
   return fmt("%s <= %s < %s", i.col.txt, i.lo, i.hi) end
 
+function RANGE.add(i,x,y) 
+  i.n = n.n+1
+  i.hi = math.max(x,i.hi)
+  i.lo = math.min(x,i.lo)
+  i.has:add(y) end
+
+function RANGE.div(i) return i.has:div() end
+
 function RANGE.select(i,eg,       x)
   x = eg.has[i.col.at]
   return x=="?" or i.lo <= x and x < i.hi end
 
 function RANGE.merge(i,j,      k)
  k = RANGE(i.col, i.lo, j.hi, i.has:merged(j.has))
- if k.has:div()*1.01 <= xpects{i.has, j.has} then return k end end
+ k.n = i.n + j.n
+ if k.has:div()*1.01 <= xpects{i, j} then return k end end
 
 function RANGE.eval(i,goal)
     local best, rest, goals = 0,0,{}
@@ -238,7 +248,7 @@ function RANGE.eval(i,goal)
     i.score = best + rest < 0.01 and 0 or goals[your.goal](best,rest) end
   return i.score end
 
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 function COLS.new(eg,     i,now,where) 
   i = new(COLS,{all={}, x={}, y={}}) 
   for at,s in pairs(eg) do    -- First row. Create the right columns
@@ -278,15 +288,16 @@ function EGS.cluster(i, rows)
   if your.better and two:better(one,i) then ones,twos=twos,ones end
   return ones, twos end                             
 
-function EGS.splitter(i,top)
+function EGS.bestRanges(i,top)
   local one, two = top:cluster(i.rows)
-  local out = {}
-  for n,x1 in pairs(one.cols.x) do
-    local x2, fun, ranges = two.cols.x[n]
-    rows = function(row) local z=row.has[x1.at]; if z~="?" then return z end end
-    ranges = x1:ranges(x2, map(one.rows, rows), map(two.rows, rows))
-    push(out, {xpects(map(ranges,function(r) return x.has end)), ranges}) end 
-  return lefts, firsts, sort(out, firsts)[1] end
+  local best, out, col2, tmp, ranges = math.huge
+  for n,col1 in pairs(one.cols.x) do
+    col2   = two.cols.x[n]
+    ranges = col1:bestRanges( col1:ranges(col2) )
+    if #ranges > 1 then
+      tmp    = xpects(ranges)
+      if tmp < best then best, out = tmp, ranges end end end
+  return out, lefts, firsts end
 
 function EGS.far(i,eg1,    fun,tmp)
   fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
