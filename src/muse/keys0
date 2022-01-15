@@ -1,30 +1,67 @@
 #!/usr/bin/env lua
--- vim : ft=lua :
+-- vim : ft=lua et sts=2 sw=2 ts=2 :
+-- ----------------------------------------------------------------------------
+--     __                                     __     
+--    /\ \                                  /'__`\   
+--    \ \ \/'\      __   __  __    ____    /\ \/\ \  
+--     \ \ , <    /'__`\/\ \/\ \  /',__\   \ \ \ \ \ 
+--      \ \ \\`\ /\  __/\ \ \_\ \/\__, `\   \ \ \_\ \
+--       \ \_\ \_\ \____\\/`____ \/\____/    \ \____/
+--        \/_/\/_/\/____/ `/___/> \/___/      \/___/ 
+--                           /\___/                  
+--                           \/__/                   
+--    
+-- keys0: understand "N" items by peeking at at few (maybe zero) items.
+-- Copyright 2022, Tim Menzies, MIT license
+-- 
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the "Software"), to
+-- deal in the Software without restriction, including without limitation the
+-- rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+-- sell copies of the Software, and to permit persons to whom the Software is
+-- furnished to do so, subject to the following conditions:
+-- 
+-- The above copyright notice and this permission notice shall be included in
+-- all copies or substantial portions of the Software.
+-- 
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+-- FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+-- IN THE SOFTWARE.
+-- ----------------------------------------------------------------------------
+
 local your = {} -- user settings (may be changes from command-line)
 local our  = {} -- system settings (controlled internal to code)
 our.help   = [[
 
 ./keys0 [OPTIONS]
-(c)2022, Tim Menzies <timm@ieee.org>, unlicense.org 
+Understand "N" items by peeking at at few (maybe zero) items.
+(c) 2022, Tim Menzies, opensource.org/licenses/MIT
 
-  -better true
-  -Debug  true
-  -far    .9
-  -file   ../../data/auto93.csv
-  -h      false
-  -goal   smile
-  -p      2
-  -round  2
-  -seed   10019
-  -Some   512
-  -todo   all]]
+  -better prune best half of each split : true
+  -Debug  one crash, show stackdump     : true
+  -dull   small effect if 'dull'*sd     : .35
+  -far    for far,  skip after 'far'    : .9
+  -file   load data from file           : ../../data/auto93.csv
+  -h      show help                     : false
+  -goal   smile,frown,xplor, doubt      : smile
+  -p      coefficient on distance calcs : 2
+  -round  round numbers to 'round'      : 2
+  -seed   random number seed            : 10019
+  -Some   max number items to explore   : 512
+  -Tiny   bin size = #t^'Tiny'          : .5
+  -todo   start up action               : all]]
+
 
 our.b4={}       -- globals known, pre-code. used to find stray globals
 for k,_ in pairs(_ENV) do our.b4[k]=k end
 
 local add, any, asserts,coerce, col, copy, csv, defaults, dist 
-local fmt, klass, map, main, new,o, push, rand, randi, rnd, rnds
-local same, slots, sort, xpect
+local firsts, fmt, klass, map, main, new,o, push, rand, randi, rnd, rnds
+local same, seconds, slots, sort, xpects
 
 function klass(s, it)
   it = {_is=s, __tostring=o} 
@@ -34,10 +71,9 @@ function klass(s, it)
 local COLS,EG,EGS   = klass"COLS", klass"EG", klass"EGS"
 local NUM,RANGE,SYM = klass"NUM", klass"RANGE", klass"SYM"
 
--------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 function NUM.new(at,s,   i)  
-  i = new(NUM,{n=0, at=at or 0, txt=s or "", mu=0, m2=0, 
-               lo=math.huge, hi=-math.huge}) 
+  i= new(NUM,{n=0,at=at or 0, txt=s or "",mu=0,m2=0,lo=math.huge,hi=-math.huge})
   i.w = i.txt:find"-" and -1 or 1
   return i end
 
@@ -63,6 +99,37 @@ function NUM.mid(i) return i.mu end
 
 function NUM.norm(i,x) return i.hi-i.lo<1E-9 and 0 or (x-i.lo)/(i.hi-i.lo) end
 
+function NUM.ranges(i,j,is,ys)
+  local xys,ranges,merge,div
+  function merge(b4,   j,tmp,now,after,maybe)
+    j, tmp = 0, {}
+    while j < #b4 do
+      j = j + 1
+      now, after = b4[j], b4[j+1]
+      if after then
+        maybe = now:merge(after)
+        if maybe then now=maybe; j=j+1 end end
+      push(tmp,now) end
+    return #tmp==#b4 and b4 or merge(tmp) 
+  end -----------------------------------
+  function div(xys,dull,tiny,     range,ranges)
+    range  = RANGE(i,xys[1].x)
+    ranges = {range}
+    for k,xy in pairs(sort(xys, function(a,b) return a.x < b.x end)) do
+      if   k < #xys - tiny    and xy.x ~= xys[k+1].x and 
+           range.has.n > tiny and range.hi - range.lo > dull
+      then range = push(ranges, RANGE(i, range.hi, xy.x)) end
+      range.hi = xy.x
+      range.has:add(xy.y) end
+    ranges[1].lo     = -math.huge
+    ranges[#ranges].hi =  math.huge
+    return ranges 
+  end ------------------
+  xys = {}
+  for _,x in pairs(is) do push(xys, {x=x, y="best"}) end
+  for _,x in pairs(js) do push(xys, {x=x, y="rest"}) end
+  return merge(div(xys, xpects{i,j}*your.dull, (#xys)^your.Tiny)) end
+
 -------------------------------------------------------------------------------
 function SYM.new(at,s) 
   return new(SYM,{n=0, at=at or 0, txt=s or "", has={}, most=0, mode=nil}) end 
@@ -85,6 +152,13 @@ function SYM.merged(i,j,     k)
   return k end
 
 function SYM.mid(i) return i.mode end
+
+function SYM.ranges(i,j,        ranges,t,n,xpect)
+  t,ranges = {},{}
+  for x,n in pairs(i.has) do t[x]= t[x] or SYM(); t[x]:add("best",n) end
+  for x,n in pairs(j.has) do t[x]= t[x] or SYM(); t[x]:add("rest",n) end
+  for x,stats in pairs(t) do push(ranges, RANGE(i,x)) end
+  return ranges end
 
 --------------------------------------------------------------------------------
 function EG.new(t) return new(EG, {cooked={}, has=t}) end
@@ -124,7 +198,7 @@ function RANGE.select(i,eg,       x)
 
 function RANGE.merge(i,j,      k)
  k = RANGE(i.col, i.lo, j.hi, i.has:merged(j.has))
- if k.has:div()*1.01 <= xpect(i.has, j.has) then return k end end
+ if k.has:div()*1.01 <= xpects{i.has, j.has} then return k end end
 
 function RANGE.eval(i,goal)
     local best, rest, goals = 0,0,{}
@@ -163,26 +237,35 @@ function EGS.clone(i,inits,    j)
   for _,x in pairs(inits or {}) do  j:add(x) end
   return j end
 
-function EGS.cluster(i, top)
+function EGS.cluster(i, rows)
   local zero,one,two,ones,twos,both,a,b,c 
-  top   = top or i
-  zero  = any(i.rows)
-  one   = top:far(zero) 
-  two,c = top:far(one) 
+  zero  = any(rows)
+  one   = i:far(zero) 
+  two,c = i:far(one) 
   ones,twos,both = i:clone(), i:clone(),{} 
-  for _,eg in pairs(i.rows) do
-    a = eg:dist(one, top)
-    b = eg:dist(two, top)
+  for _,eg in pairs(rows) do
+    a = eg:dist(one, i)
+    b = eg:dist(two, i)
     push(both, {(a^2 + c^2 - b^2) / (2*c),eg}) end
-  for n,pair in pairs(sort(both, function(a,b) return a[1] < b[1] end)) do
+  for n,pair in pairs(sort(both, firsts)) do
     (n <= #both//2 and ones or twos):add(pair[2]) end
   if your.better and two:better(one,i) then ones,twos=twos,ones end
   return ones, twos end                             
 
+function EGS.splitter(i,top)
+  local one, two = top:cluster(i.rows)
+  local out = {}
+  for n,x1 in pairs(one.cols.x) do
+    local x2, fun, ranges = two.cols.x[n]
+    rows = function(row) local z=row.has[x1.at]; if z~="?" then return z end end
+    ranges = x1:ranges(x2, map(one.rows, rows), map(two.rows, rows))
+    push(out, {xpects(map(ranges,function(r) return x.has end)), ranges}) end 
+  return lefts, firsts, sort(out, firsts)[1] end
+
 function EGS.far(i,eg1,    fun,tmp)
   fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
   tmp = #i.rows > your.Some and any(i.rows, your.Some) or i.rows
-  tmp = sort(map(tmp, fun), function(a,b) return a[2] < b[2] end)
+  tmp = sort(map(tmp, fun), seconds)
   return table.unpack(tmp[#tmp*your.far//1] ) end
 
 function EGS.from(t, i) 
@@ -235,20 +318,24 @@ function defaults(help_string,       t,fun)
   help_string:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", fun)
   return t end
 
+function firsts(a,b) return a[1] < b[1] end
+
 function fmt(...) return string.format(...) end
 
-function main(our,your)
+function main(our,your,      reset)
   our.defaults = defaults(our.help)
-  for k,v in pairs(our.defaults) do your[k] = v end
-  if your.h then os.exit(print(our.help)) end
-  our.fails = 0
-  for _,one in pairs(your.todo=="all" and slots(our.go) or {your.todo}) do
-    for k,v in pairs(our.defaults) do your[k] = v end
-    our.go[one]() 
-  end -----------
-  for k,v in pairs(_ENV) do 
-    if not our.b4[k] then print("?rogues",k,type(v)) end end 
-  return our.fails end
+  reset = function() for k,v in pairs(our.defaults) do your[k] = v end end
+  reset()
+  if your.h then  
+    print(our.help) 
+  else 
+    our.fails = 0
+    for _,one in pairs(your.todo=="all" and slots(our.go) or {your.todo}) do
+      reset()
+      our.go[one]() end 
+    for k,v in pairs(_ENV) do 
+      if not our.b4[k] then print("?rogues",k,type(v)) end end 
+    return our.fails end end
 
 function map(t,f,  u) 
   u= {};for k,v in pairs(t) do push(u,(f or same)(v)) end; return u end
@@ -283,6 +370,8 @@ function rnds(t,d) return map(t,function(x) return rnd(x,d) end) end
 
 function same(x,...) return x end
 
+function seconds(a,b) return a[2] < b[2] end
+
 function slots(t,   u) 
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
@@ -290,7 +379,10 @@ function slots(t,   u)
 
 function sort(t,f) table.sort(t,f);   return t end
 
-function xpect(i,j) return (i.n*i:div() + j.n*j:div()) / (i.n + j.n) end
+function xpects(t)
+  local sum,n = 0,0
+  for _,z in pairs(t) do n = n + z.n; sum = sum + z.n*z:div() end
+  return sum/n end
 
 -------------------------------------------------------------------------------
 our.go={}   -- list of enabled tests
@@ -326,7 +418,7 @@ function go.dist()
   egs  = EGS.read(your.file)
   eg1  = egs.rows[1]
   dist = function(eg2) return {eg2,eg1:dist(eg2,egs)} end
-  tmp  = sort(map(egs.rows, dist), function(a,b) return a[2] < b[2] end)
+  tmp  = sort(map(egs.rows, dist), seconds)
   one  = tmp[1][1]
   for j=1,10 do
     j1 = randi(1,#tmp)
@@ -342,4 +434,4 @@ function go.cluster(   top,left,right)
   for n,t in pairs{top,left,right} do print(n,o(rnds(t:mid(t.cols.y)))) end
 end
 
-os.exit( main(our, your))
+os.exit( main(our,your) )
