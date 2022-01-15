@@ -41,6 +41,7 @@ our.help   = [[
 Understand "N" items by peeking at at few (maybe zero) items.
 (c) 2022, Tim Menzies, opensource.org/licenses/MIT
 
+  -ample  max items in a 'SAMPLE'       : 512
   -better prune best half of each split : true
   -Debug  one crash, show stackdump     : true
   -dull   small effect if 'dull'*sd     : .35
@@ -53,8 +54,7 @@ Understand "N" items by peeking at at few (maybe zero) items.
   -seed   random number seed            : 10019
   -Some   max number items to explore   : 512
   -Tiny   bin size = #t^'Tiny'          : .5
-  -todo   start up action               : all]]
-
+  -todo   start up action ('all'=every) : -]]
 
 our.b4={}       -- globals known, pre-code. used to find stray globals
 for k,_ in pairs(_ENV) do our.b4[k]=k end
@@ -69,11 +69,36 @@ function klass(s, it)
   return setmetatable(it,{__call=function(_,...) return it.new(...) end}) end
 
 local COLS,EG,EGS   = klass"COLS", klass"EG", klass"EGS"
-local NUM,RANGE,SYM = klass"NUM", klass"RANGE", klass"SYM"
+local NUM,RANGE,SAMPLE,SYM = klass"NUM", klass"RANGE", klass"SAMPLE", klass"SYM"
+
+-- TODO:
+-- - resorvoir sampler
+-- - r.s. added to num
+-- - mergabel numbers
+-- - add :add(x,y) to range. updates an N
+-- - add :div() to range (so now xpect works for those as well)
+-------------------------------------------------------------------------------
+local SAMPLE=klass"SAMPLE"
+function SAMPLE.new() return new(SAMPLE,{n=0,has={},ok=false,max=your.ample}) end
+
+function SAMPLE.add(i,x,     r,pos)
+  i.n, r = i.n+1, rand
+  if #i.has<i.max then pos=#i.has+1 elseif r()<#i.has/i.n then pos=#i.has*r() end
+  if pos then i.has[pos//1] = x; i.ok=false end end 
+
+function SAMPLE.all(i)
+  if not i.ok then table.sort(i.has); i.ok=true end; return i.has end 
+
+function SAMPLE.div(i,p) return (i:per(.9) - i:per(.1))/2.54 end
+
+function SAMPLE.mid(i,p) return i:per(.5) end
+
+function SAMPLE.per(i,p,  a) a=i:all(); p=p*#a//1; return a[math.min(#a,p)] end
 
 -------------------------------------------------------------------------------
 function NUM.new(at,s,   i)  
-  i= new(NUM,{n=0,at=at or 0, txt=s or "",mu=0,m2=0,lo=math.huge,hi=-math.huge})
+  i= new(NUM,{n=0,at=at or 0, txt=s or "",has=SAMPLE(),
+              mu=0,m2=0,lo=math.huge,hi=-math.huge})
   i.w = i.txt:find"-" and -1 or 1
   return i end
 
@@ -83,6 +108,7 @@ function NUM.add(i,x,  d)
     d    = x    - i.mu
     i.mu = i.mu + d/i.n
     i.m2 = i.m2 + d*(x-i.mu) 
+    i.has:add(x)
     i.lo = math.min(i.lo,x); i.hi = math.max(i.hi,x) end
   return x end
 
@@ -330,7 +356,9 @@ function main(our,your,      reset,todos)
   then print(our.help) 
   else our.fails = 0
        todos = your.todo=="all" and slots(our.go) or {your.todo}
-       for _,one in pairs(todos) do our.go[one](); reset() end end
+       for _,one in pairs(todos) do 
+        if our.go[one] then our.go[one]() end
+        reset() end end
   for k,v in pairs(_ENV) do 
     if not our.b4[k] then print("?rogues",k,type(v)) end end 
   return our.fails end 
