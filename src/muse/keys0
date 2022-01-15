@@ -104,17 +104,6 @@ function NUM.add(i,x,  d)
     i.lo = math.min(i.lo,x); i.hi = math.max(i.hi,x) end
   return x end
 
-function NUM.bestRanges(i,b4)
-  local j,tmp,now,after,maybe = 0, {}
-  while j < #b4 do
-    j = j + 1
-    now, after = b4[j], b4[j+1]
-    if after then
-      maybe = now:merge(after)
-      if maybe then now=maybe; j=j+1 end end
-    push(tmp,now) end
-  return #tmp==#b4 and b4 or i:bestRanges(tmp) end 
-
 function NUM.dist(i,x,y)
   if     x=="?" and y=="?" then return 1
   elseif x=="?"            then y= i:norm(y); x=y>.5 and 0 or 1
@@ -155,6 +144,17 @@ function NUM.ranges(i,j, yklass)
   out[#ranges].hi =  math.huge
   return out end
 
+function NUM.superRanges(i,b4)
+  local j,tmp,now,after,maybe = 0, {}
+  while j < #b4 do
+    j = j + 1
+    now, after = b4[j], b4[j+1]
+    if after then
+      maybe = now:merge(after)
+      if maybe then now=maybe; j=j+1 end end
+    push(tmp,now) end
+  return #tmp==#b4 and b4 or i:superRanges(tmp) end 
+
 -------------------------------------------------------------------------------
 function SYM.new(at,s) 
   return new(SYM,{n=0, at=at or 0, txt=s or "", has={}, most=0, mode=nil}) end 
@@ -164,8 +164,6 @@ function SYM.add(i,x,count)
   i.has[x] = count + (i.has[x] or 0)
   if i.has[x] > i.most then i.most,i.mode = i.has[x], x end 
   return x end
-
-function SYM.bestRanges(i, ranges) return ranges end
 
 function SYM.dist(i,x,y) return x=="?" and y=="?" and 1 or x==y and 0 or 1 end
 
@@ -186,6 +184,8 @@ function SYM.ranges(i,j,        ranges,t,n,xpect)
   for x,n in pairs(j.has) do t[x]= t[x] or SYM(); t[x]:add("rest",n) end
   for x,stats in pairs(t) do push(out, RANGE(i,x,x,stats)) end
   return out end
+
+function SYM.superRanges(i, ranges) return ranges end
 
 --------------------------------------------------------------------------------
 function EG.new(t) return new(EG, {cooked={}, has=t}) end
@@ -288,17 +288,6 @@ function EGS.cluster(i, rows)
   if your.better and two:better(one,i) then ones,twos=twos,ones end
   return ones, twos end                             
 
-function EGS.bestRanges(i,top)
-  local one, two = top:cluster(i.rows)
-  local best, out, col2, tmp, ranges = math.huge
-  for n,col1 in pairs(one.cols.x) do
-    col2   = two.cols.x[n]
-    ranges = col1:bestRanges( col1:ranges(col2) )
-    if #ranges > 1 then
-      tmp    = xpects(ranges)
-      if tmp < best then best, out = tmp, ranges end end end
-  return out, lefts, firsts end
-
 function EGS.far(i,eg1,    fun,tmp)
   fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
   tmp = #i.rows > your.Some and any(i.rows, your.Some) or i.rows
@@ -313,6 +302,18 @@ function EGS.mid(i,cols)
 
 function EGS.read(file, i) 
   i=i or EGS(); for eg in csv(file) do i:add(eg) end; return i end
+
+function EGS.superRanges(i,top)
+  local one, two = top:cluster(i.rows)
+  local best, out, col2, tmp, ranges = math.huge
+  for n,col1 in pairs(one.cols.x) do
+    col2   = two.cols.x[n]
+    ranges = col1:ranges(col2) 
+    ranges = col1:superRanges(ranges)
+    if #ranges > 1 then
+      tmp    = xpects(ranges)
+      if tmp < best then best, out = tmp, ranges end end end
+  return out, lefts, firsts end
 
 -------------------------------------------------------------------------------
 function any(t,  n) 
@@ -344,7 +345,7 @@ function csv(file,   x,row)
   return function() 
     x=io.read(); if x then return row(x,{}) else io.close(file) end end end
 
-function defaults(help_string,       t,fun)
+function userSettings(help_string,       t,fun)
   function fun(flag,x)
     for n,txt in ipairs(arg) do             
       if   txt:sub(1,1)=="-" and flag:match("^"..txt:sub(2)..".*") 
@@ -359,20 +360,20 @@ function firsts(a,b) return a[1] < b[1] end
 
 function fmt(...) return string.format(...) end
 
-function main(our,your,      reset,todos)
-  our.defaults = defaults(our.help)
-  reset = function() for k,v in pairs(our.defaults) do your[k] = v end end
+function main(user, system,      todos)
+  local function reset() 
+    for k,v in pairs(userSettings(system.help)) do user[k]=v end end
   reset()
-  if   your.h 
-  then print(our.help) 
-  else our.fails = 0
-       todos = your.todo=="all" and slots(our.go) or {your.todo}
+  if   user.h 
+  then print(system.help) 
+  else system.fails = 0
+       todos = user.todo=="all" and slots(system.go) or {user.todo}
        for _,one in pairs(todos) do 
-        if our.go[one] then our.go[one]() end
+        if type(system.go[one])=="function" then system.go[one]() end
         reset() end end
   for k,v in pairs(_ENV) do 
-    if not our.b4[k] then print("?rogues",k,type(v)) end end 
-  return our.fails end 
+    if not system.b4[k] then print("?rogues",k,type(v)) end end 
+  return system.fails end 
 
 function map(t,f,  u) 
   u= {};for k,v in pairs(t) do push(u,(f or same)(v)) end; return u end
@@ -471,4 +472,5 @@ function go.cluster(   top,left,right)
   for n,t in pairs{top,left,right} do print(n,o(rnds(t:mid(t.cols.y)))) end
 end
 
-os.exit( main(our,your) )
+-- assuming our.go = demos and our.help==help string and our.fails = 0 then...
+os.exit( main(your, our)) 
