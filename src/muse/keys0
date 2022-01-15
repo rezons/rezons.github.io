@@ -59,9 +59,9 @@ Understand "N" items by peeking at at few (maybe zero) items.
 our.b4={}       -- globals known, pre-code. used to find stray globals
 for k,_ in pairs(_ENV) do our.b4[k]=k end
 
-local add, any, asserts,coerce, col, copy, csv, defaults, dist 
+local add, any, asserts,coerce, col, copy, csv, dist 
 local firsts, fmt, klass, map, main, new,o, push, rand, randi, rnd, rnds
-local same, seconds, slots, sort, xpects
+local same, seconds, slots, sort, userSettings, xpects
 
 function klass(s, it)
   it = {_is=s, __tostring=o} 
@@ -100,7 +100,7 @@ function NUM.add(i,x,  d)
     d    = x    - i.mu
     i.mu = i.mu + d/i.n
     i.m2 = i.m2 + d*(x-i.mu) 
-    i.has:add(x)
+    i._has:add(x)
     i.lo = math.min(i.lo,x); i.hi = math.max(i.hi,x) end
   return x end
 
@@ -258,6 +258,7 @@ function COLS.new(eg,     i,now,where)
   return i end 
 
 function COLS.add(i,eg)
+  assert(#eg == #i.all,"expected a different number of cells")
   return map(i.all, function(col) return col:add(eg[col.at]) end) end
 
 -------------------------------------------------------------------------------
@@ -318,7 +319,7 @@ function EGS.superRanges(i,top)
 -------------------------------------------------------------------------------
 function any(t,  n) 
   if not n then return t[randi(1,#t)] end 
-  u={};for j=1,n do push(u,any(t)) end; return u end
+  u={};for j=1,n do push(u, t[randi(1,#t)]) end; return u end
 
 our.fails = 0
 function asserts(test,msg) 
