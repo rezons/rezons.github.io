@@ -157,7 +157,7 @@ function SYM.ranges(i,j,        ranges,t,n,xpect)
   t,ranges = {},{}
   for x,n in pairs(i.has) do t[x]= t[x] or SYM(); t[x]:add("best",n) end
   for x,n in pairs(j.has) do t[x]= t[x] or SYM(); t[x]:add("rest",n) end
-  for x,stats in pairs(t) do push(ranges, RANGE(i,x)) end
+  for x,stats in pairs(t) do push(ranges, RANGE(i,x,x,stats)) end
   return ranges end
 
 --------------------------------------------------------------------------------
