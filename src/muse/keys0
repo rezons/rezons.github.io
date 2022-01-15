@@ -309,10 +309,9 @@ function EGS.superRanges(i,top)
   local best, out, col2, tmp, ranges = math.huge
   for n,col1 in pairs(one.cols.x) do
     col2   = two.cols.x[n]
-    ranges = col1:ranges(col2) 
-    ranges = col1:superRanges(ranges)
+    ranges = col1:superRanges( col1:ranges(col2))
     if #ranges > 1 then
-      tmp    = xpects(ranges)
+      tmp = xpects(ranges)
       if tmp < best then best, out = tmp, ranges end end end
   return out, lefts, firsts end
 
