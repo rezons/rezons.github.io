@@ -137,6 +137,12 @@ All functions have help text with type hints. In those hints,
 | fun  | function                          |
 | KLASS| any of the current instance types |
 
+For method calls the method call type hint is:
+
+- **i:KLASS:method(args...)**
+
+This can be a little confusing the first time you read it (two colons to the left of the brackets) but given LUA's OO horthand and the standard conventions on how to do type hints, that is what we need to do here.
+
 ## Syntax
 
 - Define all local names before they are used (so we can access them in any order).
@@ -151,3 +157,8 @@ All functions have help text with type hints. In those hints,
 
 - mid, div = synonms for mean,mode or stand deviation, entropy
 
+$$ LUA notes
+
+Why lua? why note? powerful lrlanguge. batteries nt incuded . encorauges minimaliity. Pwoerful alngauge. deletagation, functions, emta-rogrammingfacities. very portable. simple to elarn.
+
+Traaining tool: recode THIS in what ever language you like.

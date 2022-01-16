@@ -21,15 +21,30 @@ OPTIONS
   -Some   max number items to explore   : 512
   -Tiny   bin size = #t^'Tiny'          : .5
   -todo   start up action ('all'=every) : -]]
- 
+
 -- ## Library stuff
+-- **Make a new class** using the LUA delegation mechanism. When a field is missing,
+-- LUA checks `__index` for any other options. Tables that share that
+-- `__index` field all point same methods (i.e. are all members the
+-- same class). Similarly, we can share a class name (`_is`); an
+-- instance print methods (`o`); and a common instance create protocol
+-- (called `klass()` really calls `klass.new(...)`). As a reflection on 
+-- the power of that delegation mechanism, it is fun to note that this comment is
+-- (much) longer than the code itself.
 
 -- ### OO stuff
--- New instance
+-- **Make a new instance** by sharing the same metatable.
 function as(mt,t) return setmetatable(t,mt) end
--- New class
+-- **Make a new class** using the LUA delegation mechanism. When a field is missing,
+-- LUA checks `__index` for any other options. Tables that share that
+-- `__index` field all point same methods (i.e. are all members the
+-- same class). Similarly, we can share a class name (`_is`); an
+-- instance print methods (`o`); and a common instance create protocol
+-- (called `klass()` really calls `klass.new(...)`). As a reflection on 
+-- the power of that delegation mechanism, it is fun to note that this comment is
+-- (much) longer than the code itself.
 function klass(s,   t) 
-  t= {_is=s, __tostring=o, __index=t}
+   t= {__index=t, _is=s, __tostring=o}
   return as({__call=function(_,...) return t.new(...) end},t) end
 
 -- ### List stuff
@@ -243,13 +258,15 @@ function NUM.all(i)
 -- #### Discretization 
 -- Until no new merges are found, try combining adjacent ranges.
 function NUM.superRanges(i,b4)
-  local j,tmp,now,after,maybe = 0, {}
+  local j,tmp,one,two,both = 0, {}
   while j < #b4 do
     j = j + 1
-    now, after = b4[j], b4[j+1]
-    if after then
-      maybe = now:merge(after)
-      if maybe then now=maybe; j=j+1 end end
+    one, two = b4[j], b4[j+1]
+    if two then
+      both = one:merge(two)
+      if both then  -- both is as simple as the original one,two
+        now=both
+        j=j+1 end end -- skip over merged range
     push(tmp,now) end
   return #tmp==#b4 and b4 or i:superRanges(tmp) end 
   
