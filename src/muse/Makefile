@@ -15,7 +15,7 @@ html:
 
 pandoc:
 	gawk -f lua2md.awk $f > $f.md
-	pandoc $f.md -V geometry:margin=.5in  -V documentclass:scrbook -V fontsize=8pt  -V fontfamily:times   -s --toc --toc-depth=6 --metadata title="$f" -o $f.pdf
+	pandoc $f.md -V geometry:margin=1in  -V documentclass:scrbook -V fontsize=10pt  -V fontfamily:times  --highlight=tango  -s --toc --toc-depth=6 --metadata title="$f" -o $f.pdf
 
 header:
 	@read x; echo $$x | figlet -W -f straight | gawk '{print "--    "$$0}'
