@@ -40,10 +40,10 @@ function NB.classify(i,row,      best)
   best=-1
   for klass,nh in pairs(i.h) do
     local prior = (nh+i.k)/(i.n + i.k*i.hs)
-    local tmp   = log(prior)
+    local tmp   = prior
     for col,x in pairs(row) do
       if col ~= #row and x~="?" then
-        tmp = tmp + ((i.f[{col,x,klass}] or 0) +i.m*prior)/(nh+i.m) end end
+        tmp = tmp * ((i.f[{col,x,klass}] or 0) +i.m*prior)/(nh+i.m) end end
     if tmp > best then best,out=tmp,klass end end
   return klass end
 
