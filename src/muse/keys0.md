@@ -1,38 +1,10 @@
-#!/usr/bin/env lua
--- vim : ft=lua et sts=2 sw=2 ts=2 :
--- ----------------------------------------------------------------------------
---     __                                     __     
---    /\ \                                  /'__`\   
---    \ \ \/'\      __   __  __    ____    /\ \/\ \  
---     \ \ , <    /'__`\/\ \/\ \  /',__\   \ \ \ \ \ 
---      \ \ \\`\ /\  __/\ \ \_\ \/\__, `\   \ \ \_\ \
---       \ \_\ \_\ \____\\/`____ \/\____/    \ \____/
---        \/_/\/_/\/____/ `/___/> \/___/      \/___/ 
---                           /\___/                  
---                           \/__/                   
---    
--- keys0: understand "N" items by peeking at at few (maybe zero) items.
--- Copyright 2022, Tim Menzies, MIT license
--- 
--- Permission is hereby granted, free of charge, to any person obtaining a copy
--- of this software and associated documentation files (the "Software"), to
--- deal in the Software without restriction, including without limitation the
--- rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
--- sell copies of the Software, and to permit persons to whom the Software is
--- furnished to do so, subject to the following conditions:
--- 
--- The above copyright notice and this permission notice shall be included in
--- all copies or substantial portions of the Software.
--- 
--- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
--- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
--- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
--- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
--- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
--- FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
--- IN THE SOFTWARE.
--- ----------------------------------------------------------------------------
+---
+title: keys0
+layout: page
+---
 
+
+```lua
 local your = {} -- user settings (may be changes from command-line)
 local our  = {} -- system settings (controlled internal to code)
 our.help   = [[
@@ -70,8 +42,12 @@ function klass(s, it)
     
 local COLS,EG,EGS   = klass"COLS", klass"EG", klass"EGS"
 local NUM,RANGE,SAMPLE,SYM = klass"NUM", klass"RANGE", klass"SAMPLE", klass"SYM"
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 local SAMPLE=klass"SAMPLE"
 function SAMPLE.new() return new(SAMPLE,{n=0, all={}, max=your.ample}) end
   
@@ -80,8 +56,12 @@ function SAMPLE.add(i,x,     pos)
   if     #i.all < i.max      then pos= #i.all + 1 
   elseif rand() < #i.all/i.n then pos= #i.all * rand() end
   if pos then i.all[pos//1]= x end end 
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 function NUM.new(at,s,   i)  
   i= new(NUM,{n=0,at=at or 0, txt=s or "",_has=SAMPLE(),
               mu=0,m2=0,lo=math.huge,hi=-math.huge})
@@ -148,42 +128,82 @@ function NUM.superRanges(i,b4)
       if maybe then now=maybe; j=j+1 end end
     push(tmp,now) end
   return #tmp==#b4 and b4 or i:superRanges(tmp) end 
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 function SYM.new(at,s) 
   return new(SYM,{n=0, at=at or 0, txt=s or "", has={}, most=0, mode=nil}) end 
+```
 
+
+
+```lua
 function SYM.add(i,x,count)   
   count = count or 1
   i.has[x] = count + (i.has[x] or 0)
   if i.has[x] > i.most then i.most,i.mode = i.has[x], x end 
   return x end
+```
 
+
+
+```lua
 function SYM.dist(i,x,y) return x=="?" and y=="?" and 1 or x==y and 0 or 1 end
+```
 
+
+
+```lua
 function SYM.div(i,   e)  
   e=0; for _,n in pairs(i.has) do e=e-n/i.n*math.log(n/i.n,2) end; return e end
+```
 
+
+
+```lua
 function SYM.merged(i,j,     k) 
   k= SYM(i.at, i.txt)
   for x,count in pairs(i.has) do k:add(x,count) end
   for x,count in pairs(j.has) do k:add(x,count) end
   return k end
+```
 
+
+
+```lua
 function SYM.mid(i) return i.mode end
+```
 
+
+
+```lua
 function SYM.ranges(i,j,        ranges,t,n,xpect)
   t,out = {},{}
   for x,n in pairs(i.has) do t[x]= t[x] or SYM(); t[x]:add("best",n) end
   for x,n in pairs(j.has) do t[x]= t[x] or SYM(); t[x]:add("rest",n) end
   for x,stats in pairs(t) do push(out, RANGE(i,x,x,stats)) end
   return out end
+```
 
+
+
+```lua
 function SYM.superRanges(i, ranges) return ranges end
+```
 
--- -----------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+
+```lua
 function EG.new(t) return new(EG, {cooked={}, has=t}) end
+```
 
+
+
+```lua
 function EG.better(eg1,eg2,egs)
   local s1,s2,e,n,a,b = 0,0,10,#egs.cols.y
   for _,col in pairs(egs.cols.y) do
@@ -192,44 +212,80 @@ function EG.better(eg1,eg2,egs)
     s1 = s1 - e^(col.w * (a-b)/n) 
     s2 = s2 - e^(col.w * (b-a)/n) end 
   return s1/n < s2/n end 
+```
 
+
+
+```lua
 function EG.cols(i,cols) return map(cols,function(x) return i.has[x.at] end) end
+```
 
+
+
+```lua
 function EG.dist(i,j,egs,    a,b,d,n)
   d,n = 0, #egs.cols.x + 1E-31
   for _,col in pairs(egs.cols.x) do 
     a,b = i.has[col.at], j.has[col.at]
     d   = d + col:dist(a,b) ^ your.p end 
   return (d/n) ^ (1/your.p) end
+```
 
--- -----------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+
+```lua
 function RANGE.new(col,lo,hi,has) 
   lo = lo or -math.huge
   return new(RANGE, {n=0,score=nil,col=col, lo=lo, hi=hi or lo, has=has or SYM()}) end
+```
 
+
+
+```lua
 function RANGE.__tostring(i) 
   if i.lo == i.hi       then return fmt("%s == %s",i.col.txt,i.lo) end
   if i.lo == -math.huge then return fmt("%s < %s",i.col.txt,i.hi) end
   if i.ho ==  math.huge then return fmt("%s >= %s",i.col.txt,i.lo) end
   return fmt("%s <= %s < %s", i.col.txt, i.lo, i.hi) end
+```
 
+
+
+```lua
 function RANGE.add(i,x,y) 
   i.n = n.n+1
   i.hi = math.max(x,i.hi)
   i.lo = math.min(x,i.lo)
   i.has:add(y) end
+```
 
+
+
+```lua
 function RANGE.div(i) return i.has:div() end
+```
 
+
+
+```lua
 function RANGE.select(i,eg,       x)
   x = eg.has[i.col.at]
   return x=="?" or i.lo <= x and x < i.hi end
+```
 
+
+
+```lua
 function RANGE.merge(i,j,      k)
  k = RANGE(i.col, i.lo, j.hi, i.has:merged(j.has))
  k.n = i.n + j.n
  if k.has:div()*1.01 <= xpects{i, j} then return k end end
+```
 
+
+
+```lua
 function RANGE.eval(i,goal)
     local best, rest, goals = 0,0,{}
   if not i.score then
@@ -241,8 +297,12 @@ function RANGE.eval(i,goal)
       if x==goal then best = best+n/i.n else rest = rest+n/i.n end end
     i.score = best + rest < 0.01 and 0 or goals[your.goal](best,rest) end
   return i.score end
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 function COLS.new(eg,     i,now,where) 
   i = new(COLS,{all={}, x={}, y={}}) 
   for at,s in pairs(eg) do    -- First row. Create the right columns
@@ -250,24 +310,44 @@ function COLS.new(eg,     i,now,where)
     where = (s:find"-" or s:find"+") and i.y or i.x
     if not s:find":" then push(where, now) end end
   return i end 
+```
 
+
+
+```lua
 function COLS.add(i,eg)
   assert(#eg == #i.all,"expected a different number of cells")
   return map(i.all, function(col) return col:add(eg[col.at]) end) end
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 function EGS.new(i) return new(EGS, {rows={}, cols=nil}) end
+```
 
+
+
+```lua
 function EGS.add(i,eg)
   eg = eg.has and eg.has or eg -- If eg has data buried inside, expose it.
   if i.cols then push(i.rows,EG(i.cols:add(eg))) else i.cols=COLS(eg) end end
+```
 
+
+
+```lua
 function EGS.clone(i,inits,    j)
   j = EGS()
   j:add(map(i.cols.all, function(col) return col.txt end))
   for _,x in pairs(inits or {}) do  j:add(x) end
   return j end
+```
 
+
+
+```lua
 function EGS.cluster(i, rows)
   local zero,one,two,ones,twos,both,a,b,c 
   zero  = any(rows)
@@ -282,22 +362,42 @@ function EGS.cluster(i, rows)
     (n <= #both//2 and ones or twos):add(pair[2]) end
   if your.better and two:better(one,i) then ones,twos=twos,ones end
   return ones, twos end                             
+```
 
+
+
+```lua
 function EGS.far(i,eg1,    fun,tmp)
   fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
   tmp = #i.rows > your.Some and any(i.rows, your.Some) or i.rows
   tmp = sort(map(tmp, fun), seconds)
   return table.unpack(tmp[#tmp*your.far//1] ) end
+```
 
+
+
+```lua
 function EGS.from(t, i) 
   i=i or EGS(); for _,eg in pairs(t) do i:add(eg) end; return i end
+```
 
+
+
+```lua
 function EGS.mid(i,cols) 
   return map(cols or i.all, function(col) return col:mid() end) end
+```
 
+
+
+```lua
 function EGS.read(file, i) 
   i=i or EGS(); for eg in csv(file) do i:add(eg) end; return i end
+```
 
+
+
+```lua
 function EGS.superRanges(i,top)
   local one, two = top:cluster(i.rows)
   local best, out, col2, tmp, ranges = math.huge
@@ -308,12 +408,20 @@ function EGS.superRanges(i,top)
       tmp = xpects(ranges)
       if tmp < best then best, out = tmp, ranges end end end
   return out, lefts, firsts end
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 function any(t,  n) 
   if not n then return t[randi(1,#t)] end 
   u={};for j=1,n do push(u, t[randi(1,#t)]) end; return u end
+```
 
+
+
+```lua
 our.fails = 0
 function asserts(test,msg) 
   msg=msg or ""
@@ -321,15 +429,27 @@ function asserts(test,msg)
   our.fails = our.fails+1                       
   print("  FAIL : "..msg)
   if your.Debug then assert(test,msg) end end
+```
 
+
+
+```lua
 function coerce(x)
   if x=="true" then return true elseif x=="false" then return false end
   return tonumber(x) or x end
+```
 
+
+
+```lua
 function copy(t,u) 
   u={}; for k,v in pairs(t) do u[k]=v end
   return setmetatable(u, getmetatable(t)) end
+```
 
+
+
+```lua
 function csv(file,   x,row)
   function row(x,  t)
     for y in x:gsub("%s+",""):gmatch"([^,]+)" do push(t,coerce(y)) end
@@ -338,7 +458,11 @@ function csv(file,   x,row)
   file = io.input(file) 
   return function() 
     x=io.read(); if x then return row(x,{}) else io.close(file) end end end
+```
 
+
+
+```lua
 function userSettings(help_string,       t,fun)
   function fun(flag,x)
     for n,txt in ipairs(arg) do             
@@ -349,11 +473,23 @@ function userSettings(help_string,       t,fun)
   t = {}
   help_string:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", fun)
   return t end
+```
 
+
+
+```lua
 function firsts(a,b) return a[1] < b[1] end
+```
 
+
+
+```lua
 function fmt(...) return string.format(...) end
+```
 
+
+
+```lua
 function main(user, system,      todos)
   local function reset() 
     for k,v in pairs(userSettings(system.help)) do user[k]=v end end
@@ -368,83 +504,163 @@ function main(user, system,      todos)
   for k,v in pairs(_ENV) do 
     if not system.b4[k] then print("?rogues",k,type(v)) end end 
   return system.fails end 
+```
 
+
+
+```lua
 function map(t,f,  u) 
   u= {};for k,v in pairs(t) do push(u,(f or same)(v)) end; return u end
+```
 
+
+
+```lua
 our.oid=0
 function new(mt,x) 
   our.oid = our.oid+1; x._oid = our.oid -- Everyone gets a unique id.
   return setmetatable(x,mt) end        -- Methods now delegate to `mt`.
+```
 
+
+
+```lua
 function o(t)
   local u,key
   key= function(k) return fmt(":%s %s", k, o(t[k])) end
   if type(t) ~= "table" then return tostring(t) end
   u = #t>0 and map(t,o) or map(slots(t),key)
   return (t._is or "").."{"..table.concat(u, " ").."}" end 
+```
 
+
+
+```lua
 function push(t,x) table.insert(t,x); return x end
+```
 
+
+
+```lua
 your.seed = your.seed or 10019
 function rand(lo,hi)
   your.seed = (16807 * your.seed) % 2147483647
   return (lo or 0) + ((hi or 1) - (lo or 0)) * your.seed / 2147483647 end
+```
 
+
+
+```lua
 function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
+```
 
+
+
+```lua
 function rnd(x,d,  n) 
   if type(x)~="number" then return x end
   n=10^(d or your.round) 
   return math.floor(x*n+0.5)/n end
+```
 
+
+
+```lua
 function rnds(t,d) return map(t,function(x) return rnd(x,d) end) end
+```
 
+
+
+```lua
 function same(x,...) return x end
+```
 
+
+
+```lua
 function seconds(a,b) return a[2] < b[2] end
+```
 
+
+
+```lua
 function slots(t,   u) 
   u={}
   for k,_ in pairs(t) do if tostring(k):sub(1,1) ~= "_" then push(u,k) end end
   return sort(u) end
+```
 
+
+
+```lua
 function sort(t,f) table.sort(t,f);   return t end
+```
 
+
+
+```lua
 function xpects(t)
   local sum,n = 0,0
   for _,z in pairs(t) do n = n + z.n; sum = sum + z.n*z:div() end
   return sum/n end
+```
 
--- ----------------------------------------------------------------------------
+
+--------------------------------------------------------------------------
+
+```lua
 our.go={}   -- list of enabled tests
 our.nogo={} -- list of disabled test
 local go, nogo = our.go,our.nogo
+```
 
+
+
+```lua
 function go.settings()
   print("our",o(our))
   print("your",o(your)) end
+```
 
+
+
+```lua
 function go.range(  r)
   r=RANGE(NUM(10,"fred"),"apple")
   assert(tostring(r) == "fred == apple", "print ok") end
+```
 
+
+
+```lua
 function go.num(    m,n)
   m=NUM();   for j=1,10 do m:add(j) end
   n=copy(m); for j=1,10 do n:add(j) end
   asserts(2.95 == rnd(n:div()),"sd ok") end
+```
 
+
+
+```lua
 function go.egs(    egs)
   egs = EGS.read(your.file)
   asserts(egs.cols.y[1].hi==5140,"most seen") end
+```
 
+
+
+```lua
 function go.clone(     egs1,egs2,s1,s2)
   egs1 = EGS.read(your.file)
   s1   = o(egs1.cols.y)
   egs2 = egs1:clone(egs1.rows) 
   s2   = o(egs2.cols.y) 
   asserts(s1==s2, "cloning works") end
+```
 
+
+
+```lua
 function go.dist()
   local egs,eg1,dist,tmp,j1,j2,d1,d2,d3,one
   egs  = EGS.read(your.file)
@@ -459,12 +675,20 @@ function go.dist()
     d1 = tmp[j1][1]:dist(one,egs)
     d2 = tmp[j2][1]:dist(one,egs)
     asserts(d1 <= d2,"distance ") end end
+```
 
+
+
+```lua
 function go.cluster(   top,left,right)
   top = EGS.read(your.file)
   left, right = top:cluster()
   for n,t in pairs{top,left,right} do print(n,o(rnds(t:mid(t.cols.y)))) end
 end
+```
 
--- assuming our.go = demos and our.help==help string and our.fails = 0 then...
+
+assuming our.go = demos and our.help==help string and our.fails = 0 then...
+
+```lua
 os.exit( main(your, our)) 
