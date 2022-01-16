@@ -11,7 +11,7 @@ function  header(b4,name) {
 function comments(b4,tail) {
   if(tail) print(tail)
   gsub(/^(.)?-- -/,"-",b4)
-  gsub(/^--/,"",b4)
+  gsub(/^-- /,"",b4)
   gsub(/^ /,"",b4)
   print b4
   if (getline > 0) { /^(.)?-- / ? comments($0) : code($0) }}

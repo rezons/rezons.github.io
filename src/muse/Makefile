@@ -11,7 +11,7 @@ pdf: ok
 
 html:
 	gawk -f lua2md.awk $f > $f.md
-	pandoc -s --toc -c lua.css --metadata title="$f" $f.md -o $f.html
+	pandoc -s --toc --toc-depth=6 -c lua.css --metadata title="$f" $f.md -o $f.html
 
 header:
 	@read x; echo $$x | figlet -W -f straight | gawk '{print "--    "$$0}'
