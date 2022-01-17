@@ -1,5 +1,5 @@
 BEGIN { header($0,Fname) }
-      { /^--/ ? comment($0) : code($0) }
+      { /^--/ ? comments($0) : code($0) }
 
 function  header(b4,name) {
   if (getline > 0) {

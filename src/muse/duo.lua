@@ -1,40 +1,46 @@
+-- vim : ft=lua et sts=2 sw=2 ts=2 :
+
+-- ## Premable: names in this space
+-- ### Globals
+-- **Trap globals** here, so to report rogue globals (at end: see `rogues()`).
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end 
-local as,asserts,atom,copy,csv,failures,firsts,fmt,go
-local help,inc,isa, klass,last,map,o,obj,old,push,rand,randi
-local rnd,rogues,settings,slots,sort,the,xpects
-local BAG, NB,NUM, RANGE, SYM 
-local the -- user settings. derived from `help`. can be changed via command line
+-- **Define our names.**
+local any,asserts,atom,copy,csv,failures,firsts,fmt,go,help
+local inc,isa, klass,last,map,new,o,obj,old,push,rand,randi
+local rnd,rnds,rogues,seconds,settings,slots,sort,the,xpects
+local BAG, COLS, EG, EGS, NB, NUM, RANGE, SYM 
+-- ### User Settings
+-- **User settings** are stored in `the` and
+-- derived from the `help` (using `settings()`). 
+-- These settings can be updated from the command line.
+local the 
 help = [[
     
-./duo [OPTIONS] : data miners using/used by optimizers.
+lua duo.lua [OPTIONS] : data miners using/used by optimizers.
+
 (c) 2022, Tim Menzies, opensource.org/licenses/MIT
 Understands "N" items by peeking at at few (maybe zero) items.
      
 OPTIONS
-  -ample  max items in a 'SAMPLE'       : 512
-  -bins   max number of bins            : 16
-  -Debug  one crash, show stackdump     : true
-  -h      show help                     : false
-  -p      coefficient on distance calcs : 2
-  -round  print to 'round' decimals     : 2
-  -seed   random number seed            : 10019
-  -Some   max number items to explore   : 512
-  -Tiny   bin size = #t^'Tiny'          : .5
-  -todo   start up action ('all'=every) : -]]
+  -ample  max items in a 'SAMPLE'       = 512
+  -bins   max number of bins            = 16
+  -Better use 'y' when dividing data    = false
+  -Debug  one crash, show stackdump     = false
+  -file   file for data                 = ../../data/auto93.csv
+  -h      show help                     = false
+  -p      coefficient on distance calcs = 2
+  -round  print to 'round' decimals     = 2
+  -seed   random number seed            = 10019
+  -Some   max number items to explore   = 512
+  -Tiny   bin size = #t^'Tiny'          = .5
+  -todo   start up action ('all'=every) = -]]
 
 -- ## Library stuff
--- **Make a new class** using the LUA delegation mechanism. When a field is missing,
--- LUA checks `__index` for any other options. Tables that share that
--- `__index` field all point same methods (i.e. are all members the
--- same class). Similarly, we can share a class name (`_is`); an
--- instance print methods (`o`); and a common instance create protocol
--- (called `klass()` really calls `klass.new(...)`). As a reflection on 
--- the power of that delegation mechanism, it is fun to note that this comment is
--- (much) longer than the code itself.
-
+-- Misc functions.
+--    
 -- ### OO stuff
 -- **Make a new instance** by sharing the same metatable.
-function as(mt,t) return setmetatable(t,mt) end
+function new(mt,t) return setmetatable(t,mt) end
 -- **Make a new class** using the LUA delegation mechanism. When a field is missing,
 -- LUA checks `__index` for any other options. Tables that share that
 -- `__index` field all point same methods (i.e. are all members the
@@ -43,46 +49,55 @@ function as(mt,t) return setmetatable(t,mt) end
 -- (called `klass()` really calls `klass.new(...)`). As a reflection on 
 -- the power of that delegation mechanism, it is fun to note that this comment is
 -- (much) longer than the code itself.
-function klass(s,   t) 
-   t= {__index=t, _is=s, __tostring=o}
-  return as({__call=function(_,...) return t.new(...) end},t) end
+function klass(s, t)
+  t = {_is=s, __tostring=o}
+  t.__index = t
+  return setmetatable(t,{__call=function(_,...) return t.new(...) end}) end
 
 -- ### List stuff
-function last(t)     return t[#t] end
-function firsts(a,b) return a[1] < b[1] end -- used for sorting`
-function sort(t,f)   table.sort(t,f); return t end
-function push(t,x)   table.insert(t,x); return x end 
-function inc(d,k)    d[k]= 1+(d[k] or 0); return k end -- used for counting
+function last(t)      return t[#t] end
+function firsts(a,b)  return a[1] < b[1] end -- used for sorting`
+function seconds(a,b) return a[2] < b[2] end -- used for sorting`
+function sort(t,f)    table.sort(t,f); return t end
+function slots(t,  u) u={};for k,_ in pairs(t) do u[1+#u]=k end; return u end
+function push(t,x)    table.insert(t,x); return x end 
+function inc(d,k)     d[k]= 1+(d[k] or 0); return k end -- used for counting
+
+function any(t,  n) 
+  if not n then return t[randi(1,#t)] end 
+  u={};for j=1,n do push(u, t[randi(1,#t)]) end; return u end
 
 function map(t,f,  u) 
   u={};for k,v in pairs(t) do u[#u+1]=f(v) end; return u; end
 
--- Deep copy
+-- **copy** implements a deep copy.
 function copy(t,   u) 
   if type(t) ~= "table" then return t end
   u={}; for k,v in pairs(t) do u[k]=copy(v) end
   return setmetatable(u, getmetatable(t)) end
 
 -- ### Display stuff
+-- **fmt** is for simple prints.
 fmt = string.format
-
-function slots(t,  u) 
-  u={}; for k,_ in pairs(t) do u[1+#u]=k end; return sort(u) end
-
-function o(t,     show)
+-- **o** is for printing nested tables.
+function o(t,     u,show)
   function show(k) return fmt(":%s %s", k, t[k]) end
-  t= #t>0 and map(t,tostring) or map(slots(t),show)
-  return (t._is or "").."{"..table.concat(t,", ").."}" end
-
+  u= #t>0 and map(t,tostring) or map(sort(slots(t)),show)
+  return (t._is or "").."{"..table.concat(u,", ").."}" end
+-- **rnd** returns rounds `x` (and, if non-numeric, it just returns `x`). 
 function rnd(x,d,  n) 
   n=10^(d or the.round)
   return type(x)~="number" and x or math.floor(x*n+0.5)/n end
 
+function rnds(t,d) return map(t, function(x) return rnd(x,d) end) end
+
 -- ### OS Stuff
+-- **atom** coerces strings to atoms.
 function atom(x)   
   if x=="true" then return true elseif x=="false" then return false end
   return tonumber(x) or x end
 
+-- **csv** returns comma-seperated rows as a table, with all strings coerced to their right type.
 function csv(file)
   file = io.input(file) 
   return function(    t) 
@@ -93,6 +108,11 @@ function csv(file)
     else io.close(file) end end end 
 
 -- ### Settings stuff
+-- For all lines starting with '  -' then grab the first (as a setting) and 
+-- the last word (as a default value). Look for updates to these settings from the
+-- command line, For convenience, this code support partial match on the CLI
+-- to the setting name. Also, for flags with boolean code, using that command line
+-- flag will flip the default value.
 function settings(help,       t)
   t = {}
   help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(flag, x)
@@ -115,6 +135,8 @@ function xpects(t,       sum,n)
   return sum/n end
 
 -- ### Error stuff
+-- Wraps the "real" assert in code that increments `failures` and only
+-- shows a stack dump if `-D` was set of the commend-line.
 failures=0
 function asserts(test,msg) 
   msg=msg or ""
@@ -129,20 +151,19 @@ function rogues(b4)
 -- ----------------------------------------------------------------------------
 -- ## BAGs
 BAG=klass""
-function BAG.new(t) return as(BAG,t or {}) end
-print(BAG{1,10,22})
+function BAG.new(t) return new(BAG,t or {}) end
 
 -- ## RANGEs
 RANGE=klass"RANGE"
 -- ### Create, add, merge
 function RANGE.new(col,lo,hi,has) 
   lo = lo or -math.huge
-  return as(RANGE, {n=0,score=nil,col=col, lo=lo, hi=hi or lo, has=has or SYM()}) end
+  return new(RANGE, {n=0,score=nil,col=col, lo=lo, hi=hi or lo, has=has or SYM()}) end
 
 function RANGE.add(i,x,y) 
-  i.n = n.n+1
-  i.hi = math.max(x,i.hi)
-  i.lo = math.min(x,i.lo)
+  i.n = i.n+1
+  i.hi = math.max(x, i.hi)
+  i.lo = math.min(x, i.lo)
   i.has:add(y) end
 
 function RANGE.merge(i,j,      k)
@@ -155,7 +176,7 @@ function RANGE.__tostring(i)
   if i.lo == i.hi       then return fmt("%s == %s",i.col.txt,i.lo) end
   if i.lo == -math.huge then return fmt("%s < %s",i.col.txt,i.hi) end
   if i.ho ==  math.huge then return fmt("%s >= %s",i.col.txt,i.lo) end
-  return fmt("%s <= %s < %s", i.col.txt, i.lo, i.hi) end
+  return fmt("%s <= %s < %s", i.lo, i.col.txt, i.hi) end
 
 -- ### Queries
 function RANGE.div(i) return i.has:div() end
@@ -177,10 +198,98 @@ function RANGE.eval(i,goal)
   return i.score end
 
 -- -----------------------------------------------------------------------------
+EG=klass"EGS"
+function EG.new(t) return new(EG, {has=t}) end
+
+function EG.better(eg1,eg2,egs)
+  local s1,s2,e,n,a,b = 0,0,10,#egs.cols.y
+  for _,col in pairs(egs.cols.y) do
+    a  = col:norm(eg1.has[col.at])
+    b  = col:norm(eg2.has[col.at])
+    s1 = s1 - e^(col.w * (a-b)/n) 
+    s2 = s2 - e^(col.w * (b-a)/n) end 
+  return s1/n < s2/n end 
+
+function EG.cols(i,cols) return map(cols,function(x) return i.has[x.at] end) end
+
+function EG.dist(i,j,egs,    a,b,d,n)
+  d,n = 0, #egs.cols.x + 1E-31
+  for _,col in pairs(egs.cols.x) do 
+    a,b = i.has[col.at], j.has[col.at]
+    d   = d + col:dist(a,b) ^ the.p end 
+  return (d/n) ^ (1/the.p) end
+
+-- -----------------------------------------------------------------------------
+EGS=klass"EGS"
+function EGS.new(i) return new(EGS, {rows={}, cols=nil}) end
+
+function EGS.add(i,eg)
+  eg = eg.has and eg.has or eg -- If eg has data buried inside, expose it.
+  if i.cols then push(i.rows, EG(i.cols:add(eg))) else i.cols=COLS(eg) end end
+
+function EGS.from(t, i) i=EGS();for _,eg in pairs(t) do i:add(eg) end;return i end
+function EGS.file(f, i) i=EGS();for   eg in csv(f)   do i:add(eg) end;return i end
+
+function EGS.clone(i,inits,    j)
+  j = EGS()
+  j:add(map(i.cols.all, function(col) return col.txt end))
+  for _,x in pairs(inits or {}) do  j:add(x) end
+  return j end
+
+function EGS.cluster(i, rows)
+  local far,zero,one,two,ones,twos,both,a,b,c 
+  function far(eg1,   fun,tmp)
+    fun = function(eg2) return {eg2, eg1:dist(eg2,i)} end
+    tmp = sort(map(tmp, fun), seconds)
+    return table.unpack(tmp[#tmp*your.far//1]) 
+  end -----------------------------------------
+  rows  = #rows > the.Some and any(rows, the.Some) or rows
+  zero  = any(rows)
+  one   = i:far(zero) 
+  two,c = i:far(one) 
+  ones,twos,both = {},{},{}
+  for _,eg in pairs(rows) do
+    a = eg:dist(one, i)
+    b = eg:dist(two, i)
+    push(both, {(a^2 + c^2 - b^2) / (2*c),eg}) end
+  for n,pair in pairs(sort(both, firsts)) do
+    (n <= #both//2 and ones or twos):add(pair[2]) end
+  if the.Better and two:better(one,i) then ones,twos=twos,ones end
+  return ones, twos end                             
+
+function EGS.mid(i,cols) 
+  return map(cols or i.cols.all, function(col) return col:mid() end) end
+
+function EGS.superRanges(i,top)
+  local one, two = top:cluster(i.rows)
+  local best, out, col2, tmp, ranges = math.huge
+  for n,col1 in pairs(one.cols.x) do
+    col2   = two.cols.x[n]
+    ranges = col1:superRanges( col1:ranges(col2))
+    if #ranges > 1 then
+      tmp = xpects(ranges)
+      if tmp < best then best, out = tmp, ranges end end end
+  return out, lefts, firsts end
+
+COLS=klass"COLS"
+function COLS.new(eg,     i,now,where) 
+  i = new(COLS,{all={}, x={}, y={}}) 
+  for at,s in pairs(eg) do    -- First row. Create the right columns
+    now   = push(i.all, (s:find"^[A-Z]" and NUM or SYM)(at,s))
+    if not s:find":" then 
+      where = (s:find"-" or s:find"+") and i.y or i.x
+      push(where, now) end end
+  return i end 
+
+function COLS.add(i,eg)
+  assert(#eg == #i.all,"expected a different number of cells")
+  return map(i.all, function(col) return col:add(eg[col.at]) end) end
+
+-- -----------------------------------------------------------------------------
 -- ### SYM: summarize stream of symbols
 SYM=klass"SYM"
-function SYM.new(n,s) 
-  return as(SYM,{at=n or 0, txt=s or "", n=0, has={},mode=nil,most=0}) end
+function SYM.new(at,txt) 
+  return new(SYM,{at=at or 0, txt=txt or "", n=0, has={},mode=nil,most=0}) end
 
 function SYM.add(i,x,count)   
   if x=="?" then
@@ -218,15 +327,15 @@ function SYM.ranges(i,j,        t,out)
 -- ### NUM: summarize streams of numbers
 NUM=klass"NUM"
 -- #### Create, add, merge
-function NUM.new(n,s) 
-  return as(NUM,{at=n or 0, txt=s or "", n=0, has={}, ready=false,
-                 w=(s or ""):find"-" and -1 or 1}) end
+function NUM.new(at,txt) 
+  return new(NUM,{at=at or 0, txt=txt or "", n=0, has={}, ready=false,
+                  w=(txt or ""):find"-" and -1 or 1}) end
   
 function NUM.add(i,x,     pos)
   if x ~="?" then
     i.n= i.n + 1
-    if     #i.has < the.ample  then pos= #i.has + 1 
-    elseif rand() < #i.has/i.n then pos= #i.has * rand() end
+    if     #i.has < the.ample  then pos = 1      + #i.has 
+    elseif rand() < #i.has/i.n then pos = rand() * #i.has end
     if pos then i.ready=false; i.has[pos//1]= x end end 
   return x end
 
@@ -247,12 +356,12 @@ function NUM.dist(i,x,y)
   return math.abs(x-y) end
    
 -- #### Queries
-function NUM.lo(i)  return i.all()[1]  end
-function NUM.hi(i)  return last(i.all()) end
+function NUM.lo(i)  return i:all()[1]  end
+function NUM.hi(i)  return last(i:all()) end
 function NUM.mid(i) return i:per(.5) end
 function NUM.div(i) return (i:per(.9) - i:per(.1))/2.56 end
-function NUM.per(i,p,   a) a=i:all(); return a[math.min(#a, 1+p*#a //1 )] end
-function NUM.all(i)
+function NUM.per(i,p,   a) a=i:all(); return a[math.min(#a,1+(p*#a//1))]; end
+function NUM.all(i) 
   if not i.ready then table.sort(i.has); i.ready=true end; return i.has end
 
 -- #### Discretization 
@@ -286,7 +395,7 @@ function NUM.ranges(i,j, yklass)
   return out end
 
 NB=klass"NB"
-function NB.new() return as(NB, {k=1,m=2,names=BAG(),n, hs=0,h={}, f={}}) end
+function NB.new() return new(NB, {k=1,m=2,names=BAG(),n, hs=0,h={}, f={}}) end
 
 function NB.read(i, file) 
   for row in csv(file) do if row then i:add(n,row) end end end
@@ -314,15 +423,38 @@ function NB.classify(i,row,      best)
     if tmp > best then best,out=tmp,klass end end
   return klass end
 
---i:read("../../data/weathernom.csv")
---print(o(i.h))
-
 go={}
 function go.copy(   a,b) 
   a={1,2,3,{40,50}}; b=copy(a); b[4][1]=400
   asserts(a[4][1]~=b[4][1],"deep copy") end
 
-function go.two() print(2) end
+function go.range(  r)
+  r=RANGE(NUM(10,"fred"),31)
+  r:add(23,32)
+  assert(tostring(r) == "23 <= fred < 31", "print ok") end
+
+function go.num(    m,n)
+  m=NUM(); 
+  for j=1,20 do m:add(j) end; n=copy(m)
+  for j=1,20 do n:add(j) end
+  asserts(6.25 == rnd(n:div()),"sd ok") end
+
+function go.egs(    egs)
+  egs = EGS.file(the.file)
+  asserts(egs.cols.y[1]:hi()==5140,"most seen") end
+
+function go.clone(     egs1,egs2,s1,s2)
+  egs1 = EGS.file(the.file)
+  egs2 = egs1:clone(egs1.rows) 
+  s1   = o(egs1.cols.y)
+  s2   = o(egs2.cols.y) 
+  assert(o(rnds(egs1:mid()))==o(rnds(egs2:mid())),"cloning") end
+
+function go.order(   egs,t)
+  egs = EGS.file(the.file)
+  t = sort(egs.rows, function(a,b) return a:better(b,egs) end) 
+  for j=1,5     do print("<",o(t[j]:cols(egs.cols.y))) end; print("")
+  for j=#t-5,#t do print(">",o(t[j]:cols(egs.cols.y))) end end
 
 -- start up stuff
 the = settings(help)
