@@ -11,11 +11,11 @@ pdf: ok
 
 html:
 	gawk -f lua2md.awk $f > $f.md
-	pandoc -s --toc --toc-depth=6 -c lua.css --metadata title="$f" $f.md -o $f.html
+	pandoc -s --toc --toc-depth=6 -V fontsize=9pt  -c lua.css --metadata title="$f" $f.md -o $f.html
 
 pandoc:
 	gawk -f lua2md.awk $f > $f.md
-	pandoc $f.md -V geometry:margin=1in  -V documentclass:scrbook -V fontsize=10pt  -V fontfamily:times  --highlight=tango  -s --toc --toc-depth=6 --metadata title="$f" -o $f.pdf
+	pandoc $f.md -V geometry:margin=1in  -V fontsize=9pt -V documentclass:scrbook -V fontfamily:times  --highlight=tango  -s --toc --toc-depth=6 --metadata title="$f" -o $f.pdf
 
 header:
 	@read x; echo $$x | figlet -W -f straight | gawk '{print "--    "$$0}'
