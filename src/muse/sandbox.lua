@@ -9,6 +9,7 @@ aa
 ]]
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
 fmt = string.format
+
 as  = setmetatable
 function klass(    t,new)
   t={}; t.__index=t
@@ -18,16 +19,16 @@ function klass(    t,new)
 function map(t,f, u) u={};for _,v in pairs(t) do u[1+#u]=f(v) end; return u end
 function rnd(x) return fmt(type(x)=="number" and x~=x//1 and the.rnd or"%s",x) end
 function o(t)   return table.concat(map(t,rnd),", ") end
-function atom(x)   
+
+function thing(x)   
   if x=="true" then return true elseif x=="false" then return false end
   return tonumber(x) or x end
-
-function csv(file,       cells)
-  function cells(x,  t)
-    t={}; for y in x:gmatch"([^,]+)" do t[1+#t]=atom(y) end; return t end
+function things(x,  t)
+  t={}; for y in x:gmatch"([^,]+)" do t[1+#t]=cell(y) end; return t end
+function rows(file,      x)
   file = io.input(file)
-  return function(    x) 
-    x = io.read(); if x then return cells(x) else io.close(file) end end end
+  return function() 
+    x=io.read(); if x then return things(x) else io.close(file) end end end
 
 ------------------------------------------
 PET=klass()
@@ -40,7 +41,7 @@ help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(slot, x)
   for n,flag in ipairs(arg) do             
     if   flag:sub(1,1)=="-" and slot:match("^"..flag:sub(2)..".*") 
     then x = x=="false" and "true" or x=="true" and "false" or arg[n+1] end end 
-  the[slot] = atom(x) end)
+  the[slot] = thing(x) end)
 
 if the.h then print(help) end
 
