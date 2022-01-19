@@ -1,0 +1,29 @@
+strict digraph {
+    tp [label="threom proving"]
+    dm [label="data mining"]
+    op [label=optimize]
+    {dm op} -> duo [label=1]
+    tp -> data [label=2]
+    data -> {dm op} [label=3]
+    "real world" -> data [label=4]
+    {regression classify} -> dm [label=5]
+    tp -> op [style=dashed,label="6. helper"]
+    {TN TP FN FP} -> accuracy
+    {TN TP} -> recall
+    {TP FP} ->precision
+    {FP FN} ->  falseAlarm
+    {accuray recall precision falseAlarm} -> classify [label=7]
+    re -> {medRE MRE} -> regression [label=8]
+    {bag boost} -> crossVal
+    {crossVal temporal} -> holdOut
+    {effectSize significance} -> statistics
+    {holdOut statistics} -> duo
+    discretization -> contrast -> xplan [label=kelly]
+    
+    point -> instance -> {cluster op} 
+    xplan {label=explanation}
+    cluster -> visualize -> xplan
+    volume -> generlization -> rules -> xplan
+    {cdom bdom} -> domination -> pareto -> op
+    xplan -> {fairness accountability trust} -> fat
+}

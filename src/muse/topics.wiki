@@ -1,0 +1,18 @@
+# vim: ft=wiki :
+key
+
+- (mining)
+- ^optimization
+- ?evaluation : evaluation concept
+- ALGORITHMS : uppercase
+
+topics
+
+- mining
+- optimziation
+- theorem proving
+
+= kb =
+
+  * [[Taks]]
+  * Guntebrg

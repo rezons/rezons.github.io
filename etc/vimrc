@@ -99,6 +99,7 @@ Plugin 'altercation/vim-colors-solarized'
 Plugin 'nvie/vim-flake8'
 Plugin 'seebi/dircolors-solarized'
 Plugin 'vim-syntastic/syntastic'
+Plugin 'vimwiki/vimwiki'
 Plugin 'nequo/vim-allomancer'
 Plugin 'julialang/julia-vim'
 Plugin 'nanotech/jellybeans.vim'
@@ -124,6 +125,7 @@ filetype plugin on
 "autocmd FileType python noremap <buffer> <F8> :call Autopep8()<CR>
 autocmd Filetype lua setlocal ts=2 sw=2 sts=0 expandtab
 colorscheme harlequin
+nmap <F6> :NERDTreeToggle<CR>
 nmap <F9> :TagbarToggle<CR>
 nnoremap <Leader><space> :noh<cr>
 autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif

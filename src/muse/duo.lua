@@ -1,5 +1,74 @@
 -- vim : ft=lua et sts=2 sw=2 ts=2 :
 
+-- ## For software engineering to knowledge engineering
+-- Ever thought of software engineering as knowledge engineer? Not bracket matching but the creation and stewardship of
+-- what humans think is important (as well as methods for how to get it)?
+-- 
+-- Here by "knowledge" I mean the thing defined by Allen Newell in the classic "Knowedge LEvel" talk (AAAI 1992). To Newell,
+-- intelligence was a goal seeking process that (a) identified the goals we want then (b) reflected on
+-- what operators were available in order for us to get there then (c) selected the appropriate operators then (d) adapted those operators
+-- to the current task. Note that for Newell, how those operators were build was a lover level "symbol-level" issue. These operators could
+-- be Python scripts, data mining function, logical axioms, etc. In terms of the knowledge level, the important thing is that we
+-- should be able to reflect over them before deciding how to best use them.
+--    
+-- In my view this is an engineering process (where engineering means "building a useful project to an acceptable standard
+-- given the local constants"). Good knowledge engineers are lazy in that they try to do
+-- the most, with  least effort, while consuming the fewest resources. Also, I would say that good engineers are stewards, not
+-- owners, of their resources and, a good stewart, they try to leave behind the most resources (in the healthiest condition)
+-- for those that will come after them.
+--   
+-- To do that, good knowledge engineers know their tools, insider and out, since this lets them reconfigure their tools to
+-- best suite the current task. 
+--   
+-- |`y=f(x)`   | no `x` | few `x`| much `x` |
+-- |-----------|--------|--------|----------|
+-- | no y      | model (*)| re    |   mine    |
+-- | expensive y|       |  explore (+)   |         |
+-- | cheap y   |        |        | mine,otpimize |
+-- 
+-- (*) model
+--   
+-- - feature models
+-- - production rules (fuzzing)
+-- - state machines
+-- - bayes nets
+-- - compartmental models
+-- - CNF (or DNF)
+--   
+-- (+) explore:
+-- - SMO (general term)
+-- - TPE (more specific)
+--  
+--  
+-- |`y=f(x)`               |  no `x` oracle | cheap `x` oracle | expensive `x` oracle |
+-- |-----------------------|----------------|------------------|----------------------|
+-- | no `y` oracle         |  ?          |contrast & cluster & visualize|   ssl (=)            |
+-- | cheap `y` oracle      |  ?          |mine,optimize     | ?  cluster&visuzlize   |  
+-- | expensive  `y` oracle |  ?          |ssl(=),more(%)    |  ?                      |
+-- 
+--  
+--  contrast
+--    
+--  - find what's different in two sets
+--  - seek the most informative differences 
+-- 
+--  clustering
+--  - with lots of data, recursively cluster
+--  - with very little data, cluster top level
+-- 
+-- (%) re = multi-objective requirements engineering (aka interactive search-based se)
+--  
+-- - show people examples, watch them debate them
+-- - to avoid cognitive overload, only argue the fewest, most informative examples 
+-- - do not expect consensus. Instead, collect the (possibly conflicting) goals that everyone has
+-- 
+-- (=) ssl = semi-supervised learning
+--   
+-- - cluster the data
+-- - collect a few (?one) label per cluster
+-- - spread those labels within one cluster
+-- - spread thsoe labels to other clusters
+
 -- ## Premable: names in this space
 -- ### Globals
 -- **Trap globals** here, so to report rogue globals (at end: see `rogues()`).
