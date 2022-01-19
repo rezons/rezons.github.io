@@ -1,3 +1,4 @@
+local Pet
 local the,help,cat, fmt,map,words,o,is,klass = {},[[
 aa
 (C)2022 tim menzies
@@ -36,11 +37,11 @@ function Pet.new(name)     return as({age=10,name=name or "Fido"},Pet) end
 function Pet.fred(i)       print(i.name) end
 
 ------------------------------------------
-help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(flag, x)
-  for n,txt in ipairs(arg) do             
-    if   txt:sub(1,1)=="-" and flag:match("^"..txt:sub(2)..".*") 
-    then x = x=="false" and"true" or x=="true" and"false" or arg[n+1] end end 
-  the[flag] = atom(x) end)
+help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(slot, x)
+  for n,flag in ipairs(arg) do             
+    if   flag:sub(1,1)=="-" and slot:match("^"..flag:sub(2)..".*") 
+    then x = x=="false" and "true" or x=="true" and "false" or arg[n+1] end end 
+  the[slot] = atom(x) end)
 
 if the.h then print(help) end
 
