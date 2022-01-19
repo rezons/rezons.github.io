@@ -63,12 +63,6 @@ local function klass(s, t)
   t.__index = t
   return setmetatable(t,{__call=function(_,...) return t.new(...) end}) end
 
-function per(t,p,m,n,f)
-  f = function(x) return x end
-  m = m or 1
-  n = n or #t
-  return f(t[(m+(n - m)*p + .5)//1]) end
-
 -- ----------------------------------------------------------------------------
 local BAG=klass""
 function BAG.new(t) return new(BAG,t or {}) end
@@ -85,8 +79,16 @@ function SYM.ranges(i,j,        t,out)
   for x,stats in pairs(t) do push(out, RANGE(i,x,x,stats)) end
   return out end
 
-function SYM.ranges(i,j, rows) 
-  for _,row in pairs(rows) do x=row.has[i.at]; if x~= "?" 
+function SYM.ranges(i,j,bests,rests) 
+  local tmp,out,x = {},{}
+  for _,pair in pairs{{bests,"bests"}, {rests,"rests"}} do
+    for _,row in pairs(pair[1]) do 
+      x = row.has[i.at]
+      if x~= "?"  then
+         tmp[x] = tmp[x] or SYM()
+         tmp[x]:add(pair[2]) end end end 
+  for x,stats in pairs(tmp) do push(out, RANGE(i,x,x,stats)) end
+  return out end
 
 local NUM=klass"NUM"
 function NUM.new(at,s, big) 
@@ -97,7 +99,7 @@ function NUM.add(i,x)  i.lo = math.min(x,i.lo); i.hi = math.max(x,i.hi) end
 
 function NUM.norm(i,x) return i.hi-i.lo < 1E-9 and 0 or (x-i.lo)/(i.hi-i.lo) end
 
-function NUM.ranges(i,j)
+function NUM.ranges(i,j, bests,rests)
   hi  = math.max(i.hi, j.hi)
   lo  = math.min(i.lo, j.lo)
   gap = (hi - lo)/the.bins
@@ -135,29 +137,38 @@ function EG.new(t) id=id+1; return new(EG, {has=t, id=id}) end
 local EGS=klass"EGS"
 function EGS.new() return new(EGS, {rows={}, cols=nil}) end
 
-function EGS.file(i,file)
-  for row in csv(file) do
-    if i.cols then push(i.rows, EG(i.cols:add(row))) else i.cols=COLS(row) end end 
-  return i end
+function EGS.clone(i,inits,    j)
+  j = EGS()
+  j:add(map(i.cols.all, function(col) return col.txt end))
+  for _,x in pairs(inits or {}) do  j:add(x) end
+  return j end
+    
+function EGS.add(i,row)
+  row = row.has and row.has or row
+  if i.cols then push(i.rows, EG(i.cols:add(row))) else i.cols=COLS(row) end end 
+
+function EGS.file(i,file) for row in csv(file) do i:add(row) end; return i end
 
 function EGS.bestRest(i)
-  local t0,t,tmp = {},{},{}
+  local best,rest,tmp,bests,restsFraction = {},{},{}
   i.rows = sort(i.rows, function(a,b) return i.cols:better(a,b) end) 
-  for j,x in pairs(i.rows) do push(j <= (#i.rows)^the.best and t0 or tmp, x) end
-  t = many(tmp, the.rest*#t0)
-  return t0,t end
+  bests  = (#i.rows)^the.best
+  restsFraction = (bests * the.rest)/(#i.rows - bests)
+  for j,x in pairs(i.rows) do 
+     if     j      <= bests         then push(best,x) 
+     elseif rand() <  restsFraction then push(rest,x) end end
+  return bests,rests end
 
 local RANGES=klass"RANGES"
 function RANGES.new(col,lo,hi,stats) 
   return new(RANGES,{{col=col, lo=lo, hi=hi or lo}, 
                       ys=stats or SYM(),all={}}) end
-
    
 -- ----------------------------------------------------------------------------
 the = settings(help)
 local i = EGS.new()
 local t0,t = i:file(the.file):bestRest()
-print(#t0, #t)
+--print(#t0, #t)
 --for _,col in pairs(i.cols.x) do 
 --   for _,x in ipairs(sort(t0, sorter(col.at))) do print(x.has[col.at]) end end
 
