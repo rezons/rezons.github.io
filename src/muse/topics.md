@@ -22,7 +22,7 @@ Model
 
 - logic
   - propositional
-  - horn clause
+  - horn clause : PROLOG, ASP
   - etc
 - compartmental models
 - state charts
