@@ -56,9 +56,11 @@ function o(t,f,   u,key)
   u = #t>0 and map(map(t,f),rnd) or map(slots(t),key)
   return "{"..table.concat(u, " ").."}" end 
 
+-- misc
+function id() our.id = 1+(our.id or 0); return our.id end
+
 -- object stuff
 as = setmetatable
-function id() our.id = 1+(our.id or 0); return our.id end
 function klass(t) 
   t.__index=t; return as(t,{__call=function(_,...) return t.new(...) end}) end
 
@@ -87,6 +89,7 @@ function SYM.ranges(i,j,bests,rests)
   for x,stats in pairs(tmp) do push(out, RANGE(i,x,x,stats)) end
   return out end
 
+-- ----------------------------------------------------------------------------
 NUM=klass{}
 function NUM.new(at,s, big) 
   big = math.huge
@@ -107,6 +110,7 @@ function NUM.ranges(i,j, bests,rests)
   tmp = lo
   for j=lo,hi,goal do push(ranges,RANGE(i,lo,lo+gap)) end end
 
+-- ----------------------------------------------------------------------------
 COLS=klass{}
 function COLS.new(t,     i,where,now) 
   i = as({all=BAG(), x=BAG(), y=BAG()},COLS) 
@@ -134,10 +138,12 @@ function COLS.better(i,row1,row2)
     s2 = s2 - e^(col.w * (b-a)/n) end 
   return s1/n < s2/n end 
 
+-- ----------------------------------------------------------------------------
 EG=klass{}
 function EG.new(t)       our.id=our.id+1; return as({has=t, id=id()},EG) end
 function EG.__tostring(i) return fmt("EG%s%s", i.id,o(i.has)) end
 
+-- ----------------------------------------------------------------------------
 EGS=klass{}
 function EGS.new()        return as({rows={}, cols=nil},EGS) end
 function EGS.__tostring(i) return fmt("EGS{#rows %s :cols %s", #i.rows,i.cols) end
