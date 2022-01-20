@@ -8,6 +8,7 @@ our.help=[[
   -rest  3
   -seed  10019
   -rnd   %.2f
+  -task  -
   -p     2]]
 
 local as,any,fmt,id,many, map,o,klass,push
@@ -29,6 +30,10 @@ function slots(t, u) u={};for x,_ in pairs(t) do u[1+#u]=x end; return sort(u) e
 function map(t,f,  u) 
   u={};for _,v in pairs(t) do u[1+#u]=(f or same)(v) end; return u end
 
+function copy(t,    u) 
+  if type(t)~="table" then return t end
+  u={}; for k,v in pairs(t) do u[k]=copy(v) end; return as(u, getmetatable(t)) end
+
 -- stuff for converting strings to things
 function thing(x)   
   if x=="true" then return true elseif x=="false" then return false end
@@ -47,7 +52,7 @@ fmt  = string.format
 same = function(x,...) return x end
 function rnd(x) return fmt(type(x)=="number" and x~=x//1 and your.rnd or"%s",x) end
 function o(t,f,   u,key) 
-  key= function(k) return fmt(":%s %s", k, (f or same)(t[k])) end
+  key= function(k) if t[k] then return fmt(":%s %s", k, (f or same)(t[k])) end end
   u = #t>0 and map(map(t,f),rnd) or map(slots(t),key)
   return "{"..table.concat(u, " ").."}" end 
 
@@ -59,7 +64,7 @@ function klass(t)
 
 -- ----------------------------------------------------------------------------
 SYM=klass{}
-function SYM.new(at,s)    return as({at=at,txt=s},SYM) end
+function SYM.new(at,s)    return as({at=at or 0,txt=s or ""},SYM) end
 function SYM.__tostring(i) return fmt("SYM..{:at %s :txt %s}",i.at,i.txt) end
 
 function SYM.add(i,x)  return x end
@@ -85,9 +90,10 @@ function SYM.ranges(i,j,bests,rests)
 NUM=klass{}
 function NUM.new(at,s, big) 
   big = math.huge
-  return as({lo=big,hi=-big,at=at,s=s,w=(s or ""):find"-" and -1 or 1},NUM) end
+  return as({lo=big,hi=-big,at=at or 0,txt=s or "",
+             w=(s or ""):find"-" and -1 or 1},NUM) end
 
-function NUM.__tostring(i) return fmt("NUM..{:at %s :txt %s :lo %s :hi %s}",
+function NUM.__tostring(i) return fmt("NUM{:at %s :txt %s :lo %s :hi %s}",
                                      i.at, i.txt,  i.lo, i.hi) end
 
 function NUM.add(i,x)  i.lo = math.min(x,i.lo); i.hi = math.max(x,i.hi) end
@@ -112,7 +118,7 @@ function COLS.new(t,     i,where,now)
 
 function COLS.__tostring(i, txt)
   function txt(c) return c.txt end
-  return fmt("COLS..{:all %s :x %s :y %s", o(i.all,txt), o(i.x,txt), o(i.y,txt)) end
+  return fmt("COLS{:all %s :x %s :y %s", o(i.all,txt), o(i.x,txt), o(i.y,txt)) end
 
 function COLS.add(i,t,      add) 
   t = t.has and t.has or t
@@ -130,7 +136,7 @@ function COLS.better(i,row1,row2)
 
 EG=klass{}
 function EG.new(t)       our.id=our.id+1; return as({has=t, id=id()},EG) end
-function EG.__tostring(i) return fmt("EG..%s%s", i.id,o(i.has)) end
+function EG.__tostring(i) return fmt("EG%s%s", i.id,o(i.has)) end
 
 EGS=klass{}
 function EGS.new()        return as({rows={}, cols=nil},EGS) end
@@ -168,19 +174,23 @@ function RANGES.__tostring(i)
   return fmt("RANGES{:col %s :lo %s :hi %s :ys %s",i.col,i.lo,i.hi,i.ys) end
 
 -- ----------------------------------------------------------------------------
+our.go, our.no = {},{}; go=our.go
+function go.settings() print("our",o(our)); print("your",o(your)) end
+
+-- ----------------------------------------------------------------------------
 our.help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(slot, x)
   for n,flag in ipairs(arg) do             
     if   flag:sub(1,1)=="-" and slot:match("^"..flag:sub(2)..".*") 
     then x = x=="false" and "true" or x=="true" and "false" or arg[n+1] end end 
   your[slot] = thing(x) end)
 
-print(o(your))
 if your.help then print(our.help) end
 
-print(NUM())
-local i = EGS.new()
---local t0,t = i:file(your.file):bestRest()
---print(#t0, #t)
---for _,col in pairs(i.cols.x) do 
---   for _,x in ipairs(sort(t0, sorter(col.at))) do print(x.has[col.at]) end end
+our.defaults=copy(your)
+our.failures=0
+for _,x in pairs(our.todo=="all" and slots(our.go) or {your.todo}) do
+  if type(our.go[x]) == "function" then our.go[x]() else print("?", x) end
+  your = copy(our.defaults) 
+end
 for k,v in pairs(_ENV) do if not our.b4[k] then print("?",k,type(v)) end end
+os.exit(our.failures)
