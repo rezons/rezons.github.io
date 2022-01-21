@@ -1,13 +1,13 @@
 #!/usr/bin/env lua
---                          __         
---                         /\ \        
---     _____      __     __\ \ \/'\    
---    /\ '__`\  /'__`\ /'__`\ \ , <    
---    \ \ \L\ \/\  __//\  __/\ \ \\`\  
---     \ \ ,__/\ \____\ \____\\ \_\ \_\
---      \ \ \/  \/____/\/____/ \/_/\/_/
---       \ \_\                         
---        \/_/                         
+--                                    __         
+--                                   /\ \        
+--  _____          __          __    \ \ \/'\    
+-- /\ '__`\      /'__`\      /'__`\   \ \ , <    
+-- \ \ \L\ \    /\  __/     /\  __/    \ \ \\`\  
+--  \ \ ,__/    \ \____\    \ \____\    \ \_\ \_\
+--   \ \ \/      \/____/     \/____/     \/_/\/_/
+--    \ \_\                                      
+--     \/_/                                      
 
 local your, our={}, {b4={}, help=[[
 peek.lua [OPTIONS]
@@ -25,29 +25,35 @@ Understand N items after log(N) probes, or less.
   -p     2]]}
 
 for k,_ in pairs(_ENV) do our.b4[k] = k end
-local any,as,asserts,cells,copy,fmt,go,id,many, map,o,push
-local rand,randi,rnd,rows,same,slots,sort,thing,things
+local any,asserts,cells,copy,fmt,go,id,main,many, map,new,o,push
+local rand,randi,rnd,rogues,rows,same,settings,slots,sort,thing,things
 local COLS,EG,EGS,NUM,RANGE,SYM
+local class= function(t,  new) 
+  t.__index=t
+  return setmetatable(t,{__call=function(_,...) return t.new(...) end}) end
 
--- Copyright 2022 Tim Menzies
+-- Copyright (c) 2022, Tim Menzies
 --
--- Permission is hereby granted, free of charge, to any person obtaining a copy
--- of this software and associated documentation files (the "Software"), to
--- deal in the Software without restriction, including without limitation the
--- rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
--- sell copies of the Software, and to permit persons to whom the Software is
--- furnished to do so, subject to the following conditions:
+-- Redistribution and use in source and binary forms, with or without 
+-- modification, are permitted provided that the following conditions are met:
 --
--- The above copyright notice and this permission notice shall be included in
--- all copies or substantial portions of the Software.
+-- - Redistributions of source code must retain the above copyright notice,
+--   this list of conditions and the following disclaimer.
+-- - Redistributions in binary form must reproduce the above copyright 
+--   notice, this list of conditions and the following disclaimer in the 
+--   documentation and/or other materials provided with the distribution.
 --
--- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
--- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
--- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
--- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
--- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
--- FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
--- IN THE SOFTWARE.
+-- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+-- IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+-- THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+-- PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+-- CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+-- EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+-- PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+-- PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+-- LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+-- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+-- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 -- ----------------------------------------------------------------------------
 --          _                         
 --      ___| | __ _ ___ ___  ___  ___ 
@@ -55,15 +61,10 @@ local COLS,EG,EGS,NUM,RANGE,SYM
 --    | (__| | (_| \__ \__ \  __/\__ \
 --     \___|_|\__,_|___/___/\___||___/
 
-local klass= function(t,  new) 
-  function new(...) return t.new(...) end
-  t.__index=t
-  return setmetatable(t,{__call=new}) end
-
-COLS=klass{}
+COLS=class{}
 function COLS.new(t,     i,where,now) 
   print("colsnew",o(t))
-  i = as({all={}, x={}, y={}},COLS) 
+  i = new({all={}, x={}, y={}},COLS) 
   for at,s in pairs(t) do    
     print("cadd",at,s)
     now = push(i.all, (s:find"^[A-Z]" and NUM or SYM)(at,s))
@@ -76,7 +77,7 @@ function COLS.__tostring(i, txt)
   return fmt("COLS{:all %s :x %s :y %s", o(i.all,txt), o(i.x,txt), o(i.y,txt)) end
 
 function COLS.add(i,t,      add) 
-  return map(i.all, function(col) print("cadds",col); col:add(t[i.at]) return x end) end
+  return map(i.all, function(col) col:add(t[i.at]) return x end) end
 
 function COLS.better(i,row1,row2)
   local s1,s2,e,n,a,b = 0,0,10,#i.y
@@ -87,13 +88,13 @@ function COLS.better(i,row1,row2)
     s2 = s2 - e^(col.w * (b-a)/n) end 
   return s1/n < s2/n end 
 -- ----------------------------------------------------------------------------
-EG=klass{}
-function EG.new(t)        return as({has=t, id=id()},EG) end
+EG=class{}
+function EG.new(t)        return new({has=t, id=id()},EG) end
 
 function EG.__tostring(i) return fmt("EG%s%s", i.id,o(i.has)) end
 -- ----------------------------------------------------------------------------
-EGS=klass{}
-function EGS.new()         return as({rows={}, cols=nil},EGS) end
+EGS=class{}
+function EGS.new()         return new({rows={}, cols=nil},EGS) end
 
 function EGS.__tostring(i) return fmt("EGS{#rows %s :cols %s", #i.rows,i.cols) end
 
@@ -125,10 +126,10 @@ function EGS.mid(cols)
   return map(cols or i.cols.all, 
             function(col) return col:mid() end) end
 -- ----------------------------------------------------------------------------
-NUM=klass{}
+NUM=class{}
 function NUM.new(at,s, big) 
   big = math.huge
-  return as({lo=big, hi=-big, at=at or 0, txt=s or "",
+  return new({lo=big, hi=-big, at=at or 0, txt=s or "",
              n=0, mu=0, m2=0, sd=0,
              w=(s or ""):find"-" and -1 or 1},NUM) end
 
@@ -166,16 +167,16 @@ function NUM.ranges(i,j, bests,rests)
       if x~= "?"  then
         ranges[(x - lo)//gap].stats:add(pair[2]) end end end end 
 -- ----------------------------------------------------------------------------
-RANGE=klass{}
+RANGE=class{}
 function RANGE.new(col,lo,hi,stats) 
-  return as({col=col, lo=lo, hi=hi or lo, ys=stats or SYM(),all={}},RANGE) end
+  return new({col=col, lo=lo, hi=hi or lo, ys=stats or SYM(),all={}},RANGE) end
 
 function RANGE.__tostring(i)
   return fmt("RANGE{:col %s :lo %s :hi %s :ys %s}",i.col,i.lo,i.hi,o(i.ys)) end
 -- ----------------------------------------------------------------------------
-SYM=klass{}
+SYM=class{}
 function SYM.new(at,s) 
-  return as({at=at or 0,txt=s or "",has={},n=0,most=0,mode=nil},SYM) end
+  return new({at=at or 0,txt=s or "",has={},n=0,most=0,mode=nil},SYM) end
 
 function SYM.__tostring(i) 
   return fmt("SYM{:at %s :txt %s :mode %s :has %s}", 
@@ -188,7 +189,7 @@ function SYM.add(i,x)
   return x end 
 
 function SYM.div(i)
-  e=0;for _,v in pairs(i.has) do e= e - v/i.n*math.log(v/i.n,2) end; return e end
+  e=0;for _,v in pairs(i.has) do e=e - v/i.n*math.log(v/i.n,2) end; return e end
 
 function SYM.mid(i,     most,out) 
   most=-1
@@ -211,8 +212,8 @@ function SYM.ranges(i,j,bests,rests)
 --    |  _| |_| | | | | (__| |_| | (_) | | | \__ \
 --    |_|  \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-as   = setmetatable
 fmt  = string.format
+new  = setmetatable
 same = function(x,...) return x end
 
 function asserts(test,msg) 
@@ -224,7 +225,7 @@ function asserts(test,msg)
 
 function copy(t,    u) 
   if type(t)~="table" then return t end
-  u={};for k,v in pairs(t) do u[k]=copy(v) end; return as(u,getmetatable(t)) end
+  u={};for k,v in pairs(t) do u[k]=copy(v) end;return new(u,getmetatable(t)) end
 
 function id() our.id = 1+(our.id or 0); return our.id end
 
@@ -253,15 +254,37 @@ function rnd(x)
 function rows(file,      x)
   file = io.input(file)
   return function() 
-    x=io.read()
-    if x then 
-      x=x:gsub("%s+","");return things(x) else io.close(file) end end end
+    x=io.read(); if x then return things(x) else io.close(file) end end end
+
+function main(      defaults,tasks)
+  tasks = your.task=="all" and slots(go) or {your.task} 
+  defaults=copy(your)
+  our.failures=0
+  for _,x in pairs(tasks) do
+    if type(our.go[x]) == "function" then our.go[x]() else print("?", x) end
+    your = copy(defaults) end
+  rogues()
+  return our.failures end
+
+function rogues()
+  for k,_ in pairs(_ENV) do if not our.b4[k] then print("?",k) end end end
+
+function settings(help,   t)
+  t={}
+  help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(slot, x)
+    for n,flag in ipairs(arg) do             
+      if   flag:sub(1,1)=="-" and slot:match("^"..flag:sub(2)..".*") 
+      then x=x=="false" and "true" or x=="true" and "false" or arg[n+1] end end 
+    t[slot] = thing(x) end)
+  if t.help then print(t.help) end
+  return t end
 
 function slots(t,u) u={};for x,_ in pairs(t) do u[1+#u]=x end;return sort(u) end
 
 function sort(t,f)  table.sort(t,f); return t end
 
 function thing(x)   
+  x = x:match"^%s*(.-)%s*$" 
   if x=="true" then return true elseif x=="false" then return false end
   return tonumber(x) or x end
 
@@ -288,27 +311,6 @@ function go.sort(   i,a,b)
   a,b=i:bestRest()
   print(#a, #b)
 end   
--- ----------------------------------------------------------------------------
---
---  _ __ ___   __ _(_)_ __  
--- | '_ ` _ \ / _` | | '_ \ 
--- | | | | | | (_| | | | | |
--- |_| |_| |_|\__,_|_|_| |_|
 
-our.help:gsub("\n  [-]([^%s]+)[^\n]*%s([^%s]+)", function(slot, x)
-  for n,flag in ipairs(arg) do             
-    if   flag:sub(1,1)=="-" and slot:match("^"..flag:sub(2)..".*") 
-    then x = x=="false" and "true" or x=="true" and "false" or arg[n+1] end end 
-  your[slot] = thing(x) end)
-
-if your.help then print(our.help) end
-
-our.defaults=copy(your)
-our.failures=0
-for _,x in pairs(our.task=="all" and slots(our.go) or {your.task}) do
-  if type(our.go[x]) == "function" then our.go[x]() else print("?", x) end
-  your = copy(our.defaults) 
-end
-
-for k,v in pairs(_ENV) do if not our.b4[k] then print("?",k,type(v)) end end
-os.exit(our.failures)
+your = settings(our.help)
+os.exit( main() )
