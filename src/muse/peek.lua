@@ -11,7 +11,7 @@
 
 local your, our={}, {b4={}, help=[[
 peek.lua [OPTIONS]
-(c)2022 Tim Menzies, MIT license
+(c)2022 Tim Menzies, MIT license (2 clause)
 Understand N items after log(N) probes, or less.
 
   -file   ../../data/auto93.csv
@@ -63,10 +63,8 @@ local class= function(t,  new)
 
 COLS=class{}
 function COLS.new(t,     i,where,now) 
-  print("colsnew",o(t))
   i = new({all={}, x={}, y={}},COLS) 
   for at,s in pairs(t) do    
-    print("cadd",at,s)
     now = push(i.all, (s:find"^[A-Z]" and NUM or SYM)(at,s))
     if not s:find":" then 
       push((s:find"-" or s:find"+") and i.y or i.x, now) end end
@@ -74,38 +72,38 @@ function COLS.new(t,     i,where,now)
 
 function COLS.__tostring(i, txt)
   function txt(c) return c.txt end
-  return fmt("COLS{:all %s :x %s :y %s", o(i.all,txt), o(i.x,txt), o(i.y,txt)) end
+  return fmt("COLS{:all %s\n\t:x %s\n\t:y %s", o(i.all,txt), o(i.x,txt), o(i.y,txt)) end
 
-function COLS.add(i,t,      add) 
-  return map(i.all, function(col) col:add(t[i.at]) return x end) end
+function COLS.add(i,t,      x) 
+  return map(i.all, function(col) x=t[col.at]; col:add(x);return x end) end
 
-function COLS.better(i,row1,row2)
-  local s1,s2,e,n,a,b = 0,0,10,#i.y
-  for _,col in pairs(i.y) do
-    a  = col:norm(row1.has[col.at])
-    b  = col:norm(row2.has[col.at])
+-- ----------------------------------------------------------------------------
+EG=class{}
+function EG.new(t) return new({has=t, id=id()},EG) end
+
+function EG.__tostring(i) return fmt("EG%s%s %s", i.id,o(i.has),#i.has) end
+
+function EG.better(i,j,cols)
+  local s1,s2,e,n,a,b = 0,0,10,#cols
+  for _,col in pairs(cols) do
+    a  = col:norm(i.has[col.at])
+    b  = col:norm(j.has[col.at])
     s1 = s1 - e^(col.w * (a-b)/n) 
     s2 = s2 - e^(col.w * (b-a)/n) end 
   return s1/n < s2/n end 
 -- ----------------------------------------------------------------------------
-EG=class{}
-function EG.new(t)        return new({has=t, id=id()},EG) end
-
-function EG.__tostring(i) return fmt("EG%s%s", i.id,o(i.has)) end
--- ----------------------------------------------------------------------------
 EGS=class{}
-function EGS.new()         return new({rows={}, cols=nil},EGS) end
+function EGS.new() return new({rows={}, cols=nil}, EGS) end
 
-function EGS.__tostring(i) return fmt("EGS{#rows %s :cols %s", #i.rows,i.cols) end
+function EGS.__tostring(i) return fmt("EGS{#rows %s:cols %s", #i.rows,i.cols) end
 
 function EGS.add(i,row)
-  print("egadd",o(row))
   row = row.has and row.has or row
   if i.cols then push(i.rows,EG(i.cols:add(row))) else i.cols=COLS(row) end end 
 
 function EGS.bestRest(i)
   local best,rest,tmp,bests,restsFraction = {},{},{}
-  i.rows = sort(i.rows, function(a,b) return i.cols:better(a,b) end) 
+  i.rows = sort(i.rows, function(a,b) return a:better(b,i.cols.y) end)
   bests  = (#i.rows)^your.best
   restsFraction = (bests * your.rest)/(#i.rows - bests)
   for j,x in pairs(i.rows) do 
@@ -115,7 +113,7 @@ function EGS.bestRest(i)
 
 function EGS.clone(i,inits,    j)
   j = EGS()
-  print("clone",o(map(i.cols.all, function(col) return col.txt end)))
+  --print("clone",o(map(i.cols.all, function(col) return col.txt end)))
   j:add(map(i.cols.all, function(col) return col.txt end))
   for _,x in pairs(inits or {}) do  j:add(x) end
   return j end
@@ -123,8 +121,7 @@ function EGS.clone(i,inits,    j)
 function EGS.file(i,f)     for row in rows(f) do i:add(row) end; return i end
 
 function EGS.mid(cols) 
-  return map(cols or i.cols.all, 
-            function(col) return col:mid() end) end
+  return map(cols or i.cols.all, function(col) print(11,col); return col:mid() end) end
 -- ----------------------------------------------------------------------------
 NUM=class{}
 function NUM.new(at,s, big) 
@@ -138,7 +135,7 @@ function NUM.__tostring(i)
               i.at, i.txt,  i.lo, i.hi, rnd(i.mu), rnd(i:div())) end
 
 function NUM.add(i,x,     d)  
-  if x~=">" then
+  if x~="?" then
     i.n = i.n+1
     d  = x - i.mu
     i.mu = i.mu + d/i.n
@@ -182,18 +179,18 @@ function SYM.__tostring(i)
   return fmt("SYM{:at %s :txt %s :mode %s :has %s}", 
              i.at, i.txt, i.mode, o(i.has)) end
 
-function SYM.add(i,x) 
+function SYM.add(i,x, inc) 
   if x ~= "?" then 
-    i.n = i.n+1 
-    i.has[x] = 1 + (i.has[x] or 0) end
+    inc = inc or 1
+    i.n = i.n+inc 
+    i.has[x] = inc  + (i.has[x] or 0) 
+    if i.has[x] > i.most then i.most, i.mode = i.has[x], x end end
   return x end 
 
 function SYM.div(i)
   e=0;for _,v in pairs(i.has) do e=e - v/i.n*math.log(v/i.n,2) end; return e end
 
-function SYM.mid(i,     most,out) 
-  most=-1
-  for x,n in pairs(i.has) do if n>most then out,most=x,n end end; return out end
+function SYM.mid(i) return i.mode end
 
 function SYM.ranges(i,j,bests,rests) 
   local tmp,out,x = {},{}
@@ -267,7 +264,8 @@ function main(      defaults,tasks)
   return our.failures end
 
 function rogues()
-  for k,_ in pairs(_ENV) do if not our.b4[k] then print("?",k) end end end
+  for k,v in pairs(_ENV) do 
+    if not our.b4[k] then print("?",k,type(v)) end end end
 
 function settings(help,   t)
   t={}
@@ -302,14 +300,17 @@ function go.settings() print("our",o(our)); print("your",o(your)) end
 
 function go.sample() print(EGS():file(your.file)) end
 
-function go.clone()
-  a= EGS():file(your.file); print(a)
-  b= a:clone()  end
+function go.clone( a,b)
+  a= EGS():file(your.file)
+  b= a:clone(a.rows)  
+  asserts(o(a.cols.all[1])==o(b.cols.all[1]),"cloning")
+end
 
 function go.sort(   i,a,b) 
   i= EGS():file(your.file)
   a,b=i:bestRest()
-  print(#a, #b)
+  a,b = i:clone(a), i:clone(b)
+  print(i:mid(i.cols.y))
 end   
 
 your = settings(our.help)
