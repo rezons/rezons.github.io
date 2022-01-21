@@ -238,8 +238,8 @@ function SYM.add(i,x,n)
     n   = n or 1
     i.n = n + i.n
     i.has[x] = (i.has[x] or 0) + n
-    if i.has[x] > i.most then i.mode, i.most = x, i.has[x] end 
-    return x end end
+    if i.has[x] > i.most then i.mode, i.most = x, i.has[x] end end
+  return x end
 
 -- querying
 function SYM.dist(i,x,y) return  x==y and 0 or 1 end
