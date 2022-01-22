@@ -34,18 +34,17 @@ local class= function(t,  new)
 
 -- Copyright (c) 2022, Tim Menzies
 --
--- Redistribution and use in source and binary forms, with or without 
--- modification, are permitted provided that the following conditions are met:
---
--- - Redistributions of source code must retain the above copyright notice,
---   this list of conditions and the following disclaimer.
--- - Redistributions in binary form must reproduce the above copyright 
---   notice, this list of conditions and the following disclaimer in the 
---   documentation and/or other materials provided with the distribution.
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions are met.
+-- (1) Redistributions of source code must retain the above copyright notice,
+-- this list of conditions and the following disclaimer.  (2) Redistributions
+-- in binary form must reproduce the above copyright notice, this list of
+-- conditions and the following disclaimer in the documentation and/or other
+-- materials provided with the distribution.
 --
 -- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
 -- IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
--- THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+-- THE IMPLIED WARRANTIES OF MERCHNTABILITY AND FITNESS FOR A PARTICULAR
 -- PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
 -- CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 -- EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
@@ -54,13 +53,36 @@ local class= function(t,  new)
 -- LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 -- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 -- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
--- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 --          _                         
 --      ___| | __ _ ___ ___  ___  ___ 
 --     / __| |/ _` / __/ __|/ _ \/ __|
 --    | (__| | (_| \__ \__ \  __/\__ \
 --     \___|_|\__,_|___/___/\___||___/
 
+AND=class{}
+function AND.new() return new({cols={}, b=0,r=0,rows=nil}, AND) end
+
+function AND.add(i,range,    at)
+  i.rows = nil
+  i.cols[range.col.at] = i.cols[range.col.at] or OR()
+  i.cols[range.col.at]:add(range) end
+
+function AND.all(i,goal,      both)
+  function both(a,b,    c)
+    c={};for id,row in pairs(a) do if b[id] then c[id]=row end end; return c end
+  if not i.rows then
+    for _,ors in pairs(i.cols) do
+      i.rows = i.rows and both(i.rows,ors.rows) or ors.rows 
+      if #i.rows == 0 then return {} end end
+    i:br(goal) end
+  return i.rows end
+
+function AND.br(i,goal,  rows)
+  i.b, i.r = 0, 0
+  for _,row in pairs(i:all()) do 
+    if row.class==goal then i.b=i.b+1 else i.r=i.r+1 end end end
+-- ----------------------------------------------------------------------------
 COLS=class{}
 function COLS.new(t,     i,where,now) 
   i = new({all={}, x={}, y={}},COLS) 
@@ -113,15 +135,14 @@ function EGS.bestRest(i)
 
 function EGS.clone(i,inits,    j)
   j = EGS()
-  --print("clone",o(map(i.cols.all, function(col) return col.txt end)))
   j:add(map(i.cols.all, function(col) return col.txt end))
   for _,x in pairs(inits or {}) do  j:add(x) end
   return j end
 
-function EGS.file(i,f)     for row in rows(f) do i:add(row) end; return i end
+function EGS.file(i,f) for row in rows(f) do i:add(row) end; return i end
 
-function EGS.mid(cols) 
-  return map(cols or i.cols.all, function(col) print(11,col); return col:mid() end) end
+function EGS.mid(i,cols) 
+  return map(cols or i.cols.all, function(col)  return col:mid() end) end
 -- ----------------------------------------------------------------------------
 NUM=class{}
 function NUM.new(at,s, big) 
@@ -164,12 +185,26 @@ function NUM.ranges(i,j, bests,rests)
       if x~= "?"  then
         ranges[(x - lo)//gap].stats:add(pair[2]) end end end end 
 -- ----------------------------------------------------------------------------
+OR=class{}
+function OR.new() return new({ranges={}, rows={}}, OR) end
+
+function OR.add(i,range)
+  push(i.ranges,range)
+  for id,row in pairs(range.rows) do i.rows[id] = row end end
+-- ----------------------------------------------------------------------------
 RANGE=class{}
 function RANGE.new(col,lo,hi,stats) 
-  return new({col=col, lo=lo, hi=hi or lo, ys=stats or SYM(),all={}},RANGE) end
+  return new({id=id(),col=col, lo=lo, hi=hi or lo, 
+              ys=stats or SYM(),rows={}},RANGE) end
 
 function RANGE.__tostring(i)
-  return fmt("RANGE{:col %s :lo %s :hi %s :ys %s}",i.col,i.lo,i.hi,o(i.ys)) end
+  return fmt("RANGE{:col %s :lo %s :hi %s :ys %s}",
+             i.col,i.lo,i.hi,o(i.ys)) end
+
+function RANGE.add(i,x,y,row)
+  assert(i.lo <= x and x < i.hi, "in range")
+  i.ys[y]       = 1 + (i.ys[y] or 0)
+  i.rows[row.id] = row end
 -- ----------------------------------------------------------------------------
 SYM=class{}
 function SYM.new(at,s) 
@@ -288,7 +323,7 @@ function thing(x)
 
 function things(x,sep,  t)
   t={};for y in x:gmatch(sep or"([^,]+)") do t[1+#t]=thing(y) end; return t end
--- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 --  _            _       
 -- | |_ ___  ___| |_ ___ 
 -- | __/ _ \/ __| __/ __|
@@ -296,7 +331,7 @@ function things(x,sep,  t)
 --  \__\___||___/\__|___/
 
 our.go, our.no = {},{}; go=our.go
-function go.settings() print("our",o(our)); print("your",o(your)) end
+function go.settings() print("your",o(your)) end
 
 function go.sample() print(EGS():file(your.file)) end
 
@@ -307,10 +342,12 @@ function go.clone( a,b)
 end
 
 function go.sort(   i,a,b) 
-  i= EGS():file(your.file)
-  a,b=i:bestRest()
+  i   = EGS():file(your.file)
+  a,b = i:bestRest()
   a,b = i:clone(a), i:clone(b)
-  print(i:mid(i.cols.y))
+  print("all",  o(i:mid(i.cols.y)))
+  print("best", o(a:mid(a.cols.y)))
+  print("rest", o(b:mid(b.cols.y)))
 end   
 
 your = settings(our.help)
