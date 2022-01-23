@@ -1,6 +1,8 @@
+duo:; $(MAKE) f=duo.lua pdf
+
 f=muse
 pdf: ok 
-	a2ps  -BjR --line-numbers=1                       \
+	a2ps  -Bjr --line-numbers=1                       \
             --borders=no --pro=color --columns 2 \
             --right-footer="" --left-footer="" \
             --footer="page %p." \
