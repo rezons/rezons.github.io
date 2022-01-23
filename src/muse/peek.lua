@@ -148,6 +148,8 @@ function EGS.delta(i,j,     t,there)
   t = {}
   for n,here in pairs(i.cols.x) do
     there = j.cols.x[n]
+    -- XXXX ony if there is more than one
+    -- sort on attributes not ranges
     for range in pairs(here:ranges(there)) do push(t,range) end end
   return sort(t)[1] end
 
