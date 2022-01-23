@@ -321,28 +321,6 @@ function many(t,n, u) u={};for j=1,n do push(u,any(t)) end; return u end
 function map(t,f,  u) 
   u={};for _,v in pairs(t) do u[1+#u]=(f or same)(v) end; return u end
 
-function o(t,f,   u,key) 
-  key= function(k) 
-        if t[k] then return fmt(":%s %s", k, rnd((f or same)(t[k]))) end end
-  u = #t>0 and map(map(t,f),rnd) or map(slots(t),key)
-  return "{"..table.concat(u, " ").."}" end 
-
-function rand(lo,hi)
-  your.seed = (16807 * your.seed) % 2147483647
-  return (lo or 0) + ((hi or 1) - (lo or 0)) * your.seed / 2147483647 end
-
-function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
-
-function push(t,x)  table.insert(t,x); return x end
-
-function rnd(x) 
-  return fmt(type(x)=="number" and x~=x//1 and your.rnd or"%s",x) end
-
-function rows(file,      x)
-  file = io.input(file)
-  return function() 
-    x=io.read(); if x then return things(x) else io.close(file) end end end
-
 function main(      defaults,tasks)
   tasks = your.task=="all" and slots(go) or {your.task} 
   defaults=copy(your)
@@ -362,12 +340,25 @@ function merge(b4,     j,tmp,merged,one,two)
       merged = one.ys:merge(two.ys)
       local after=merged:div()
       local b4=xpect{one.ys,two.ys}
-      --print(o{before=b4, one=one.ys.n, two=two.ys.n,after=after,frac=math.abs(after-b4)/b4})
-      if after+b4> 0.01 and after<= b4 or math.abs(after-b4)/b4 < .1 then
+      if after+b4< 0.01 or after<= b4 or math.abs(after-b4)/b4 < .1 then
         j   = j+1
         one = RANGE(one.col, one.lo, two.hi, merged) end end
     push(tmp,one) end 
   return #tmp==#b4 and b4 or merge(tmp) end
+
+function o(t,f,   u,key) 
+  key= function(k) 
+        if t[k] then return fmt(":%s %s", k, rnd((f or same)(t[k]))) end end
+  u = #t>0 and map(map(t,f),rnd) or map(slots(t),key)
+  return "{"..table.concat(u, " ").."}" end 
+
+function push(t,x)  table.insert(t,x); return x end
+
+function rand(lo,hi)
+  your.seed = (16807 * your.seed) % 2147483647
+  return (lo or 0) + ((hi or 1) - (lo or 0)) * your.seed / 2147483647 end
+
+function randi(lo,hi) return math.floor(0.5 + rand(lo,hi)) end
 
 function ranges(xys,col,ykind, small, dull,      one,out)
   out = {}
@@ -384,9 +375,17 @@ function ranges(xys,col,ykind, small, dull,      one,out)
   out[#out].hi =  math.huge
    return out end 
 
+function rnd(x) 
+  return fmt(type(x)=="number" and x~=x//1 and your.rnd or"%s",x) end
+
 function rogues()
   for k,v in pairs(_ENV) do 
     if not our.b4[k] then print("??",k,type(v)) end end end
+
+function rows(file,      x)
+  file = io.input(file)
+  return function() 
+    x=io.read(); if x then return things(x) else io.close(file) end end end
 
 function second(t)    return t[2] end
 
