@@ -80,7 +80,6 @@ function SAMPLE.add(i,x,     pos)
   if     #i.all < i.max      then pos= #i.all + 1 
   elseif rand() < #i.all/i.n then pos= #i.all * rand() end
   if pos then i.all[pos//1]= x end end 
-
 -- ----------------------------------------------------------------------------
 function NUM.new(at,s,   i)  
   i= new(NUM,{n=0,at=at or 0, txt=s or "",_has=SAMPLE(),
