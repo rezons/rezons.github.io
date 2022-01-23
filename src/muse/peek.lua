@@ -208,10 +208,10 @@ function NUM.ranges(i,j,ykind,       tmp,xys)
   xys={}
   for _,x in pairs(i._all.it) do push(xys,{x=x,y="best"}) end
   for _,x in pairs(j._all.it) do push(xys,{x=x,y="rest"}) end
-  print("")
-  for k,v in pairs(ranges(xys,i, ykind or SYM, (#xys)^your.dull, xpect(i,j)*your.Small)) do
-    print("::",v.col.txt, k,v) end
-  tmp= merge(ranges(xys, i, ykind or SYM, (#xys)^your.dull, xpect(i,j)*your.Small)) 
+  tmp= ranges(xys,i,ykind or SYM,(#xys)^your.dull,xpect(i,j)*your.Small) 
+  print(""); for k,v in pairs(tmp) do print("unsuper", k,v.col.txt, v.lo, v.hi) end
+  tmp= merge(tmp)
+  for k,v in pairs(tmp) do print("  super", k,v.col.txt, v.lo, v.hi) end
   return #tmp>1 and tmp or {} end
 -- ----------------------------------------------------------------------------
 RANGE=class{}
@@ -229,7 +229,7 @@ function RANGE.__tostring(i)
 function RANGE.add(i,x,y,inc)
   inc  = inc or 1
   i.n  = i.n + inc
-  i.hi = i.hi
+  i.hi = x
   i.ys:add(y, inc) end
 
 function RANGE.div(i) return i.ys:div() end
@@ -355,16 +355,22 @@ function merge(b4,     j,tmp,merged,one,two)
     one, two = b4[j], b4[j+1]
     if two then 
       merged = one.ys:merge(two.ys)
+      local e1=merged:div()
+      -- e1 + e2 < 0.01 or e * .95 < n1 / n * e1 + n2 / n * e2:
+      -- sum absolure value more than 1%, difference more than 10%
+      local e2=xpect(one.ys,two.ys)
+      print("merge", j, one.col.txt, rnd(e1,4),rnd(e2,4), rnd(math.abs(e1-e2)/e2,4))
       if merged:div()*1.01 <= xpect(one.ys, two.ys) then 
+        print("!",o(one.ys.has), o(two.ys.has))
         j   = j+1
         one = RANGE(one.col, one.lo, two.hi, merged) end end
     push(tmp,one) end 
   return #tmp==#b4 and b4 or merge(tmp) end
 
-function ranges(xys,col,ykind, dull, small,      one,out)
+function ranges(xys,col,ykind, small, dull,      one,out)
   out = {}
   xys = sort(xys, function(a,b) return a.x < b.x end)
-  print(">>>",col.txt, xys[1].x,  xys[#xys].x,o{len=#xys,dull=dull, small=small})
+  print(":::",col.txt, xys[1].x,  xys[#xys].x,o{len=#xys,dull=dull, small=small})
   one = push(out, RANGE(col, xys[1].x, xys[1].x, ykind()))
   for j,xy in pairs(xys) do
     --print(o{x=xy.x, dull=dull, small=small})
@@ -376,7 +382,7 @@ function ranges(xys,col,ykind, dull, small,      one,out)
     one:add(xy.x,  xy.y) end
   out[1].lo    = -math.huge
   out[#out].hi =  math.huge
-  return out end 
+   return out end 
 
 function rogues()
   for k,v in pairs(_ENV) do 
