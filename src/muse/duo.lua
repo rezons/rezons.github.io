@@ -322,9 +322,9 @@ function map(t,f,  u)
   u={};for _,v in pairs(t) do u[1+#u]=(f or same)(v) end; return u end
 
 function main(      defaults,tasks)
-  tasks = your.task=="all" and slots(go) or {your.task} 
   defaults=copy(your)
   our.failures=0
+  tasks = your.task=="all" and slots(go) or {your.task} 
   for _,x in pairs(tasks) do
     if type(our.go[x]) == "function" then our.go[x]() end
     your = copy(defaults) end
