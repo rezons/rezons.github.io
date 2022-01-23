@@ -269,6 +269,7 @@ function EGS.clone(i,inits,    j)
 
 function EGS.cluster(i, rows)
   local zero,one,two,ones,twos,both,a,b,c 
+  rows = rows or i.rows
   zero  = any(rows)
   one   = i:far(zero) 
   two,c = i:far(one) 

@@ -19,16 +19,18 @@ Understand N items after log(N) probes, or less.
   -far   .9
   -best  .5
   -help  false
-  -dull  .35
+  -dull  .5
   -rest  3
   -seed  10019
+  -Small .2
   -rnd   %.2f
   -task  -
   -p     2]]}
 
 for k,_ in pairs(_ENV) do our.b4[k] = k end
-local any,asserts,cells,copy,fmt,go,id,main,many,map,merge,new,o,push,rand
-local randi,ranges,rnd,rogues,rows,same,settings,slots,sort,super,thing,things,xpect
+local any,asserts,cells,copy,firsts,fmt,go,id,main,many,map
+local merge,new,o,push,rand,randi,ranges,rnd,rogues,rows,same
+local seconds,settings,slots,sort,super,thing,things,xpect
 local COLS,EG,EGS,NUM,RANGE,SAMPLE,SYM
 local class= function(t,  new) 
   function new(_,...) return t.new(...) end
@@ -56,14 +58,12 @@ local class= function(t,  new)
 -- LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 -- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 -- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
--- ----------------------------------------------------------------------------
---          _                         
+--         _                         
 --      ___| | __ _ ___ ___  ___  ___ 
 --     / __| |/ _` / __/ __|/ _ \/ __|
 --    | (__| | (_| \__ \__ \  __/\__ \
 --     \___|_|\__,_|___/___/\___||___/
 
--- ----------------------------------------------------------------------------
 COLS=class{}
 function COLS.new(t,     i,where,now) 
   i = new({all={}, x={}, y={}},COLS) 
@@ -80,7 +80,6 @@ function COLS.__tostring(i, txt)
 function COLS.add(i,t,      add) 
   function add(col,    x) x=t[col.at]; col:add(x);return x end
   return map(i.all, add) end
-
 -- ----------------------------------------------------------------------------
 EG=class{}
 function EG.new(t) return new({has=t, id=id()},EG) end
@@ -96,13 +95,15 @@ function EG.better(i,j,cols)
     s2 = s2 - e^(col.w * (b-a)/n) end 
   return s1/n < s2/n end 
 
+function EG.col(i,cols) 
+  return map(cols, function(col) return i.has[col.at] end) end
+
 function EG.dist(i,j,egs,    a,b,d,n)
   d,n = 0, #egs.cols.x + 1E-31
   for _,col in pairs(egs.cols.x) do 
     a,b = i.has[col.at], j.has[col.at]
     d   = d + col:dist(a,b) ^ your.p end 
   return (d/n) ^ (1/your.p) end
-
 -- ----------------------------------------------------------------------------
 EGS=class{}
 function EGS.new() return new({rows={}, cols=nil}, EGS) end
@@ -128,12 +129,13 @@ function EGS.file(i,file) for row in rows(file) do i:add(row) end; return i end
 
 function EGS.mid(i,cols,     mid) 
   function mid(col)  return col:mid() end
-  return map(cols or i.cols.all, mid) end
+  return map(cols or i.cols.y, mid) end
 
 function EGS.halve(i,rows)
   local c,l,r,ls,rs,cosine,some 
   function cosine(row,     a,b)
-    a,b = eg:dist(l,i),eg:dist(r,i); return {(a^2+c^2-b^2)/(2*c),row} end
+    a,b = row:dist(l,i), row:dist(r,i); return {(a^2+c^2-b^2)/(2*c),row} end
+  rows  = rows or i.rows
   some  = #rows > your.ample and many(rows, your.ample) or rows
   l     = i:far(any(rows), some) 
   r,c   = i:far(l,         some) 
@@ -142,26 +144,26 @@ function EGS.halve(i,rows)
     (n <= #rows//2 and ls or rs):add(pair[2]) end
   return ls,rs,l,r,c end                              
 
-function EGS.splitter(i,top,    ls,rs,there,ranges)
-  ls,rs = (top or i):halve(i.rows)
-  ranges = {}
-  for n,here in pairs(ls.cols.xs) do
-    there = rs.cols.xs[n]
-    for range in pairs(here:ranges(there)) do 
-      push(ranges,range) end end
-  return sort(ranges)[1] end
+function EGS.delta(i,j,     t,there)
+  t = {}
+  for n,here in pairs(i.cols.x) do
+    there = j.cols.x[n]
+    for range in pairs(here:ranges(there)) do push(t,range) end end
+  return sort(t)[1] end
 
 function EGS.xcluster(i,top,lvl)
-  local split, left, right
+  local split, left, right,kid1, kid2
   top, lvl = top or i, lvl or 0
+  ls,rs = (top or i):halve(i.rows)
   if #i.rows >= 2*(#top.rows)^your.small then 
-    local kid1, kid2, split = i:clone(), i:clone(), i:splitter(top)
+    split, kid1, kid2 = i:splitter(top), i:clone(), i:clone()
     for _,row in pairs(i.rows) do 
       (split:selects(row) and kid1 or kid2):add(row) end 
     if #kid1.rows ~= #i.rows then left  = kid1:xcluster(top,lvl+1) end
-    if #kid2.rows ~= #i.rows then right = kid2:xcluster(top,lvl+1) end end 
+    if #kid2.rows ~= #i.rows then right = kid2:xcluster(top,lvl+1) end 
+  end 
   return {here=i, split=split, left=left, right=right} end 
--- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 NUM=class{}
 function NUM.new(at,s, big) 
   big = math.huge
@@ -179,15 +181,14 @@ function NUM.add(i,x,     d,pos)
     d    = x - i.mu
     i.mu = i.mu + d/i.n
     i.m2 = i.m2 + d*(x-i.mu)
-    i.lo = math.min(x,i.lo)
-    i.hi = math.max(x,i.hi)
+    i.lo = math.min(x,i.lo); i.hi = math.max(x,i.hi)
     i._all:add(x) end
   return x end
 
 function NUM.dist(i,a,b)
-  if     a=="?" and b=="?" then a,b=1,0
-  elseif a=="?"            then b= i:norm(b); a=b>.5 and 0 or 1
-  elseif b=="?"            then a= i:norm(a); b=a>.5 and 0 or 1
+  if     a=="?" and b=="?" then a,b =1,0
+  elseif a=="?"            then b   = i:norm(b); a=b>.5 and 0 or 1
+  elseif b=="?"            then a   = i:norm(a); b=a>.5 and 0 or 1
   else                          a,b = i:norm(a), i:norm(b) end
   return math.abs(a-b) end
 
@@ -203,31 +204,32 @@ function NUM.mid(i) return i.mu end
 
 function NUM.norm(i,x) return i.hi-i.lo < 1E-9 and 0 or (x-i.lo)/(i.hi-i.lo) end
 
-function NUM.ranges(i,j,ykind,       xys)
+function NUM.ranges(i,j,ykind,       tmp,xys)
   xys={}
   for _,x in pairs(i._all.it) do push(xys,{x=x,y="best"}) end
   for _,x in pairs(j._all.it) do push(xys,{x=x,y="rest"}) end
-  return merge(ranges(xys, i, ykind or SYM, 
-                              #xys^your.dull, 
-                              xpect(i,j)*your.small)) end
+  print("")
+  for k,v in pairs(ranges(xys,i, ykind or SYM, (#xys)^your.dull, xpect(i,j)*your.Small)) do
+    print("::",v.col.txt, k,v) end
+  tmp= merge(ranges(xys, i, ykind or SYM, (#xys)^your.dull, xpect(i,j)*your.Small)) 
+  return #tmp>1 and tmp or {} end
 -- ----------------------------------------------------------------------------
 RANGE=class{}
 function RANGE.new(col,hi,lo,ys)
-  return new({n=0,cols=-col,lo=lo,hi=hi or lo, ys=ys or SYM()},RANGE) end
+  return new({n=0, col=col, lo=lo, hi=hi or lo, ys=ys or SYM()},RANGE) end
 
 function RANGE.__lt(i,j) return i:div() < j:div() end
 
 function RANGE.__tostring(i)
-  if i.lo==i.hi       then return fmt("%s == %s", i.col.txt, i.lo) end
-  if i.lo==-math.huge then return fmt("%s < %s",  i.col.txt, i.hi) end
-  if i.hi== math.huge then return fmt("%s >= %s", i.col.txt, i.lo) end
+  if i.lo == i.hi       then return fmt("%s == %s", i.col.txt, i.lo) end
+  if i.lo == -math.huge then return fmt("%s < %s",  i.col.txt, i.hi) end
+  if i.hi ==  math.huge then return fmt("%s >= %s", i.col.txt, i.lo) end
   return fmt("%s <= %s < %s", i.lo, i.col.txt, i.hi) end
 
 function RANGE.add(i,x,y,inc)
   inc  = inc or 1
   i.n  = i.n + inc
-  i.lo = math.min(x,i.lo)
-  i.hi = math.max(x,i.hi)
+  i.hi = i.hi
   i.ys:add(y, inc) end
 
 function RANGE.div(i) return i.ys:div() end
@@ -251,7 +253,7 @@ function SYM.new(at,s)
   return new({at=at or 0,txt=s or "",has={},n=0,most=0,mode=nil},SYM) end
 
 function SYM.__tostring(i) 
-  return fmt("SYM{:at %s :txt %s :mode %s :has %s}", 
+  return fmt("SYM{:at %s :txt %s :mode %s :has %s}",
              i.at, i.txt, i.mode, o(i.has)) end
 
 function SYM.add(i,x, inc) 
@@ -275,15 +277,14 @@ function SYM.merge(i,j,     k)
 
 function SYM.mid(i) return i.mode end
 
-function SYM.ranges(i,j)
-  local t = {}
+function SYM.ranges(i,j,     t)
+  t = {}
   for _,pair in pairs{{i.has,"bests"}, {j.has,"rests"}} do
     for x,inc in pairs(pair[1]) do 
       t[x] = t[x] or RANGE(i,x)
       t[x]:add(x, pair[2], inc) end end 
-  return map(tmp, same) end
--- ----------------------------------------------------------------------------
---      __                  _   _                 
+  return map(t, same) end
+--      __                  _   _                 
 --     / _|_   _ _ __   ___| |_(_) ___  _ __  ___ 
 --    | |_| | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 --    |  _| |_| | | | | (__| |_| | (_) | | | \__ \
@@ -292,6 +293,8 @@ function SYM.ranges(i,j)
 fmt  = string.format
 new  = setmetatable
 same = function(x,...) return x end
+
+function any(t) return t[randi(1,#t)] end 
 
 function asserts(test,msg) 
   msg=msg or ""
@@ -340,7 +343,7 @@ function main(      defaults,tasks)
   defaults=copy(your)
   our.failures=0
   for _,x in pairs(tasks) do
-    if type(our.go[x]) == "function" then our.go[x]() else print("?", x) end
+    if type(our.go[x]) == "function" then our.go[x]() end
     your = copy(defaults) end
   rogues()
   return our.failures end
@@ -359,22 +362,25 @@ function merge(b4,     j,tmp,merged,one,two)
   return #tmp==#b4 and b4 or merge(tmp) end
 
 function ranges(xys,col,ykind, dull, small,      one,out)
-  one, xys = {}, sort(xys, function(a,b) return a.x < b.x end)
-  one      = push(out, RANGE(col, xys[1].x, xys[1].x, ykind()))
+  out = {}
+  xys = sort(xys, function(a,b) return a.x < b.x end)
+  print(">>>",col.txt, xys[1].x,  xys[#xys].x,o{len=#xys,dull=dull, small=small})
+  one = push(out, RANGE(col, xys[1].x, xys[1].x, ykind()))
   for j,xy in pairs(xys) do
+    --print(o{x=xy.x, dull=dull, small=small})
     if   j < #xys - small   and -- enough items remaining after split
          xy.x ~= xys[j+1].x and -- next item is different (so can split here)
          one.n > small      and -- one has enough items
          one.hi - one.lo > dull -- one is not trivially small  
     then one = push(out, RANGE(col, one.hi, xy.x, ykind())) end
-    one:add(xy,x, xy.y) end
+    one:add(xy.x,  xy.y) end
   out[1].lo    = -math.huge
   out[#out].hi =  math.huge
-  return out end 
+  return out end 
 
 function rogues()
   for k,v in pairs(_ENV) do 
-    if not our.b4[k] then print("?",k,type(v)) end end end
+    if not our.b4[k] then print("??",k,type(v)) end end end
 
 function seconds(a,b) return a[2] < b[2] end
 
@@ -401,9 +407,9 @@ function things(x,sep,  t)
   t={};for y in x:gmatch(sep or"([^,]+)") do t[1+#t]=thing(y) end; return t end
 
 function xpect(...)
-  m,d=0,0; for _,z in pairs{...} do n=n+z.n; d=d+z.n*z:div() end; return d/n end
--- ----------------------------------------------------------------------------
---  _            _       
+ local  m,d = 0,0
+ for _,z in pairs{...} do m=m+z.n; d=d+z.n*z:div() end; return d/m end
+--  _            _       
 -- | |_ ___  ___| |_ ___ 
 -- | __/ _ \/ __| __/ __|
 -- | ||  __/\__ \ |_\__ \
@@ -417,20 +423,35 @@ function go.sample() print(EGS():file(your.file)) end
 function go.clone( a,b)
   a= EGS():file(your.file)
   b= a:clone(a.rows)  
-  asserts(#a.egs == #b.egs, tostring(a.cols.all[1])==tostring(b.cols.all[1]),"cloning")
-  asserts(tostring(a.cols.all[1])==tostring(b.cols.all[1]),"cloning")
+  asserts(#a.rows == #b.rows,"cloning rows")
+  asserts(tostring(a.cols.all[1])==tostring(b.cols.all[1]),"cloning cols")
 end
 
-function go.sort(   i,a,b) 
-  i   = EGS():file(your.file)
-  a,b = i:bestRest()
-  a,b = i:clone(a), i:clone(b)
-  print(#a.rows)
-  print(a.cols.all[1])
-  print("all",  o(i:mid(i.cols.y)))
-  print("best", o(a:mid(a.cols.y)))
-  print("rest", o(b:mid(b.cols.y)))
-end   
+function go.dist(  t,a,eg1,eg2)
+  a= EGS():file(your.file)
+  eg1 = any(a.rows)
+  print(o(eg1:col(a.cols.x)))
+  t={}
+  for j=1,20 do
+    eg2 = any(a.rows)
+    push(t, {eg1:dist(eg2,a),eg2}) end
+  for _,pair in pairs(sort(t,firsts)) do 
+    print(o(pair[2]:col(a.cols.x)),rnd(pair[1])) end end
 
+function go.halve(  a,b)
+  a,b = EGS():file(your.file):halve()
+  print(o(a:mid()))
+  print(o(b:mid())) end
+
+function go.ranges(  a,b,x)
+  a,b = EGS():file(your.file):halve()
+  for n,col1 in pairs(a.cols.x) do
+    col2 = b.cols.x[n]
+    col1:ranges(col2) end end
+--   x   = a:delta(b)
+--   print(x,type(x))
+--   print(">>", x.lo, x.hi)
+-- end
+ 
 your = settings(our.help)
 os.exit( main() )
