@@ -3,9 +3,9 @@ local all,any,firsts,new,many,map,o,push
 local rows,seconds,slots,sort,thing,things
 local EGS, NUM, SYM = {},{},{}
 -- ----------------------------------------------------------------------------
-function NUM.new(i,at,s) 
-  return new(i,{at=at,txt=s,w=s:find"-" and -1 or 1,all={},
-                ok=false, lo=math.huge, hi=-math.huge}) end
+function NUM.new(class,at,s) 
+  return new(class,{at=at,txt=s,w=s:find"-" and -1 or 1,all={},
+                    ok=false, lo=math.huge, hi=-math.huge}) end
 
 function NUM.add(i,x) 
   if x ~= "?" then
@@ -25,8 +25,8 @@ function NUM.dist(i,a,b)
 function NUM.norm(i,x)
   return i.hi - i.lo<1E-9 and 0 or (x - i.lo)/(i.hi - i.lo) end
 -- ----------------------------------------------------------------------------
-function SYM.new(i,at,s) 
-  return new(i,{at=at,txt=s,_all={}}) end
+function SYM.new(class,at,s) 
+  return new(class,{at=at,txt=s,_all={}}) end
 
 function SYM.add(i,x) 
   if x ~= "?" then i._all[x] = 1+(i._all[x] or 0) end 
@@ -38,8 +38,8 @@ function SYM.all(i)
 function SYM.dist(i,a,b)
   return  a=="?" and b=="?" and 1 or a==b and 0 or 1 end
 -- ----------------------------------------------------------------------------
-function EGS.new(i) 
-  return new(i,{rows={}, head=nil, all={}, x={},  y={}}) end
+function EGS.new(class) 
+  return new(class,{rows={}, head=nil, all={}, x={},  y={}}) end
 
 function EGS.add(i,t)
   local add,now = function(col) return col:add(t[col.at]) end
@@ -85,7 +85,7 @@ function EGS.half(i,rows)
   return ls,rs,l,r,c end                              
 
 -- ----------------------------------------------------------------------------
-function any(t)       return t[math.random(#t)] end 
+function any(t) return t[math.random(#t)] end 
 
 function firsts(a,b)  return a[1] < b[1] end
 
@@ -108,7 +108,7 @@ function rows(file,      x)
   return function() 
     x=io.read(); if x then return things(x) else io.close(file) end end end
 
-function slots(t, u) u={};for k,_ in pairs(t) do u[1+#u]=k    end; return u end 
+function slots(t, u) u={};for k,_ in pairs(t) do u[1+#u]=k end; return u end 
 
 function sort(t,f)   table.sort(t,f); return t end
 
@@ -120,7 +120,7 @@ function thing(x)
   return tonumber(x) or x end
 
 function things(x,sep,  t)
-  t={};for y in x:gmatch(sep or"([^,]+)") do t[1+#t]=thing(y) end; return t end
+  t={};for y in x:gmatch(sep or"([^,]+)") do push(t,thing(y)) end; return t end
 -- ----------------------------------------------------------------------------
 --for row in rows("../../data/auto93.csv") do print(o(row)) end
 local i=EGS:new()
