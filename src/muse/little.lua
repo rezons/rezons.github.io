@@ -92,7 +92,6 @@ function EGS.half(i,rows)
   lefts,rights = i:clone(), i:clone() 
   for n,pair in pairs(sort(map(rows,cosine), firsts)) do         
     (n <= #rows/2 and lefts or rights):add( pair[2] ) end
-  --print(#rows, #lefts._rows, #rights._rows)
   return lefts,rights,left,right,c end                              
 -- ----------------------------------------------------------------------------
 function any(t) return t[math.random(#t)] end 
