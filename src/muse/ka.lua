@@ -1,10 +1,27 @@
+#!/usr/bin/env lua
 local b4={}; for k,_ in pairs(_ENV) do b4[k]=k end
-local all,any,firsts,fmt,new,many,map,o,push
+local all,any,bsearch,firsts,fmt,new,many,map,o,push
 local rows,seconds,slots,sort,thing,things
-local EGS, NUM, SYM = {},{},{}
+local EGS, NUM, RANGE, SYM = {},{},{},{}
 -- ----------------------------------------------------------------------------
-function NUM.new(class,at,s) 
-  return new(class,{at=at,txt=s,w=s:find"-" and -1 or 1,_has={},
+function RANGE.new(k,col,lo,hi,here,there)
+  return new(k,{col=col,lo=lo,hi=hi or lo,here=here,there=there}) end
+
+function RANGE.__lt(i,j) return i:val() < j:val() end
+
+function RANGE.__tostring(i)
+  if i.lo == i.hi       then return fmt("%s == %s", i.col.txt, i.lo) end
+  if i.lo == -math.huge then return fmt("%s < %s",  i.col.txt, i.hi) end
+  if i.hi ==  math.huge then return fmt("%s >= %s", i.col.txt, i.lo) end
+  return fmt("%s <= %s < %s", i.lo, i.col.txt, i.hi) end
+
+function RANGE.val(i) return i.here^2/(i.here+i.there) end
+
+function RANGE.selects(i,row,    x) 
+  x=row.has[col.at]; return x=="?" or i.lo<=x and x<i.hi end
+-- ----------------------------------------------------------------------------
+function NUM.new(k,at,s) 
+  return new(k,{at=at,txt=s,w=s:find"-" and -1 or 1,_has={},
                     ok=false, lo=math.huge, hi=-math.huge}) end
 
 function NUM.add(i,x) 
@@ -22,24 +39,35 @@ function NUM.dist(i,a,b)
   else               a, b= i:norm(a), i:norm(b) end
   return math.abs(a-b) end
 
+function NUM.has(i) 
+  if not i.ok then sort(i._has); i.ok=true end; return i._has end
+
 function NUM.norm(i,x)
   return i.hi - i.lo<1E-9 and 0 or (x - i.lo)/(i.hi - i.lo) end
 -- ----------------------------------------------------------------------------
-function SYM.new(class,at,s) 
-  return new(class,{at=at,txt=s,_has={}}) end
+function SYM.new(k,at,s) 
+  return new(k,{at=at,txt=s,_has={}}) end
 
 function SYM.add(i,x) 
-  if x ~= "?" then i._has[x] = 1+(i._has[x] or 0) end 
+  if x ~= "?" then i._has[x] = 1+(i.has[x] or 0) end 
   return x end
-
-function SYM.has(i) 
-  if not i.ok then sort(i._has); i.ok=true end; return i._has end
 
 function SYM.dist(i,a,b)
   return  a=="?" and b=="?" and 1 or a==b and 0 or 1 end
+
+function SYM.has(i)  return i.has end
+
+function SYM.ranges(i)
+  t = {}
+  return map(i._has),function(k,v) xxx end) afor x,inc in pairs(i._has) do
+   p  pt[x] = t[x] or RANGE(i,x)
+      print("inc",i.txt,inc)
+      t[x]:add(x, pair[2], inc) end end 
+  return map(t) end
+
 -- ----------------------------------------------------------------------------
-function EGS.new(class) 
-  return new(class,{_rows={}, cols=nil, x={},  y={}}) end
+function EGS.new(k) 
+  return new(k,{_rows={}, cols=nil, x={},  y={}}) end
 
 function EGS.add(i,t)
   local add,now,where = function(col) return col:add(t[col.at]) end
@@ -96,13 +124,25 @@ function EGS.half(i,rows)
 -- ----------------------------------------------------------------------------
 function any(t) return t[math.random(#t)] end 
 
+function bsearch(t,x,     lo,hi,        mid) 
+  lo,hi = lo or 1,hi or #t
+  while lo <= hi do
+    io.write(".")
+    mid = (lo + hi)//2
+    if t[mid] >= x then hi= mid - 1 else lo= mid + 1 end end
+  return lo>#t and #t or lo end
+
 function firsts(a,b)  return a[1] < b[1] end
 
 fmt = string.format
 
 function many(t,n, u) u={};for j=1,n do t[1+#t]=any(t) end; return u end
 
-function map(t,f,u)  u={};for _,v in pairs(t) do u[1+#u]=f(v) end; return u end
+function map(t,f,       p,u)
+  f,u = f or same, {}
+  p = debug.getinfo(f).nparams -- only available in  LUA 5.2+
+  f= function(k,v) if p==2 then return f(k,v) else return f(v) end end
+  for k,v in pairs(t) do push(u, f(k,v)) end; return u end
 
 function new(k,t) k.__index=k; return setmetatable(t,k) end
 
@@ -118,6 +158,8 @@ function rows(file,      x)
   file = io.input(file)
   return function() 
     x=io.read(); if x then return things(x) else io.close(file) end end end
+
+function same(x) return x end
 
 function seconds(a,b) return a[2] < b[2] end
 
@@ -137,7 +179,7 @@ function things(x,sep,  t)
   t={};for y in x:gmatch(sep or"([^,]+)") do push(t,thing(y)) end; return t end
 -- ----------------------------------------------------------------------------
 --for row in rows("../../data/auto93.csv") do print(o(row)) end
-local n,i=0,EGS:new()
-for row in rows("../../data/auto93.csv") do n=n+1; i:add(row)  end 
-i:cluster()
+--local n,i=0,EGS:new()
+--for row in rows("../../data/auto93.csv") do n=n+1; i:add(row)  end 
+--i:cluster()
 for k,v in pairs(_ENV) do if not b4[k] then print("?",k,type(v)) end end
