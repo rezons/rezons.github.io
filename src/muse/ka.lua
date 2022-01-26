@@ -4,8 +4,8 @@ local all,any,bsearch,firsts,fmt,new,many,map,o,push
 local rows,seconds,slots,sort,thing,things
 local EGS, NUM, RANGE, SYM = {},{},{},{}
 -- ----------------------------------------------------------------------------
-function RANGE.new(k,col,lo,hi,here,there)
-  return new(k,{col=col,lo=lo,hi=hi or lo,here=here,there=there}) end
+function RANGE.new(k,col,lo,hi,b,B,r,R)
+  return new(k,{col=col,lo=lo,hi=hi or lo,b=b,B=B,r=r,R=R}) end
 
 function RANGE.__lt(i,j) return i:val() < j:val() end
 
@@ -15,7 +15,8 @@ function RANGE.__tostring(i)
   if i.hi ==  math.huge then return fmt("%s >= %s", i.col.txt, i.lo) end
   return fmt("%s <= %s < %s", i.lo, i.col.txt, i.hi) end
 
-function RANGE.val(i) return i.here^2/(i.here+i.there) end
+function RANGE.val(i,   z,B,R) 
+  z=1E-31; B,R = i.B+z, i.R+z; return (i.b/B)^2/( i.b/B + i.r/R) end
 
 function RANGE.selects(i,row,    x) 
   x=row.has[col.at]; return x=="?" or i.lo<=x and x<i.hi end
@@ -44,6 +45,32 @@ function NUM.has(i)
 
 function NUM.norm(i,x)
   return i.hi - i.lo<1E-9 and 0 or (x - i.lo)/(i.hi - i.lo) end
+
+-- compare to old above
+function NUM.ranges(i,j,lo,hi)
+  local z,is,js,lo,hi,m0,m1,m2,n0,n1,n2,step,most,best,r1,r2
+  is,js   = i:has(), j:has()
+  lo,hi   = lo or is[1], hi or is[#is]
+  gap,max = (hi - lo)/16, -1
+  if hi-lo < 2*gap then
+    z      = 1E-32
+    m0, m2 = bsearch(is, lo), bsearch(is, hi+z)
+    n0, n2 = bsearch(js, lo), bsearch(js, hi+z)
+    --                  col,lo hi,b     B   r     R
+    best    = nil
+    for mid in lo,hi,gap do
+      if mid > lo and k < hi then
+        m1 = bsearch(is, mid+z)
+        n1 = bsearch(js, mid+z)
+        --             col,  lo hi, b     B   r         R
+        r1 = RANGE:new(i,    lo,mid,m1-m0,i.n,m2-(m1+1),j.n)
+        r2 = RANGE:new(i, mid+z,hi, n1-n0,i.n,n2-(n1+1),j.n)
+        if r1:val() > max then best, max = r1, r1:val() end
+        if r2:val() > max then best, max = r2, r2:val() end end end end
+  if   best 
+  then return i:ranges(j, best.lo, best.hi) 
+  else return RANGE:new(i,  lo,hi,m2-m0,i.n,n2-n0,j.n) end end
+  
 -- ----------------------------------------------------------------------------
 function SYM.new(k,at,s) 
   return new(k,{at=at,txt=s,_has={}}) end
@@ -57,15 +84,10 @@ function SYM.dist(i,a,b)
 
 function SYM.has(i)  return i.has end
 
-function SYM.ranges(i)
-  t = {}
-  return map(i._has),function(k,v) xxx end) afor x,inc in pairs(i._has) do
-   p  pt[x] = t[x] or RANGE(i,x)
-      print("inc",i.txt,inc)
-      t[x]:add(x, pair[2], inc) end end 
-  return map(t) end
-
--- ----------------------------------------------------------------------------
+function SYM.ranges(i,j)
+  return map(i._has,
+      function(x,n) return RANGE:new(i,x,x,n,i.n,(j._has[k] or 0),j.n) end) end
+-- -----------------------------------------------------------------------------
 function EGS.new(k) 
   return new(k,{_rows={}, cols=nil, x={},  y={}}) end
 
@@ -177,6 +199,7 @@ function thing(x)
 
 function things(x,sep,  t)
   t={};for y in x:gmatch(sep or"([^,]+)") do push(t,thing(y)) end; return t end
+
 -- ----------------------------------------------------------------------------
 --for row in rows("../../data/auto93.csv") do print(o(row)) end
 --local n,i=0,EGS:new()
