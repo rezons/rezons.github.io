@@ -21,7 +21,7 @@ function cliffsDelta(xs,ys)
 -- function Num:delta(other,      y,z,e)
 --    e, y, z = 1E-32, self, other
 --    return math.abs(y.mu - z.mu) / (
---              (e + y.sd^2/y.n + z.sd^2/z.n)^.5) end
+--              (e + y.sd^2/y.n + z.sd^2/z.n)^.5) end/s
 --  From p220 to 223 of the
 -- Efron text  'introduction to the boostrap'.
 -- https://bit.ly/3iSJz8B Typically, conf=0.05 and b is 100s to
